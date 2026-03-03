@@ -52,11 +52,11 @@ def _audit_excluded_dirs(
         if matched:
             unresolved.difference_update(matched)
 
-    stale_findings = []
+    stale_issues = []
     for ex_dir in candidate_dirs:
         if ex_dir not in unresolved:
             continue
-        stale_findings.append(
+        stale_issues.append(
             state_mod.make_issue(
                 "stale_exclude",
                 ex_dir,
@@ -70,7 +70,7 @@ def _audit_excluded_dirs(
                 detail={"directory": ex_dir, "references": 0},
             )
         )
-    return stale_findings
+    return stale_issues
 
 
 def _collect_codebase_metrics(lang, path: Path) -> dict | None:

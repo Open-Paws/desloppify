@@ -11,7 +11,7 @@ generic_lang(
             "label": "cppcheck",
             "cmd": "cppcheck --template='{file}:{line}: {severity}: {message}' --enable=all --quiet .",
             "fmt": "gnu",
-            "id": "cppcheck_finding",
+            "id": "cppcheck_issue",
             "tier": 2,
             "fix_cmd": None,
         },

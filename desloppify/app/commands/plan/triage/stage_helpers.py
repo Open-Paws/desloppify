@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 from desloppify.core.output import colorize
-from desloppify.engine.plan import TRIAGE_ID
+from desloppify.engine.plan import TRIAGE_IDS
 
 
 def _require_triage_pending(plan: dict, *, action: str) -> bool:
-    """Require ``triage::pending`` to be present in queue for an action."""
-    if TRIAGE_ID in plan.get("queue_order", []):
+    """Require at least one triage stage ID to be present in queue for an action."""
+    order = set(plan.get("queue_order", []))
+    if order & TRIAGE_IDS:
         return True
-    print(colorize(f"  triage::pending is not in the queue — nothing to {action}.", "yellow"))
+    print(colorize(f"  No triage stage in the queue — nothing to {action}.", "yellow"))
     return False
 
 
@@ -48,7 +49,7 @@ def _triage_coverage(plan: dict) -> tuple[int, int, dict]:
     all_cluster_ids: set[str] = set()
     for cluster in clusters.values():
         all_cluster_ids.update(cluster.get("issue_ids", []))
-    queue_ids = [issue_id for issue_id in plan.get("queue_order", []) if issue_id != TRIAGE_ID]
+    queue_ids = [issue_id for issue_id in plan.get("queue_order", []) if issue_id not in TRIAGE_IDS]
     organized = sum(1 for issue_id in queue_ids if issue_id in all_cluster_ids)
     return organized, len(queue_ids), clusters
 

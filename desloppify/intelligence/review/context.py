@@ -185,13 +185,13 @@ def _build_review_context_inner(
     for issue in issues.values():
         if issue.get("status") != "open":
             continue
-        finding_file_raw = issue.get("file", "")
-        if not isinstance(finding_file_raw, str) or not finding_file_raw:
+        issue_file_raw = issue.get("file", "")
+        if not isinstance(issue_file_raw, str) or not issue_file_raw:
             continue
-        finding_file = rel(finding_file_raw)
-        if finding_file not in allowed_review_files:
+        issue_file = rel(issue_file_raw)
+        if issue_file not in allowed_review_files:
             continue
-        by_file.setdefault(finding_file, []).append(
+        by_file.setdefault(issue_file, []).append(
             f"{issue['detector']}: {issue['summary'][:80]}"
         )
     ctx.existing_issues = by_file

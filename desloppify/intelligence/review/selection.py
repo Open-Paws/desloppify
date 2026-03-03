@@ -144,10 +144,10 @@ def _compute_review_priority(filepath: str, lang, state: dict) -> int:
 
     # Already has programmatic issues (compound value — review will be richer)
     issues = state.get("issues", {})
-    n_findings = sum(
+    n_issues = sum(
         1 for f in issues.values() if f.get("file") == rpath and f["status"] == "open"
     )
-    score += n_findings * 5
+    score += n_issues * 5
 
     # High-complexity files with wontfixed structural issues
     # (mechanical detector says "complex" but can't say why — subjective review can)

@@ -40,7 +40,7 @@ def _state_with_stale_dimensions(*dim_keys: str, score: float = 50.0) -> dict:
         assessments[dim_key] = {
             "score": score,
             "needs_review_refresh": True,
-            "refresh_reason": "mechanical_findings_changed",
+            "refresh_reason": "mechanical_issues_changed",
             "stale_since": "2025-01-01T00:00:00+00:00",
         }
     return {
@@ -99,13 +99,13 @@ def _state_with_mixed_dimensions(
 
 def test_unscored_injected_at_front():
     """Unscored IDs are prepended before existing items."""
-    plan = _plan_with_queue("some_finding::file.py::abc123")
+    plan = _plan_with_queue("some_issue::file.py::abc123")
     state = _state_with_unscored_dimensions("design_coherence", "error_consistency")
 
     result = sync_unscored_dimensions(plan, state)
     assert len(result.injected) == 2
     # Unscored dims should be at the front, before the real issue
-    assert plan["queue_order"][-1] == "some_finding::file.py::abc123"
+    assert plan["queue_order"][-1] == "some_issue::file.py::abc123"
     assert plan["queue_order"][0].startswith("subjective::")
     assert plan["queue_order"][1].startswith("subjective::")
 
@@ -113,7 +113,7 @@ def test_unscored_injected_at_front():
 def test_unscored_injection_unconditional():
     """Unscored dims inject even when objective items exist in queue."""
     plan = _plan_with_queue(
-        "some_finding::file.py::abc123",
+        "some_issue::file.py::abc123",
         "another::file.py::def456",
     )
     state = _state_with_unscored_dimensions("design_coherence")
@@ -129,7 +129,7 @@ def test_unscored_pruned_after_review():
     plan = _plan_with_queue(
         "subjective::design_coherence",
         "subjective::error_consistency",
-        "some_finding::file.py::abc123",
+        "some_issue::file.py::abc123",
     )
     # Only error_consistency is still unscored; design_coherence was scored
     state = _state_with_unscored_dimensions("error_consistency")
@@ -209,11 +209,11 @@ def test_injects_when_queue_empty():
 
 
 def test_no_injection_when_queue_has_real_items():
-    plan = _plan_with_queue("some_finding::file.py::abc123")
+    plan = _plan_with_queue("some_issue::file.py::abc123")
     state = _state_with_stale_dimensions("design_coherence")
     # Add an actual open objective issue to state (source of truth)
-    state["issues"]["some_finding::file.py::abc123"] = {
-        "id": "some_finding::file.py::abc123",
+    state["issues"]["some_issue::file.py::abc123"] = {
+        "id": "some_issue::file.py::abc123",
         "status": "open",
         "detector": "smells",
     }
@@ -234,12 +234,12 @@ def test_evicts_grandfathered_stale_ids_when_objective_backlog():
     plan = _plan_with_queue(
         "subjective::design_coherence",
         "subjective::error_consistency",
-        "some_finding::file.py::abc123",
+        "some_issue::file.py::abc123",
     )
     state = _state_with_stale_dimensions("design_coherence", "error_consistency")
     # Objective backlog exists
-    state["issues"]["some_finding::file.py::abc123"] = {
-        "id": "some_finding::file.py::abc123",
+    state["issues"]["some_issue::file.py::abc123"] = {
+        "id": "some_issue::file.py::abc123",
         "status": "open",
         "detector": "smells",
     }
@@ -248,15 +248,15 @@ def test_evicts_grandfathered_stale_ids_when_objective_backlog():
     # Stale IDs should be evicted (not visible during mid-cycle)
     assert "subjective::design_coherence" in result.pruned
     assert "subjective::error_consistency" in result.pruned
-    assert plan["queue_order"] == ["some_finding::file.py::abc123"]
+    assert plan["queue_order"] == ["some_issue::file.py::abc123"]
 
 
 def test_evicted_stale_ids_reinject_when_backlog_clears():
     """After eviction, stale IDs re-inject when objective backlog clears."""
-    plan = _plan_with_queue("some_finding::file.py::abc123")
+    plan = _plan_with_queue("some_issue::file.py::abc123")
     state = _state_with_stale_dimensions("design_coherence")
-    state["issues"]["some_finding::file.py::abc123"] = {
-        "id": "some_finding::file.py::abc123",
+    state["issues"]["some_issue::file.py::abc123"] = {
+        "id": "some_issue::file.py::abc123",
         "status": "open",
         "detector": "smells",
     }
@@ -266,7 +266,7 @@ def test_evicted_stale_ids_reinject_when_backlog_clears():
     assert r1.injected == []
 
     # Objective backlog clears
-    state["issues"]["some_finding::file.py::abc123"]["status"] = "done"
+    state["issues"]["some_issue::file.py::abc123"]["status"] = "done"
 
     r2 = sync_stale_dimensions(plan, state)
     assert "subjective::design_coherence" in r2.injected
@@ -309,7 +309,7 @@ def test_prunes_resolved_dimension_ids():
     assert plan["queue_order"] == ["subjective::design_coherence"]
 
 
-def test_prune_does_not_touch_real_finding_ids():
+def test_prune_does_not_touch_real_issue_ids():
     plan = _plan_with_queue(
         "structural::file.py::abc123",
         "subjective::design_coherence",
@@ -500,40 +500,40 @@ def test_single_stale_dim_no_cluster():
 
 def test_unscored_respects_promoted_items():
     """User-moved item stays at the top when unscored dims are injected."""
-    plan = _plan_with_queue("finding_a", "finding_b")
-    plan["promoted_ids"] = ["finding_a"]
+    plan = _plan_with_queue("issue_a", "issue_b")
+    plan["promoted_ids"] = ["issue_a"]
     state = _state_with_unscored_dimensions("design_coherence")
 
     result = sync_unscored_dimensions(plan, state)
     assert len(result.injected) == 1
-    # finding_a should still be first (promoted), then the unscored dim
-    assert plan["queue_order"][0] == "finding_a"
+    # issue_a should still be first (promoted), then the unscored dim
+    assert plan["queue_order"][0] == "issue_a"
     assert plan["queue_order"][1] == "subjective::design_coherence"
-    assert plan["queue_order"][2] == "finding_b"
+    assert plan["queue_order"][2] == "issue_b"
 
 
 def test_unscored_multiple_promoted_items():
     """Multiple promoted items all stay ahead of injected unscored dims."""
-    plan = _plan_with_queue("finding_a", "finding_b", "finding_c")
-    plan["promoted_ids"] = ["finding_a", "finding_b"]
+    plan = _plan_with_queue("issue_a", "issue_b", "issue_c")
+    plan["promoted_ids"] = ["issue_a", "issue_b"]
     state = _state_with_unscored_dimensions("design_coherence", "error_consistency")
 
     result = sync_unscored_dimensions(plan, state)
     assert len(result.injected) == 2
     # Both promoted items should remain at the front
-    assert plan["queue_order"][0] == "finding_a"
-    assert plan["queue_order"][1] == "finding_b"
+    assert plan["queue_order"][0] == "issue_a"
+    assert plan["queue_order"][1] == "issue_b"
     # Unscored dims injected after promoted items
     assert all(
         fid.startswith("subjective::")
         for fid in plan["queue_order"][2:4]
     )
-    assert plan["queue_order"][4] == "finding_c"
+    assert plan["queue_order"][4] == "issue_c"
 
 
 def test_no_promoted_preserves_front_insertion():
     """Without promoted_ids, unscored dims still go to the front (backward compat)."""
-    plan = _plan_with_queue("finding_a", "finding_b")
+    plan = _plan_with_queue("issue_a", "issue_b")
     # No promoted_ids set (or empty)
     state = _state_with_unscored_dimensions("design_coherence")
 
@@ -541,7 +541,7 @@ def test_no_promoted_preserves_front_insertion():
     assert len(result.injected) == 1
     # Unscored dim should be at position 0 (original behavior)
     assert plan["queue_order"][0] == "subjective::design_coherence"
-    assert plan["queue_order"][1] == "finding_a"
+    assert plan["queue_order"][1] == "issue_a"
 
 
 # ---------------------------------------------------------------------------
@@ -550,10 +550,10 @@ def test_no_promoted_preserves_front_insertion():
 
 def test_cycle_completed_injects_stale_despite_objective_backlog():
     """After a completed cycle, stale dims inject even with new objective issues."""
-    plan = _plan_with_queue("some_finding::file.py::abc123")
+    plan = _plan_with_queue("some_issue::file.py::abc123")
     state = _state_with_stale_dimensions("design_coherence", "error_consistency")
-    state["issues"]["some_finding::file.py::abc123"] = {
-        "id": "some_finding::file.py::abc123",
+    state["issues"]["some_issue::file.py::abc123"] = {
+        "id": "some_issue::file.py::abc123",
         "status": "open",
         "detector": "smells",
     }
@@ -563,38 +563,38 @@ def test_cycle_completed_injects_stale_despite_objective_backlog():
     assert result_normal.injected == []
 
     # With cycle_just_completed: inject at front
-    plan2 = _plan_with_queue("some_finding::file.py::abc123")
+    plan2 = _plan_with_queue("some_issue::file.py::abc123")
     result_cycle = sync_stale_dimensions(plan2, state, cycle_just_completed=True)
     assert len(result_cycle.injected) == 2
     # Stale dims at front, objective issue at back
     assert plan2["queue_order"][0].startswith("subjective::")
     assert plan2["queue_order"][1].startswith("subjective::")
-    assert plan2["queue_order"][-1] == "some_finding::file.py::abc123"
+    assert plan2["queue_order"][-1] == "some_issue::file.py::abc123"
 
 
 def test_cycle_completed_respects_promoted_items():
     """Post-cycle stale injection still respects promoted items."""
-    plan = _plan_with_queue("finding_a", "finding_b")
-    plan["promoted_ids"] = ["finding_a"]
+    plan = _plan_with_queue("issue_a", "issue_b")
+    plan["promoted_ids"] = ["issue_a"]
     state = _state_with_stale_dimensions("design_coherence")
-    state["issues"]["finding_a"] = {
-        "id": "finding_a", "status": "open", "detector": "smells",
+    state["issues"]["issue_a"] = {
+        "id": "issue_a", "status": "open", "detector": "smells",
     }
 
     result = sync_stale_dimensions(plan, state, cycle_just_completed=True)
     assert len(result.injected) == 1
-    assert plan["queue_order"][0] == "finding_a"  # promoted stays first
+    assert plan["queue_order"][0] == "issue_a"  # promoted stays first
     assert plan["queue_order"][1] == "subjective::design_coherence"
 
 
 def test_cycle_completed_injects_under_target_dims():
     """After a completed cycle, under-target (non-stale) dims are also injected."""
-    plan = _plan_with_queue("some_finding::file.py::abc123")
+    plan = _plan_with_queue("some_issue::file.py::abc123")
     # Dimension is below target but NOT stale (no needs_review_refresh)
     state = _state_with_stale_dimensions("design_coherence")
     state["subjective_assessments"]["design_coherence"]["needs_review_refresh"] = False
-    state["issues"]["some_finding::file.py::abc123"] = {
-        "id": "some_finding::file.py::abc123",
+    state["issues"]["some_issue::file.py::abc123"] = {
+        "id": "some_issue::file.py::abc123",
         "status": "open",
         "detector": "smells",
     }
@@ -604,11 +604,11 @@ def test_cycle_completed_injects_under_target_dims():
     assert result_normal.injected == []
 
     # With cycle_just_completed: under-target dim injected at front
-    plan2 = _plan_with_queue("some_finding::file.py::abc123")
+    plan2 = _plan_with_queue("some_issue::file.py::abc123")
     result_cycle = sync_stale_dimensions(plan2, state, cycle_just_completed=True)
     assert len(result_cycle.injected) == 1
     assert plan2["queue_order"][0] == "subjective::design_coherence"
-    assert plan2["queue_order"][-1] == "some_finding::file.py::abc123"
+    assert plan2["queue_order"][-1] == "some_issue::file.py::abc123"
 
 
 def test_under_target_injected_when_no_objective_backlog():
@@ -623,12 +623,12 @@ def test_under_target_injected_when_no_objective_backlog():
 
 def test_cycle_completed_no_stale_dims_no_injection():
     """cycle_just_completed has no effect when no stale dims exist."""
-    plan = _plan_with_queue("some_finding::file.py::abc123")
+    plan = _plan_with_queue("some_issue::file.py::abc123")
     state = {"issues": {}, "scan_count": 5}
 
     result = sync_stale_dimensions(plan, state, cycle_just_completed=True)
     assert result.injected == []
-    assert plan["queue_order"] == ["some_finding::file.py::abc123"]
+    assert plan["queue_order"] == ["some_issue::file.py::abc123"]
 
 
 def test_cycle_completed_no_objective_appends_to_back():
@@ -650,7 +650,7 @@ def test_plan_reset_does_not_trigger_cycle_completed():
     """
     from desloppify.engine._plan.operations import reset_plan
 
-    plan = _plan_with_queue("some_finding::file.py::abc123")
+    plan = _plan_with_queue("some_issue::file.py::abc123")
     plan["plan_start_scores"] = {"strict": 80.0, "overall": 80.0}
     reset_plan(plan)
 
@@ -667,9 +667,9 @@ def test_triage_respects_promoted_items():
         sync_triage_needed,
     )
 
-    plan = _plan_with_queue("finding_a", "finding_b")
-    plan["promoted_ids"] = ["finding_a"]
-    plan["epic_triage_meta"] = {"finding_snapshot_hash": "old_hash"}
+    plan = _plan_with_queue("issue_a", "issue_b")
+    plan["promoted_ids"] = ["issue_a"]
+    plan["epic_triage_meta"] = {"issue_snapshot_hash": "old_hash"}
     state = {
         "issues": {
             "review::file.py::abc": {"status": "open", "detector": "review"},
@@ -679,9 +679,9 @@ def test_triage_respects_promoted_items():
 
     result = sync_triage_needed(plan, state)
     assert result.injected is True
-    # finding_a should still be first (promoted)
-    assert plan["queue_order"][0] == "finding_a"
+    # issue_a should still be first (promoted)
+    assert plan["queue_order"][0] == "issue_a"
     # 4 stage IDs injected after promoted item
     assert plan["queue_order"][1] == "triage::observe"
-    assert plan["queue_order"][-1] == "finding_b"
+    assert plan["queue_order"][-1] == "issue_b"
     assert all(sid in plan["queue_order"] for sid in TRIAGE_STAGE_IDS)

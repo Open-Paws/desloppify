@@ -8,7 +8,7 @@ from pathlib import Path
 from desloppify.intelligence.review.feedback_contract import (
     DIMENSION_NOTE_ISSUES_KEY,
     HIGH_SCORE_ISSUES_NOTE_THRESHOLD,
-    LOW_SCORE_FINDING_THRESHOLD,
+    LOW_SCORE_ISSUE_THRESHOLD,
     max_batch_issues_for_dimension_count,
 )
 
@@ -19,7 +19,7 @@ class _PromptBatchContext:
     dimensions: tuple[str, ...]
     rationale: str
     seed_files: tuple[str, ...]
-    findings_cap: int
+    issues_cap: int
 
     @property
     def dimension_set(self) -> set[str]:
@@ -47,7 +47,7 @@ def _build_context(batch: dict[str, object], batch_index: int) -> _PromptBatchCo
         dimensions=dimensions,
         rationale=str(batch.get("why", "")).strip(),
         seed_files=_coerce_string_list(batch.get("files_to_read", [])),
-        findings_cap=max_batch_issues_for_dimension_count(len(dimensions)),
+        issues_cap=max_batch_issues_for_dimension_count(len(dimensions)),
     )
 
 
@@ -215,7 +215,7 @@ def _render_package_org_focus(dim_set: set[str]) -> str:
         "stragglers, import-affinity > 60%, directories > 10 files with mixed concerns).\n"
         "9b. Suggestions must include a staged reorg plan (target folders, move order, "
         "and import-update/validation commands).\n"
-        "9c. Also consult `holistic_context.structure.flat_dir_findings` for directories "
+        "9c. Also consult `holistic_context.structure.flat_dir_issues` for directories "
         "flagged as overloaded, fragmented, or thin-wrapper patterns.\n"
     )
 
@@ -304,11 +304,11 @@ def _render_task_requirements(context: _PromptBatchContext) -> str:
         "2c. Keep issues and scoring scoped to this batch's listed dimensions.\n"
         "2d. Respect scope controls in the blind packet config: do not include files/directories marked by "
         "`exclude`, `suppress`, or zone overrides that classify files as non-production (test/config/generated/vendor).\n"
-        f"3. Return 0-{context.findings_cap} high-quality issues for this batch (empty array allowed).\n"
+        f"3. Return 0-{context.issues_cap} high-quality issues for this batch (empty array allowed).\n"
         "3a. Do not suppress real defects to keep scores high; report every material issue you can support with evidence.\n"
         "3b. Do not default to 100. Reserve 100 for genuinely exemplary evidence in this batch.\n"
         "4. Score/issue consistency is required: broader or more severe issues MUST lower dimension scores.\n"
-        f"4a. Any dimension scored below {LOW_SCORE_FINDING_THRESHOLD:.1f} MUST include explicit feedback: add at least one "
+        f"4a. Any dimension scored below {LOW_SCORE_ISSUE_THRESHOLD:.1f} MUST include explicit feedback: add at least one "
         "issue with the same `dimension` and a non-empty actionable `suggestion`.\n"
         "5. Every issue must include `related_files` with at least 2 files when possible.\n"
         "6. Every issue must include `dimension`, `identifier`, `summary`, `evidence`, `suggestion`, and `confidence`.\n"

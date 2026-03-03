@@ -35,7 +35,7 @@ def _print_import_error_hints(
         f"{quoted_import} --attested-external --attest "
         f"\"{ATTESTED_EXTERNAL_ATTEST_EXAMPLE}\""
     )
-    findings_only_cmd = f"desloppify review --import {quoted_import}"
+    issues_only_cmd = f"desloppify review --import {quoted_import}"
 
     if "--attested-external requires --attest containing both" in joined:
         print(
@@ -76,7 +76,7 @@ def _print_import_error_hints(
         )
         print(
             colorize_fn(
-                f"  Issues-only fallback: `{findings_only_cmd}`",
+                f"  Issues-only fallback: `{issues_only_cmd}`",
                 "dim",
             ),
             file=sys.stderr,
@@ -106,7 +106,7 @@ def print_assessment_mode_banner(
     assessments_present = bool(policy_model.assessments_present)
     if not assessments_present and mode == "none":
         return
-    style = "yellow" if mode in {"manual_override", "findings_only"} else "dim"
+    style = "yellow" if mode in {"manual_override", "issues_only"} else "dim"
     print(colorize_fn(f"  Assessment import mode: {assessment_mode_label(policy)}", style))
 
 
@@ -135,7 +135,7 @@ def print_assessment_policy_notice(
             policy_model,
             colorize_fn=colorize_fn,
         ),
-        "findings_only": lambda: _print_issues_only_policy_notice(
+        "issues_only": lambda: _print_issues_only_policy_notice(
             policy_model,
             import_file=import_file,
             colorize_fn=colorize_fn,

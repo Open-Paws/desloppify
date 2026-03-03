@@ -33,7 +33,7 @@ from desloppify.intelligence.narrative.strategy_engine import (
 # ---------------------------------------------------------------------------
 
 
-def _finding(
+def _issue(
     detector: str,
     *,
     status: str = "open",
@@ -51,7 +51,7 @@ def _finding(
     }
 
 
-def _findings_dict(*issues: dict) -> dict:
+def _issues_dict(*issues: dict) -> dict:
     """Wrap a list of issue dicts into an id-keyed dict."""
     return {str(i): f for i, f in enumerate(issues)}
 
@@ -81,64 +81,64 @@ def _history_entry(
 
 
 class TestCountOpenByDetector:
-    def test_empty_findings(self):
+    def test_empty_issues(self):
         assert _count_open_by_detector({}) == {}
 
     def test_only_open_counted(self):
-        issues = _findings_dict(
-            _finding("unused", status="open"),
-            _finding("unused", status="resolved"),
-            _finding("unused", status="wontfix"),
-            _finding("unused", status="false_positive"),
+        issues = _issues_dict(
+            _issue("unused", status="open"),
+            _issue("unused", status="resolved"),
+            _issue("unused", status="wontfix"),
+            _issue("unused", status="false_positive"),
         )
         result = _count_open_by_detector(issues)
         assert result == {"unused": 1}
 
     def test_multiple_detectors(self):
-        issues = _findings_dict(
-            _finding("unused", status="open"),
-            _finding("unused", status="open"),
-            _finding("logs", status="open"),
-            _finding("smells", status="open"),
+        issues = _issues_dict(
+            _issue("unused", status="open"),
+            _issue("unused", status="open"),
+            _issue("logs", status="open"),
+            _issue("smells", status="open"),
         )
         result = _count_open_by_detector(issues)
         assert result == {"unused": 2, "logs": 1, "smells": 1}
 
     def test_structural_merge_large(self):
-        issues = _findings_dict(
-            _finding("large", status="open"),
+        issues = _issues_dict(
+            _issue("large", status="open"),
         )
         result = _count_open_by_detector(issues)
         assert result == {"structural": 1}
 
     def test_structural_merge_complexity(self):
-        issues = _findings_dict(
-            _finding("complexity", status="open"),
+        issues = _issues_dict(
+            _issue("complexity", status="open"),
         )
         result = _count_open_by_detector(issues)
         assert result == {"structural": 1}
 
     def test_structural_merge_gods(self):
-        issues = _findings_dict(
-            _finding("gods", status="open"),
+        issues = _issues_dict(
+            _issue("gods", status="open"),
         )
         result = _count_open_by_detector(issues)
         assert result == {"structural": 1}
 
     def test_structural_merge_concerns(self):
-        issues = _findings_dict(
-            _finding("concerns", status="open"),
+        issues = _issues_dict(
+            _issue("concerns", status="open"),
         )
         result = _count_open_by_detector(issues)
         assert result == {"structural": 1}
 
     def test_structural_merge_combines_all_subdetectors(self):
         """All four structural sub-detectors merge into a single count."""
-        issues = _findings_dict(
-            _finding("large", status="open"),
-            _finding("complexity", status="open"),
-            _finding("gods", status="open"),
-            _finding("concerns", status="open"),
+        issues = _issues_dict(
+            _issue("large", status="open"),
+            _issue("complexity", status="open"),
+            _issue("gods", status="open"),
+            _issue("concerns", status="open"),
         )
         result = _count_open_by_detector(issues)
         assert result == {"structural": 4}
@@ -148,9 +148,9 @@ class TestCountOpenByDetector:
 
     def test_non_structural_not_merged(self):
         """Detectors not in STRUCTURAL_MERGE stay separate."""
-        issues = _findings_dict(
-            _finding("unused", status="open"),
-            _finding("large", status="open"),
+        issues = _issues_dict(
+            _issue("unused", status="open"),
+            _issue("large", status="open"),
         )
         result = _count_open_by_detector(issues)
         assert result == {"unused": 1, "structural": 1}
@@ -160,13 +160,13 @@ class TestCountOpenByDetector:
         result = _count_open_by_detector(issues)
         assert result == {"unknown": 1}
 
-    def test_suppressed_findings_excluded(self):
-        issues = _findings_dict(
-            _finding("security", status="open"),
-            {**_finding("security", status="open"), "suppressed": True},
-            {**_finding("security", status="open"), "suppressed": True},
-            _finding("unused", status="open"),
-            {**_finding("unused", status="open"), "suppressed": True},
+    def test_suppressed_issues_excluded(self):
+        issues = _issues_dict(
+            _issue("security", status="open"),
+            {**_issue("security", status="open"), "suppressed": True},
+            {**_issue("security", status="open"), "suppressed": True},
+            _issue("unused", status="open"),
+            {**_issue("unused", status="open"), "suppressed": True},
         )
         result = _count_open_by_detector(issues)
         assert result == {"security": 1, "unused": 1}
@@ -469,7 +469,7 @@ class TestDetectMilestone:
         result = _detect_milestone(state, None, history)
         assert result == "Zero open issues!"
 
-    def test_zero_total_findings_no_milestone(self):
+    def test_zero_total_issues_no_milestone(self):
         """Zero open AND zero total means nothing was ever found -- no celebration."""
         state = {
             "strict_score": 100.0,
@@ -537,11 +537,11 @@ class TestAnalyzeDebt:
         assert result["trend"] == "stable"
 
     def test_wontfix_count(self):
-        issues = _findings_dict(
-            _finding("unused", status="wontfix"),
-            _finding("unused", status="wontfix"),
-            _finding("logs", status="open"),
-            _finding("smells", status="resolved"),
+        issues = _issues_dict(
+            _issue("unused", status="wontfix"),
+            _issue("unused", status="wontfix"),
+            _issue("logs", status="open"),
+            _issue("smells", status="resolved"),
         )
         result = _analyze_debt({}, issues, [])
         assert result["wontfix_count"] == 2
@@ -1040,9 +1040,9 @@ class TestComputeReminders:
         # Need 5+ issues per (detector, zone) with >30% FP rate
         issues = {}
         for i in range(4):
-            issues[str(i)] = _finding("unused", status="open")
+            issues[str(i)] = _issue("unused", status="open")
         for i in range(4, 7):
-            issues[str(i)] = _finding("unused", status="false_positive")
+            issues[str(i)] = _issue("unused", status="false_positive")
         # 7 total, 3 FP → 43% FP rate
         state = {
             "strict_score": 50.0,
@@ -1374,46 +1374,46 @@ class TestComputeHeadline:
 
 
 class TestOpenFilesByDetector:
-    def test_empty_findings(self):
+    def test_empty_issues(self):
         assert _open_files_by_detector({}) == {}
 
     def test_only_open_counted(self):
-        issues = _findings_dict(
-            _finding("unused", status="open", file="a.py"),
-            _finding("unused", status="resolved", file="b.py"),
-            _finding("unused", status="wontfix", file="c.py"),
+        issues = _issues_dict(
+            _issue("unused", status="open", file="a.py"),
+            _issue("unused", status="resolved", file="b.py"),
+            _issue("unused", status="wontfix", file="c.py"),
         )
         result = _open_files_by_detector(issues)
         assert result == {"unused": {"a.py"}}
 
     def test_multiple_detectors(self):
-        issues = _findings_dict(
-            _finding("unused", file="a.py"),
-            _finding("logs", file="b.py"),
+        issues = _issues_dict(
+            _issue("unused", file="a.py"),
+            _issue("logs", file="b.py"),
         )
         result = _open_files_by_detector(issues)
         assert result == {"unused": {"a.py"}, "logs": {"b.py"}}
 
     def test_structural_merge(self):
-        issues = _findings_dict(
-            _finding("large", file="big.py"),
-            _finding("complexity", file="complex.py"),
+        issues = _issues_dict(
+            _issue("large", file="big.py"),
+            _issue("complexity", file="complex.py"),
         )
         result = _open_files_by_detector(issues)
         assert result == {"structural": {"big.py", "complex.py"}}
 
     def test_dedup_same_file(self):
-        issues = _findings_dict(
-            _finding("unused", file="a.py"),
-            _finding("unused", file="a.py"),
+        issues = _issues_dict(
+            _issue("unused", file="a.py"),
+            _issue("unused", file="a.py"),
         )
         result = _open_files_by_detector(issues)
         assert result == {"unused": {"a.py"}}
 
     def test_empty_file_excluded(self):
-        issues = _findings_dict(
-            _finding("unused", file=""),
-            _finding("unused", file="a.py"),
+        issues = _issues_dict(
+            _issue("unused", file=""),
+            _issue("unused", file="a.py"),
         )
         result = _open_files_by_detector(issues)
         assert result == {"unused": {"a.py"}}
@@ -1434,7 +1434,7 @@ class TestFixerLeverage:
         )
         assert result["recommendation"] == "none"
 
-    def test_no_auto_fix_findings(self):
+    def test_no_auto_fix_issues(self):
         result = _compute_fixer_leverage(
             {"structural": 10},
             [{"type": "refactor", "count": 10, "impact": 5.0}],
@@ -1819,8 +1819,8 @@ class TestComputeStrategyHint:
 
 class TestComputeStrategy:
     def test_structure_has_expected_keys(self):
-        issues = _findings_dict(
-            _finding("unused", file="a.py"),
+        issues = _issues_dict(
+            _issue("unused", file="a.py"),
         )
         by_det = {"unused": 1}
         actions = [
@@ -1841,9 +1841,9 @@ class TestComputeStrategy:
         assert "hint" in result
 
     def test_actions_annotated_with_lane(self):
-        issues = _findings_dict(
-            _finding("unused", file="a.py"),
-            _finding("structural", file="b.py"),
+        issues = _issues_dict(
+            _issue("unused", file="a.py"),
+            _issue("structural", file="b.py"),
         )
         by_det = {"unused": 1, "structural": 1}
         actions = [
@@ -1868,8 +1868,8 @@ class TestComputeStrategy:
         assert actions[1]["lane"].startswith("refactor")
 
     def test_python_no_cleanup_lane(self):
-        issues = _findings_dict(
-            _finding("unused", file="a.py"),
+        issues = _issues_dict(
+            _issue("unused", file="a.py"),
         )
         by_det = {"unused": 1}
         # Python actions are manual_fix, not auto_fix
@@ -1887,9 +1887,9 @@ class TestComputeStrategy:
         assert result["fixer_leverage"]["recommendation"] == "none"
 
     def test_can_parallelize_true(self):
-        issues = _findings_dict(
-            *[_finding("structural", file=f"file_{i}.py") for i in range(10)],
-            *[_finding("props", file=f"comp_{i}.tsx") for i in range(10)],
+        issues = _issues_dict(
+            *[_issue("structural", file=f"file_{i}.py") for i in range(10)],
+            *[_issue("props", file=f"comp_{i}.tsx") for i in range(10)],
         )
         by_det = {"structural": 10, "props": 10}
         actions = [
@@ -1915,10 +1915,10 @@ class TestComputeStrategy:
 
     def test_can_parallelize_ignores_insignificant_lanes(self):
         """One tiny lane shouldn't block parallelism of larger lanes."""
-        issues = _findings_dict(
-            *[_finding("structural", file=f"file_{i}.py") for i in range(10)],
-            *[_finding("props", file=f"comp_{i}.tsx") for i in range(10)],
-            _finding("deprecated", file="tiny.ts"),  # 1 file, tiny lane
+        issues = _issues_dict(
+            *[_issue("structural", file=f"file_{i}.py") for i in range(10)],
+            *[_issue("props", file=f"comp_{i}.tsx") for i in range(10)],
+            _issue("deprecated", file="tiny.ts"),  # 1 file, tiny lane
         )
         by_det = {"structural": 10, "props": 10, "deprecated": 1}
         actions = [
@@ -1951,8 +1951,8 @@ class TestComputeStrategy:
         assert result["can_parallelize"] is True
 
     def test_can_parallelize_false_single_lane(self):
-        issues = _findings_dict(
-            _finding("structural", file="a.py"),
+        issues = _issues_dict(
+            _issue("structural", file="a.py"),
         )
         by_det = {"structural": 1}
         actions = [
@@ -2070,7 +2070,7 @@ class TestReviewUninvestigatedCount:
         assert result["review"] == 3  # a, b, c
         assert result["review_uninvestigated"] == 2  # a, c
 
-    def test_no_review_findings(self):
+    def test_no_review_issues(self):
         issues = {
             "a": {"status": "open", "detector": "unused"},
         }
@@ -2094,14 +2094,14 @@ class TestReviewReminders:
             "reminder_history": {},
         }
 
-    def test_review_findings_pending_reminder(self):
+    def test_review_issues_pending_reminder(self):
         state = self._base_state()
         reminders, _ = _compute_reminders(
             state, "typescript", "middle_grind", {}, [], {}, {}, "scan"
         )
         types = [r["type"] for r in reminders]
-        assert "review_findings_pending" in types
-        msg = next(r for r in reminders if r["type"] == "review_findings_pending")
+        assert "review_issues_pending" in types
+        msg = next(r for r in reminders if r["type"] == "review_issues_pending")
         assert "1 review issue" in msg["message"]
         assert "desloppify show review" in msg["message"]
 
@@ -2112,7 +2112,7 @@ class TestReviewReminders:
             state, "typescript", "middle_grind", {}, [], {}, {}, "scan"
         )
         types = [r["type"] for r in reminders]
-        assert "review_findings_pending" not in types
+        assert "review_issues_pending" not in types
 
     def test_rereview_needed_after_resolve(self):
         state = self._base_state()
@@ -2147,8 +2147,8 @@ class TestStrategyReviewHint:
     """Strategy hint should mention review issues when issue_queue action exists."""
 
     def test_review_appended_to_hint(self):
-        issues = _findings_dict(
-            _finding("unused", file="a.py"),
+        issues = _issues_dict(
+            _issue("unused", file="a.py"),
         )
         by_det = {"unused": 1}
         actions = [
@@ -2176,8 +2176,8 @@ class TestStrategyReviewHint:
         assert "3 issue" in result["hint"]
 
     def test_no_review_in_hint_without_action(self):
-        issues = _findings_dict(
-            _finding("unused", file="a.py"),
+        issues = _issues_dict(
+            _issue("unused", file="a.py"),
         )
         by_det = {"unused": 1}
         actions = [

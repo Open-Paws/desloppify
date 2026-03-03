@@ -14,7 +14,7 @@ def build_work_queue(state, **kwargs):
     return _build_work_queue(state, options=QueueBuildOptions(**kwargs))
 
 
-def _finding(
+def _issue(
     fid: str,
     *,
     detector: str = "smells",
@@ -43,14 +43,14 @@ def _state(issues: list[dict], *, dimension_scores: dict | None = None) -> dict:
     }
 
 
-def test_review_finding_uses_natural_tier():
-    review = _finding(
+def test_review_issue_uses_natural_tier():
+    review = _issue(
         "review::src/a.py::naming",
         detector="review",
         tier=2,
         detail={"dimension": "naming_quality"},
     )
-    mechanical = _finding("smells::src/a.py::x", detector="smells", tier=3)
+    mechanical = _issue("smells::src/a.py::x", detector="smells", tier=3)
     state = _state(
         [review, mechanical],
         dimension_scores={
@@ -65,10 +65,10 @@ def test_review_finding_uses_natural_tier():
 
 
 def test_review_items_ranked_alongside_mechanical():
-    urgent = _finding(
+    urgent = _issue(
         "security::src/a.py::x", detector="security", tier=1, confidence="high"
     )
-    review = _finding(
+    review = _issue(
         "review::src/a.py::naming",
         detector="review",
         tier=2,
@@ -90,14 +90,14 @@ def test_review_items_ranked_alongside_mechanical():
 
 
 def test_review_items_sort_by_issue_weight_within_tier():
-    standard = _finding(
+    standard = _issue(
         "review::src/a.py::naming",
         detector="review",
         tier=2,
         confidence="high",
         detail={"dimension": "naming_quality"},
     )
-    holistic = _finding(
+    holistic = _issue(
         "review::src/a.py::logic",
         detector="review",
         tier=2,
@@ -138,7 +138,7 @@ def test_queue_contains_mechanical_and_synthetic_subjective_items():
 
 def test_subjective_items_do_not_starve_objective_queue_head():
     """Non-initial subjective items are excluded when objective backlog exists."""
-    review = _finding(
+    review = _issue(
         "review::.::holistic::naming_quality::abc12345",
         detector="review",
         tier=3,
@@ -146,8 +146,8 @@ def test_subjective_items_do_not_starve_objective_queue_head():
     )
     state = _state(
         [
-            _finding("security::src/a.py::x", detector="security", tier=1, confidence="high"),
-            _finding("smells::src/a.py::y", detector="smells", tier=2, confidence="medium"),
+            _issue("security::src/a.py::x", detector="security", tier=1, confidence="high"),
+            _issue("smells::src/a.py::y", detector="smells", tier=2, confidence="medium"),
             review,
         ],
         dimension_scores={
@@ -168,7 +168,7 @@ def test_impact_sort_with_count_limit():
     confidence mechanical leads."""
     state = _state(
         [
-            _finding("security::src/a.py::x", detector="security", tier=1, confidence="high"),
+            _issue("security::src/a.py::x", detector="security", tier=1, confidence="high"),
         ],
         dimension_scores={
             "Naming quality": {"score": 80.0, "strict": 80.0, "failing": 5},
@@ -182,7 +182,7 @@ def test_impact_sort_with_count_limit():
 def test_explain_payload_added_when_requested():
     state = _state(
         [
-            _finding(
+            _issue(
                 "smells::src/a.py::x", tier=3, confidence="medium", detail={"count": 7}
             )
         ]
@@ -217,8 +217,8 @@ def test_subjective_items_respect_target_threshold():
     assert "subjective::ai_generated_debt" not in ids
 
 
-def test_subjective_item_uses_show_review_when_matching_review_findings_exist():
-    review = _finding(
+def test_subjective_item_uses_show_review_when_matching_review_issues_exist():
+    review = _issue(
         "review::.::holistic::mid_level_elegance::split::abc12345",
         detector="review",
         tier=3,
@@ -239,11 +239,11 @@ def test_subjective_item_uses_show_review_when_matching_review_findings_exist():
     )
     assert subj["id"] == "subjective::mid_level_elegance"
     assert subj["primary_command"] == "desloppify show review --status open"
-    assert subj["detail"]["open_review_findings"] == 1
+    assert subj["detail"]["open_review_issues"] == 1
 
 
-def test_stale_subjective_item_uses_show_review_when_matching_review_findings_exist():
-    review = _finding(
+def test_stale_subjective_item_uses_show_review_when_matching_review_issues_exist():
+    review = _issue(
         "review::.::holistic::initialization_coupling::abc12345",
         detector="review",
         tier=3,
@@ -281,7 +281,7 @@ def test_stale_subjective_item_uses_show_review_when_matching_review_findings_ex
     )
     assert "[stale — re-review]" in subj["summary"]
     assert subj["primary_command"] == "desloppify show review --status open"
-    assert subj["detail"]["open_review_findings"] == 1
+    assert subj["detail"]["open_review_issues"] == 1
 
 
 def test_unassessed_subjective_item_points_to_holistic_refresh():
@@ -302,8 +302,8 @@ def test_unassessed_subjective_item_points_to_holistic_refresh():
     assert subj["primary_command"] == "desloppify review --prepare --dimensions high_level_elegance"
 
 
-def test_subjective_review_finding_points_to_review_triage():
-    coverage = _finding(
+def test_subjective_review_issue_points_to_review_triage():
+    coverage = _issue(
         "subjective_review::src/a.py::changed",
         detector="subjective_review",
         tier=4,
@@ -316,8 +316,8 @@ def test_subjective_review_finding_points_to_review_triage():
     assert item["primary_command"] == "desloppify show subjective"
 
 
-def test_holistic_subjective_review_finding_points_to_holistic_refresh():
-    holistic = _finding(
+def test_holistic_subjective_review_issue_points_to_holistic_refresh():
+    holistic = _issue(
         "subjective_review::.::holistic_unreviewed",
         detector="subjective_review",
         file=".",
@@ -353,19 +353,19 @@ def test_queue_build_options_defaults():
 def test_invalid_status_raises_value_error():
     import pytest
 
-    state = _state([_finding("a")])
+    state = _state([_issue("a")])
     with pytest.raises(ValueError, match="Unsupported status filter"):
         build_work_queue(state, status="bogus")
 
 
 def test_legacy_string_detail_does_not_crash_queue_build():
     """Queue building should tolerate issues whose detail is a plain string."""
-    review = _finding(
+    review = _issue(
         "review::src/a.py::legacy",
         detector="review",
         detail={"dimension": "naming_quality"},
     )
-    weird = _finding("responsibility_cohesion::src/a.py::legacy", detector="smells")
+    weird = _issue("responsibility_cohesion::src/a.py::legacy", detector="smells")
     weird["detail"] = "Clusters: alpha, beta"
 
     state = _state(
@@ -412,9 +412,9 @@ def test_subjective_threshold_clamped_to_valid_range():
 def test_count_limits_returned_items():
     state = _state(
         [
-            _finding("a", detector="unused", tier=2, confidence="high"),
-            _finding("b", detector="unused", tier=2, confidence="medium"),
-            _finding("c", detector="unused", tier=2, confidence="low"),
+            _issue("a", detector="unused", tier=2, confidence="high"),
+            _issue("b", detector="unused", tier=2, confidence="medium"),
+            _issue("c", detector="unused", tier=2, confidence="low"),
         ]
     )
 
@@ -425,7 +425,7 @@ def test_count_limits_returned_items():
 
 def test_count_none_returns_all_items():
     state = _state(
-        [_finding("a", tier=2), _finding("b", tier=3), _finding("c", tier=4)]
+        [_issue("a", tier=2), _issue("b", tier=3), _issue("c", tier=4)]
     )
 
     queue = build_work_queue(state, count=None, include_subjective=False)
@@ -435,7 +435,7 @@ def test_count_none_returns_all_items():
 
 def test_default_count_is_1():
     state = _state(
-        [_finding("a", tier=2), _finding("b", tier=3)]
+        [_issue("a", tier=2), _issue("b", tier=3)]
     )
 
     queue = build_work_queue(state, include_subjective=False)
@@ -457,8 +457,8 @@ def test_empty_state_returns_empty_queue():
 def test_grouped_output_groups_by_item():
     state = _state(
         [
-            _finding("a", file="src/a.py"),
-            _finding("b", file="src/b.py"),
+            _issue("a", file="src/a.py"),
+            _issue("b", file="src/b.py"),
         ]
     )
 
@@ -474,8 +474,8 @@ def test_grouped_output_groups_by_item():
 def test_status_filter_fixed():
     state = _state(
         [
-            _finding("open_one", status="open"),
-            _finding("fixed_one", status="fixed"),
+            _issue("open_one", status="open"),
+            _issue("fixed_one", status="fixed"),
         ]
     )
 
@@ -487,8 +487,8 @@ def test_status_filter_fixed():
 def test_status_filter_all():
     state = _state(
         [
-            _finding("open_one", status="open"),
-            _finding("fixed_one", status="fixed"),
+            _issue("open_one", status="open"),
+            _issue("fixed_one", status="fixed"),
         ]
     )
 
@@ -499,11 +499,11 @@ def test_status_filter_all():
 # ── Chronic mode ──────────────────────────────────────────
 
 
-def test_chronic_mode_filters_reopened_findings():
+def test_chronic_mode_filters_reopened_issues():
     issues = [
-        {**_finding("chronic_one"), "reopen_count": 3},
-        {**_finding("normal_one"), "reopen_count": 0},
-        {**_finding("once_reopened"), "reopen_count": 1},
+        {**_issue("chronic_one"), "reopen_count": 3},
+        {**_issue("normal_one"), "reopen_count": 0},
+        {**_issue("once_reopened"), "reopen_count": 1},
     ]
     state = _state(issues)
 

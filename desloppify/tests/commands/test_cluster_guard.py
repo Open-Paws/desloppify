@@ -27,7 +27,7 @@ def _plan_with_cluster(name: str, issue_ids: list[str]) -> dict:
     return plan
 
 
-def _state_with_findings(*ids: str) -> dict:
+def _state_with_issues(*ids: str) -> dict:
     issues = {}
     for fid in ids:
         issues[fid] = {
@@ -50,7 +50,7 @@ def test_cluster_guard_blocks_small_cluster():
     """Clusters with <= threshold items should be blocked."""
     ids = [f"f{i}" for i in range(5)]
     plan = _plan_with_cluster("auto/test", ids)
-    state = _state_with_findings(*ids)
+    state = _state_with_issues(*ids)
 
     blocked = _check_cluster_guard(["auto/test"], plan, state)
     assert blocked is True
@@ -59,7 +59,7 @@ def test_cluster_guard_blocks_small_cluster():
 def test_cluster_guard_blocks_empty_cluster(capsys):
     """Empty clusters should be blocked — must add items first."""
     plan = _plan_with_cluster("auto/test", [])
-    state = _state_with_findings()
+    state = _state_with_issues()
 
     blocked = _check_cluster_guard(["auto/test"], plan, state)
     assert blocked is True
@@ -73,7 +73,7 @@ def test_cluster_guard_allows_large_cluster():
     """Clusters with > threshold items should be allowed."""
     ids = [f"f{i}" for i in range(_CLUSTER_INDIVIDUAL_THRESHOLD + 1)]
     plan = _plan_with_cluster("auto/test", ids)
-    state = _state_with_findings(*ids)
+    state = _state_with_issues(*ids)
 
     blocked = _check_cluster_guard(["auto/test"], plan, state)
     assert blocked is False
@@ -82,7 +82,7 @@ def test_cluster_guard_allows_large_cluster():
 def test_cluster_guard_allows_non_cluster_pattern():
     """Non-cluster patterns should not be blocked."""
     plan = _plan_with_cluster("auto/test", ["f1", "f2"])
-    state = _state_with_findings("f1", "f2")
+    state = _state_with_issues("f1", "f2")
 
     blocked = _check_cluster_guard(["f1"], plan, state)
     assert blocked is False
@@ -92,7 +92,7 @@ def test_cluster_guard_at_threshold_boundary():
     """Exactly threshold items should be blocked."""
     ids = [f"f{i}" for i in range(_CLUSTER_INDIVIDUAL_THRESHOLD)]
     plan = _plan_with_cluster("auto/test", ids)
-    state = _state_with_findings(*ids)
+    state = _state_with_issues(*ids)
 
     blocked = _check_cluster_guard(["auto/test"], plan, state)
     assert blocked is True
@@ -101,7 +101,7 @@ def test_cluster_guard_at_threshold_boundary():
 def test_cluster_guard_prints_items(capsys):
     """Guard should print the items in the cluster."""
     plan = _plan_with_cluster("auto/test", ["f1", "f2"])
-    state = _state_with_findings("f1", "f2")
+    state = _state_with_issues("f1", "f2")
 
     _check_cluster_guard(["auto/test"], plan, state)
     captured = capsys.readouterr()

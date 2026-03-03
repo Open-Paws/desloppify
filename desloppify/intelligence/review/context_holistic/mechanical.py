@@ -119,9 +119,9 @@ def gather_mechanical_evidence(
         evidence["naming_drift"] = naming_drift
 
     # ── Cluster E: Organization ──────────────────────────────────────
-    flat_dir_findings = _build_flat_dir_findings(by_detector)
-    if flat_dir_findings:
-        evidence["flat_dir_findings"] = flat_dir_findings
+    flat_dir_issues = _build_flat_dir_issues(by_detector)
+    if flat_dir_issues:
+        evidence["flat_dir_issues"] = flat_dir_issues
 
     large_dist = _build_large_file_distribution(by_detector)
     if large_dist:
@@ -364,8 +364,8 @@ def _build_private_crossings(by_detector: dict[str, list[dict]]) -> list[dict]:
 def _build_deferred_import_density(by_file: dict[str, list[dict]]) -> list[dict]:
     """Files with 2+ deferred_import smells (proxy for cycle pressure)."""
     file_counts: dict[str, int] = defaultdict(int)
-    for filepath, file_findings in by_file.items():
-        for issue in file_findings:
+    for filepath, file_issues in by_file.items():
+        for issue in file_issues:
             if issue.get("detector") != "smells":
                 continue
             if _get_detail(issue, "smell_id") == "deferred_import":
@@ -435,7 +435,7 @@ def _build_naming_drift(by_detector: dict[str, list[dict]]) -> list[dict]:
     return results[:20]
 
 
-def _build_flat_dir_findings(by_detector: dict[str, list[dict]]) -> list[dict]:
+def _build_flat_dir_issues(by_detector: dict[str, list[dict]]) -> list[dict]:
     """From flat_dirs detector."""
     results: list[dict] = []
     for issue in by_detector.get("flat_dirs", []):
@@ -510,9 +510,9 @@ def _build_security_hotspots(by_detector: dict[str, list[dict]]) -> list[dict]:
 def _build_signal_density(by_file: dict[str, list[dict]]) -> list[dict]:
     """Top 20 files by number of distinct detectors firing."""
     results: list[dict] = []
-    for filepath, file_findings in by_file.items():
+    for filepath, file_issues in by_file.items():
         detectors = set()
-        for issue in file_findings:
+        for issue in file_issues:
             det = issue.get("detector", "")
             if det:
                 detectors.add(det)
@@ -520,7 +520,7 @@ def _build_signal_density(by_file: dict[str, list[dict]]) -> list[dict]:
             results.append({
                 "file": filepath,
                 "detector_count": len(detectors),
-                "issue_count": len(file_findings),
+                "issue_count": len(file_issues),
                 "detectors": sorted(detectors),
             })
     results.sort(key=lambda e: (-e["detector_count"], -e["issue_count"]))

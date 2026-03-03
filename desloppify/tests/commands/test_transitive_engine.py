@@ -5,7 +5,7 @@ Covers:
 - desloppify.intelligence.review.context_holistic.readers (_abs, _read_file_contents)
 - desloppify.app.cli_support.parser_groups_admin (parser builders, helpers)
 - desloppify.app.commands.move.move_apply (rollback, apply helpers)
-- desloppify.languages._framework.base.shared_phases (entries_to_findings, log, find_external)
+- desloppify.languages._framework.base.shared_phases (entries_to_issues, log, find_external)
 """
 
 from __future__ import annotations
@@ -102,11 +102,11 @@ class TestMergeScan:
         assert diff["reopened"] == 0
         assert diff["total_current"] == 0
         assert diff["ignored"] == 0
-        assert diff["raw_findings"] == 0
+        assert diff["raw_issues"] == 0
         assert diff["suppressed_pct"] == 0.0
 
     @patch.object(merge_mod, "_recompute_stats")
-    def test_merge_new_findings(self, mock_recompute):
+    def test_merge_new_issues(self, mock_recompute):
         """New issues are counted correctly."""
         mock_recompute.return_value = None
         state = self._make_state()
@@ -187,7 +187,7 @@ class TestMergeScan:
             MergeScanOptions(lang="python", ignore=["vendor/*"]),
         )
         assert diff["ignored"] == 1
-        assert diff["raw_findings"] == 1
+        assert diff["raw_issues"] == 1
         # Issue is inserted but suppressed:
         f = state["issues"]["smells::vendor/lib.py::debug"]
         assert f["suppressed"] is True
@@ -816,7 +816,7 @@ class TestEntriesToIssues:
                 "detail": {"line": 42},
             },
         ]
-        results = shared_phases_mod._entries_to_findings("smells", entries)
+        results = shared_phases_mod._entries_to_issues("smells", entries)
         assert len(results) == 1
         assert results[0]["detector"] == "smells"
         assert results[0]["tier"] == 2
@@ -833,7 +833,7 @@ class TestEntriesToIssues:
                 "summary": "Issue",
             },
         ]
-        results = shared_phases_mod._entries_to_findings(
+        results = shared_phases_mod._entries_to_issues(
             "test_coverage", entries, default_name="coverage_gap"
         )
         assert len(results) == 1
@@ -855,7 +855,7 @@ class TestEntriesToIssues:
             },
         ]
         zone_map = {"tests/foo.py": _FakeZone.TEST}
-        results = shared_phases_mod._entries_to_findings(
+        results = shared_phases_mod._entries_to_issues(
             "security",
             entries,
             include_zone=True,
@@ -872,7 +872,7 @@ class TestEntriesToIssues:
                 "summary": "Missing",
             },
         ]
-        results = shared_phases_mod._entries_to_findings(
+        results = shared_phases_mod._entries_to_issues(
             "security",
             entries,
             include_zone=True,
@@ -881,15 +881,15 @@ class TestEntriesToIssues:
         assert "zone" not in results[0]
 
     def test_empty_entries(self):
-        results = shared_phases_mod._entries_to_findings("smells", [])
+        results = shared_phases_mod._entries_to_issues("smells", [])
         assert results == []
 
 
 class TestLogPhaseSummary:
     @patch("desloppify.languages._framework.base.shared_phases.log")
     def test_with_results(self, mock_log):
-        fake_findings = [{"id": "a"}, {"id": "b"}]
-        shared_phases_mod._log_phase_summary("test coverage", fake_findings, 50, "production files")
+        fake_issues = [{"id": "a"}, {"id": "b"}]
+        shared_phases_mod._log_phase_summary("test coverage", fake_issues, 50, "production files")
         mock_log.assert_called_once()
         msg = mock_log.call_args[0][0]
         assert "test coverage" in msg

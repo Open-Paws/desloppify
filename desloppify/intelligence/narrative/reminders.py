@@ -261,7 +261,7 @@ def _review_queue_reminders(
         if uninvestigated:
             reminders.append(
                 {
-                    "type": "review_findings_pending",
+                    "type": "review_issues_pending",
                     "message": f"{len(uninvestigated)} review issue(s) need investigation. "
                     f"Run `desloppify show review --status open` to see the work queue.",
                     "command": "desloppify show review --status open",
@@ -403,7 +403,7 @@ _REMINDER_METADATA: dict[str, tuple[int, str]] = {
     # Highest urgency operational nudges.
     "rescan_needed": (1, "high"),
     "ignore_suppression_high": (1, "high"),
-    "review_findings_pending": (1, "high"),
+    "review_issues_pending": (1, "high"),
     "rereview_needed": (1, "high"),
     # Medium urgency quality/process nudges.
     "wontfix_growing": (2, "medium"),

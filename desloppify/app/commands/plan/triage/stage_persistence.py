@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from desloppify.engine.planning.triage import review_finding_snapshot_hash
+from desloppify.engine.planning.triage import review_issue_snapshot_hash
 from desloppify.state import utc_now
 from desloppify.engine.plan import save_plan
 
@@ -10,7 +10,7 @@ from desloppify.engine.plan import save_plan
 def refresh_stage_snapshot(plan: dict, state: dict) -> None:
     """Mark stage progress as aligned with the current review-issue snapshot."""
     meta = plan.setdefault("epic_triage_meta", {})
-    meta["stage_snapshot_hash"] = review_finding_snapshot_hash(state)
+    meta["stage_snapshot_hash"] = review_issue_snapshot_hash(state)
     meta["stage_refresh_required"] = False
 
 

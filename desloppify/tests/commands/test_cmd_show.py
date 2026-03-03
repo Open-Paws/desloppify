@@ -167,7 +167,7 @@ class TestSuppressedMatchEstimate:
     def test_unknown_pattern_returns_zero(self):
         assert suppressed_match_estimate("nope", {"smells": 3}) == 0
 
-    def test_single_finding(self):
+    def test_single_issue(self):
         issues = [self._make_issue("unused::a.ts::foo")]
         result = build_show_payload(issues, "a.ts", "open")
         assert result["total"] == 1
@@ -518,9 +518,9 @@ class TestCmdShowBackendIntegration:
         assert "No open issues for Security" in out
         assert "subjective dimension" not in out
 
-    def test_show_mechanical_dimension_with_findings(self, monkeypatch, capsys):
+    def test_show_mechanical_dimension_with_issues(self, monkeypatch, capsys):
         """show security with open issues from security AND cycles detectors shows both."""
-        security_finding = {
+        security_issue = {
             "id": "security::src/a.py::xss",
             "kind": "issue",
             "detector": "security",
@@ -531,7 +531,7 @@ class TestCmdShowBackendIntegration:
             "detail": {},
             "status": "open",
         }
-        cycles_finding = {
+        cycles_issue = {
             "id": "cycles::src/b.py::cycle",
             "kind": "issue",
             "detector": "cycles",
@@ -547,8 +547,8 @@ class TestCmdShowBackendIntegration:
             state={
                 "last_scan": "2026-01-01",
                 "issues": {
-                    "security::src/a.py::xss": security_finding,
-                    "cycles::src/b.py::cycle": cycles_finding,
+                    "security::src/a.py::xss": security_issue,
+                    "cycles::src/b.py::cycle": cycles_issue,
                 },
                 "scan_path": ".",
             },
@@ -562,9 +562,9 @@ class TestCmdShowBackendIntegration:
             call_count["n"] += 1
             scope = kwargs.get("options", kwargs).scope
             if scope == "security":
-                return {"items": [security_finding]}
+                return {"items": [security_issue]}
             if scope == "cycles":
-                return {"items": [cycles_finding]}
+                return {"items": [cycles_issue]}
             return {"items": []}
 
         monkeypatch.setattr(show_scope_mod, "build_work_queue", fake_queue)

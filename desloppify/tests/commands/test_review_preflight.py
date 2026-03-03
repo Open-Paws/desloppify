@@ -386,7 +386,7 @@ def test_clears_stale_entries():
             "naming_quality": {
                 "score": 82.0,
                 "needs_review_refresh": True,
-                "refresh_reason": "review_finding_fixed",
+                "refresh_reason": "review_issue_fixed",
                 "stale_since": "2025-01-01T00:00:00+00:00",
             },
             "logic_clarity": {
@@ -416,13 +416,13 @@ def test_clears_multiple_stale_entries():
                 "score": 82.0,
                 "needs_review_refresh": True,
                 "stale_since": "2025-01-01T00:00:00+00:00",
-                "refresh_reason": "mechanical_findings_changed",
+                "refresh_reason": "mechanical_issues_changed",
             },
             "logic_clarity": {
                 "score": 74.0,
                 "needs_review_refresh": True,
                 "stale_since": "2025-02-01T00:00:00+00:00",
-                "refresh_reason": "review_finding_wontfix",
+                "refresh_reason": "review_issue_wontfix",
             },
         }
     }
@@ -465,14 +465,14 @@ def test_clears_only_targeted_dimensions():
             "naming_quality": {
                 "score": 82.0,
                 "needs_review_refresh": True,
-                "refresh_reason": "review_finding_fixed",
+                "refresh_reason": "review_issue_fixed",
                 "stale_since": "2025-01-01T00:00:00+00:00",
             },
             "logic_clarity": {
                 "score": 74.0,
                 "needs_review_refresh": True,
                 "stale_since": "2025-02-01T00:00:00+00:00",
-                "refresh_reason": "mechanical_findings_changed",
+                "refresh_reason": "mechanical_issues_changed",
             },
         }
     }

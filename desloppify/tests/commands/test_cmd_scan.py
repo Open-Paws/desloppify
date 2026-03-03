@@ -84,7 +84,7 @@ class TestCmdScanExecution:
         monkeypatch.setattr(
             scan_cmd_mod,
             "merge_scan_results",
-            lambda _runtime, _findings, _potentials, _metrics: merge,
+            lambda _runtime, _issues, _potentials, _metrics: merge,
         )
         monkeypatch.setattr(
             scan_cmd_mod, "resolve_noise_snapshot", lambda _state, _config: noise
@@ -180,7 +180,7 @@ class TestCmdScanExecution:
         monkeypatch.setattr(
             scan_cmd_mod,
             "merge_scan_results",
-            lambda _runtime, _findings, _potentials, _metrics: merge,
+            lambda _runtime, _issues, _potentials, _metrics: merge,
         )
         monkeypatch.setattr(
             scan_cmd_mod, "resolve_noise_snapshot", lambda _state, _config: noise
@@ -328,17 +328,17 @@ class TestShowDiffSummary:
         out = capsys.readouterr().out
         assert "No changes" in out
 
-    def test_new_findings(self, capsys):
+    def test_new_issues(self, capsys):
         show_diff_summary({"new": 5, "auto_resolved": 0, "reopened": 0})
         out = capsys.readouterr().out
         assert "+5 new" in out
 
-    def test_resolved_findings(self, capsys):
+    def test_resolved_issues(self, capsys):
         show_diff_summary({"new": 0, "auto_resolved": 3, "reopened": 0})
         out = capsys.readouterr().out
         assert "-3 resolved" in out
 
-    def test_reopened_findings(self, capsys):
+    def test_reopened_issues(self, capsys):
         show_diff_summary({"new": 0, "auto_resolved": 0, "reopened": 2})
         out = capsys.readouterr().out
         assert "2 reopened" in out
@@ -460,7 +460,7 @@ class TestAuditExcludedDirs:
         result = _audit_excluded_dirs(("nonexistent",), [], tmp_path)
         assert result == []
 
-    def test_stale_dir_produces_finding(self, tmp_path):
+    def test_stale_dir_produces_issue(self, tmp_path):
         """A dir that exists but has no references should produce a issue."""
         stale_dir = tmp_path / "old_lib"
         stale_dir.mkdir()
@@ -473,7 +473,7 @@ class TestAuditExcludedDirs:
         assert result[0]["detector"] == "stale_exclude"
         assert "old_lib" in result[0]["summary"]
 
-    def test_referenced_dir_no_finding(self, tmp_path):
+    def test_referenced_dir_no_issue(self, tmp_path):
         """A dir that is referenced should NOT produce a issue."""
         ref_dir = tmp_path / "utils"
         ref_dir.mkdir()

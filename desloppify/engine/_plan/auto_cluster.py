@@ -333,7 +333,7 @@ def _sync_issue_clusters(
 
     # Collect open, non-suppressed issues and group by key
     groups: dict[str, list[str]] = defaultdict(list)
-    finding_data: dict[str, dict] = {}
+    issue_data: dict[str, dict] = {}
     for fid, issue in issues.items():
         if issue.get("status") != "open":
             continue
@@ -349,7 +349,7 @@ def _sync_issue_clusters(
             continue
 
         groups[key].append(fid)
-        finding_data[fid] = issue
+        issue_data[fid] = issue
 
     # Drop singleton groups
     groups = {k: v for k, v in groups.items() if len(v) >= _MIN_CLUSTER_SIZE}
@@ -359,10 +359,10 @@ def _sync_issue_clusters(
         cluster_name = _cluster_name_from_key(key)
 
         # Representative issue for metadata
-        rep = finding_data.get(member_ids[0], {})
+        rep = issue_data.get(member_ids[0], {})
         detector = rep.get("detector", "")
         meta = DETECTORS.get(detector)
-        members = [finding_data[fid] for fid in member_ids if fid in finding_data]
+        members = [issue_data[fid] for fid in member_ids if fid in issue_data]
 
         # Extract subtype from grouping key (typed::detector::subtype)
         key_parts = key.split("::")

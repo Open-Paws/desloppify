@@ -31,5 +31,5 @@ def update():
     visitor = DictKeyVisitor("sample.py")
     visitor.visit(ast.parse(source))
 
-    assert isinstance(visitor._findings, list)
+    assert isinstance(visitor._issues, list)
     assert isinstance(visitor._dict_literals, list)

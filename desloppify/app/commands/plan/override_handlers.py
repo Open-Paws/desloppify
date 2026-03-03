@@ -19,10 +19,10 @@ from desloppify.app.commands.resolve.selection import (
 from desloppify.core.exception_sets import PLAN_LOAD_EXCEPTIONS
 from desloppify.core.output_api import colorize
 from desloppify.engine.plan import (
-    annotate_finding,
+    annotate_issue,
     append_log_entry,
     clear_focus,
-    describe_finding,
+    describe_issue,
     PLAN_FILE,
     load_plan,
     plan_path_for_state,
@@ -104,7 +104,7 @@ def cmd_plan_describe(args: argparse.Namespace) -> None:
         return
 
     for fid in issue_ids:
-        describe_finding(plan, fid, text or None)
+        describe_issue(plan, fid, text or None)
     append_log_entry(
         plan, "describe", issue_ids=issue_ids, actor="user",
         detail={"text": text or None},
@@ -129,7 +129,7 @@ def cmd_plan_note(args: argparse.Namespace) -> None:
         return
 
     for fid in issue_ids:
-        annotate_finding(plan, fid, text)
+        annotate_issue(plan, fid, text)
     append_log_entry(
         plan, "note", issue_ids=issue_ids, actor="user",
         note=text,

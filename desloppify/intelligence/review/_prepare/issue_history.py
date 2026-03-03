@@ -129,8 +129,8 @@ def build_issue_history_context(
     if not review_issues:
         return {
             "summary": {
-                "total_review_findings": 0,
-                "open_review_findings": 0,
+                "total_review_issues": 0,
+                "open_review_issues": 0,
                 "status_counts": {status: 0 for status in _KNOWN_STATUSES},
                 "dimension_open_counts": {},
             },
@@ -157,8 +157,8 @@ def build_issue_history_context(
 
     return {
         "summary": {
-            "total_review_findings": len(review_issues),
-            "open_review_findings": int(status_counts.get("open", 0)),
+            "total_review_issues": len(review_issues),
+            "open_review_issues": int(status_counts.get("open", 0)),
             "status_counts": {
                 status: int(status_counts.get(status, 0)) for status in _KNOWN_STATUSES
             },

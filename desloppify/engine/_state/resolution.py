@@ -69,13 +69,13 @@ def _mark_stale_assessments_on_review_resolve(
         payload = assessments.get(dimension)
         if isinstance(payload, dict):
             payload["needs_review_refresh"] = True
-            payload["refresh_reason"] = f"review_finding_{status}"
+            payload["refresh_reason"] = f"review_issue_{status}"
             payload["stale_since"] = now
         else:
             assessments[dimension] = {
                 "score": coerce_assessment_score(payload) or 0.0,
                 "needs_review_refresh": True,
-                "refresh_reason": f"review_finding_{status}",
+                "refresh_reason": f"review_issue_{status}",
                 "stale_since": now,
             }
 

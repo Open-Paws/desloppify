@@ -366,7 +366,7 @@ def test_testing_context_no_dep_graph():
     assert result == {"total_files": 1}
 
 
-def test_testing_context_no_test_coverage_findings():
+def test_testing_context_no_test_coverage_issues():
     lang = SimpleNamespace(dep_graph={"a.py": {"importers": {"b.py"}}})
     state = {"issues": {"f1": {"detector": "smells", "status": "open"}}}
     result = selection_mod._testing_context(lang, state, {"a.py": "code"})

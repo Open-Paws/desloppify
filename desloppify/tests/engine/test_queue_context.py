@@ -24,14 +24,14 @@ def _minimal_state(**overrides) -> dict:
     return state
 
 
-def _state_with_findings(*issues: dict) -> dict:
+def _state_with_issues(*issues: dict) -> dict:
     return {
         "issues": {f["id"]: f for f in issues},
         "scan_count": 5,
     }
 
 
-def _finding(fid: str, detector: str = "unused", file: str = "src/a.ts") -> dict:
+def _issue(fid: str, detector: str = "unused", file: str = "src/a.ts") -> dict:
     return {
         "id": fid,
         "detector": detector,
@@ -122,18 +122,18 @@ class TestQueueContextTargetStrict:
 class TestQueueContextPolicy:
     def test_policy_computed_with_resolved_params(self):
         """Policy uses the resolved plan and target_strict."""
-        state = _state_with_findings(_finding("f1"))
+        state = _state_with_issues(_issue("f1"))
         plan = {"skipped": {"f1": {"kind": "temporary"}}}
         ctx = queue_context(state, plan=plan, target_strict=80.0)
         # f1 is skipped by plan, so objective_count should be 0
         assert ctx.policy.objective_count == 0
         assert ctx.policy.has_objective_backlog is False
 
-    def test_policy_counts_objective_findings(self):
+    def test_policy_counts_objective_issues(self):
         """Policy correctly counts open objective issues."""
-        state = _state_with_findings(
-            _finding("f1"),
-            _finding("f2"),
+        state = _state_with_issues(
+            _issue("f1"),
+            _issue("f2"),
         )
         ctx = queue_context(state, plan=None)
         assert ctx.policy.objective_count == 2
@@ -141,9 +141,9 @@ class TestQueueContextPolicy:
 
     def test_policy_excludes_subjective_detectors(self):
         """Issues from subjective detectors don't count as objective."""
-        state = _state_with_findings(
-            _finding("f1", detector="unused"),
-            _finding("f2", detector="review"),
+        state = _state_with_issues(
+            _issue("f1", detector="unused"),
+            _issue("f2", detector="review"),
         )
         ctx = queue_context(state, plan=None)
         assert ctx.policy.objective_count == 1
@@ -172,7 +172,7 @@ class TestQueueContextIntegration:
         """build_work_queue uses context.plan when context is provided."""
         from desloppify.engine.work_queue import QueueBuildOptions, build_work_queue
 
-        state = _state_with_findings(_finding("f1"))
+        state = _state_with_issues(_issue("f1"))
         plan = {
             "queue_order": ["f1"],
             "skipped": {},

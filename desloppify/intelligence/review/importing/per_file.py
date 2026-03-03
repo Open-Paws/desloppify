@@ -63,7 +63,7 @@ def import_review_issues(
     payload: ReviewImportEnvelope = parse_review_import_payload(
         issues_data, mode_name="Per-file"
     )
-    findings_list = payload.issues
+    issues_list = payload.issues
     assessments = payload.assessments
     reviewed_files = payload.reviewed_files
     resolved_project_root = _resolve_per_file_project_root(project_root)
@@ -81,7 +81,7 @@ def import_review_issues(
     review_issues: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
 
-    for idx, issue in enumerate(findings_list):
+    for idx, issue in enumerate(issues_list):
         missing = [key for key in required_fields if key not in issue]
         if missing:
             skipped.append(
@@ -130,7 +130,7 @@ def import_review_issues(
         review_issues.append(imported)
 
     # Build accepted-file set from successfully imported issues only,
-    # not from all findings_list entries (which may include invalid dimensions).
+    # not from all issues_list entries (which may include invalid dimensions).
     valid_reviewed_files_abs = {
         issue["file"] for issue in review_issues
     }
@@ -183,7 +183,7 @@ def import_review_issues(
 
     update_review_cache(
         state,
-        findings_list,
+        issues_list,
         reviewed_files=reviewed_files,
         project_root=resolved_project_root,
         utc_now_fn=utc_now_fn,

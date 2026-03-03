@@ -77,7 +77,7 @@ class TestComputeStrategy:
         assert "hint" in result
         assert "lanes" in result
 
-    def test_with_findings(self):
+    def test_with_issues(self):
         issues = {"f1": {"status": "open", "detector": "unused", "file": "a.ts"}}
         result = _compute_strategy(
             issues, {"unused": 5}, [], "early_momentum", "typescript"

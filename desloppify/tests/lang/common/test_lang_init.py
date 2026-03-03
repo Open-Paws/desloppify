@@ -118,8 +118,7 @@ def test_auto_detect_python_project(tmp_path):
     (src / "main.py").write_text("print('hello')")
 
     # Patch PROJECT_ROOT to tmp_path for file_finder
-    with patch("desloppify.utils.PROJECT_ROOT", tmp_path):
-        result = auto_detect_lang(tmp_path)
+    result = auto_detect_lang(tmp_path)
     assert result == "python"
 
 
@@ -130,8 +129,7 @@ def test_auto_detect_typescript_project(tmp_path):
     src.mkdir()
     (src / "index.ts").write_text("export const x = 1;")
 
-    with patch("desloppify.utils.PROJECT_ROOT", tmp_path):
-        result = auto_detect_lang(tmp_path)
+    result = auto_detect_lang(tmp_path)
     assert result == "typescript"
 
 
@@ -148,8 +146,7 @@ def test_auto_detect_csharp_project(tmp_path):
     src.mkdir()
     (src / "Program.cs").write_text("namespace App; class Program {}")
 
-    with patch("desloppify.utils.PROJECT_ROOT", tmp_path):
-        result = auto_detect_lang(tmp_path)
+    result = auto_detect_lang(tmp_path)
     assert result == "csharp"
 
 
@@ -160,8 +157,7 @@ def test_auto_detect_dart_project(tmp_path):
     lib.mkdir()
     (lib / "main.dart").write_text("void main() {}")
 
-    with patch("desloppify.utils.PROJECT_ROOT", tmp_path):
-        result = auto_detect_lang(tmp_path)
+    result = auto_detect_lang(tmp_path)
     assert result == "dart"
 
 
@@ -172,8 +168,7 @@ def test_auto_detect_gdscript_project(tmp_path):
     src.mkdir()
     (src / "player.gd").write_text("extends Node\n")
 
-    with patch("desloppify.utils.PROJECT_ROOT", tmp_path):
-        result = auto_detect_lang(tmp_path)
+    result = auto_detect_lang(tmp_path)
     assert result == "gdscript"
 
 

@@ -26,7 +26,7 @@ from desloppify.intelligence.narrative.signals import (
     count_open_by_detector as _count_open_by_detector,
     history_for_lang as _history_for_lang,
     score_snapshot as _score_snapshot,
-    scoped_issues as _scoped_findings,
+    scoped_issues as _scoped_issues,
 )
 from desloppify.intelligence.narrative.strategy_engine import compute_strategy
 from desloppify.intelligence.narrative.types import (
@@ -64,7 +64,7 @@ def compute_narrative(
     dim_scores = state.get("dimension_scores", {})
     stats = state.get("stats", {})
     strict_score, overall_score = _score_snapshot(state)
-    issues = _scoped_findings(state)
+    issues = _scoped_issues(state)
 
     by_detector = _count_open_by_detector(issues)
     badge = _compute_badge_status()

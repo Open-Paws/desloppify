@@ -13,7 +13,7 @@ from desloppify.engine._plan.stale_dimensions import TRIAGE_STAGE_IDS
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _state_with_findings(*ids: str, dimension: str = "naming") -> dict:
+def _state_with_issues(*ids: str, dimension: str = "naming") -> dict:
     issues = {}
     for fid in ids:
         issues[fid] = {
@@ -103,7 +103,7 @@ class TestReflectFoldConfirmObserve:
     def test_reflect_auto_confirms_observe_with_attestation(self, monkeypatch, capsys):
         """When observe is unconfirmed, --stage reflect with --attestation auto-confirms observe."""
         plan = _plan_with_stages("observe", confirmed=False)
-        state = _state_with_findings("r1", "r2", "r3", "r4", "r5")
+        state = _state_with_issues("r1", "r2", "r3", "r4", "r5")
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))
@@ -138,7 +138,7 @@ class TestReflectFoldConfirmObserve:
     def test_reflect_blocks_without_attestation_when_observe_unconfirmed(self, monkeypatch, capsys):
         """Without --attestation, reflect is blocked when observe isn't confirmed."""
         plan = _plan_with_stages("observe", confirmed=False)
-        state = _state_with_findings("r1", "r2", "r3")
+        state = _state_with_issues("r1", "r2", "r3")
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))
@@ -161,7 +161,7 @@ class TestReflectFoldConfirmObserve:
     def test_reflect_attestation_must_reference_dimension(self, monkeypatch, capsys):
         """Attestation must mention at least one dimension from the observe summary."""
         plan = _plan_with_stages("observe", confirmed=False)
-        state = _state_with_findings("r1", "r2", "r3", "r4", "r5")
+        state = _state_with_issues("r1", "r2", "r3", "r4", "r5")
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))
@@ -204,7 +204,7 @@ class TestOrganizeFoldConfirmReflect:
         stages["observe"]["confirmed_at"] = "2025-06-01T00:01:00Z"
         stages["observe"]["confirmed_text"] = "confirmed"
 
-        state = _state_with_findings("r1", "r2", "r3", "r4", "r5")
+        state = _state_with_issues("r1", "r2", "r3", "r4", "r5")
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))
@@ -254,7 +254,7 @@ class TestCompleteFoldConfirmOrganize:
         stages["reflect"]["confirmed_at"] = "2025-06-01T00:01:00Z"
         stages["reflect"]["confirmed_text"] = "confirmed"
 
-        state = _state_with_findings("r1", "r2", "r3", "r4", "r5")
+        state = _state_with_issues("r1", "r2", "r3", "r4", "r5")
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))
@@ -296,7 +296,7 @@ class TestExistingConfirmPathUnchanged:
     def test_existing_confirm_path_still_works(self, monkeypatch, capsys):
         """The explicit --confirm observe path still works as before."""
         plan = _plan_with_stages("observe", confirmed=False)
-        state = _state_with_findings("r1", "r2", "r3", "r4", "r5")
+        state = _state_with_issues("r1", "r2", "r3", "r4", "r5")
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))
@@ -329,7 +329,7 @@ class TestCompleteArchivesStages:
         # Add review issues to queue_order and cluster so coverage check works
         plan["queue_order"] = [*TRIAGE_STAGE_IDS, "review::test.py::r1", "review::test.py::r2"]
         plan["clusters"]["fix-naming"]["issue_ids"] = ["review::test.py::r1", "review::test.py::r2"]
-        state = _state_with_findings("review::test.py::r1", "review::test.py::r2")
+        state = _state_with_issues("review::test.py::r1", "review::test.py::r2")
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))

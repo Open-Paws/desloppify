@@ -8,7 +8,7 @@ from desloppify.engine._plan.schema import (
     PlanModel,
     ensure_plan_defaults,
 )
-from desloppify.engine._plan.stale_dimensions_triage import review_finding_snapshot_hash
+from desloppify.engine._plan.stale_dimensions import review_issue_snapshot_hash
 from desloppify.engine._state.schema import StateModel, utc_now
 
 from desloppify.engine._plan.epic_triage import TriageMutationResult, TriageResult
@@ -109,7 +109,7 @@ def apply_triage_to_plan(
             "review_after": None,
             "skipped_at_scan": int(state.get("scan_count", 0)),
         }
-        result.findings_dismissed += 1
+        result.issues_dismissed += 1
 
     # Also handle per-epic dismissed lists
     for epic_data in triage.epics:
@@ -127,19 +127,19 @@ def apply_triage_to_plan(
                     "review_after": None,
                     "skipped_at_scan": int(state.get("scan_count", 0)),
                 }
-                result.findings_dismissed += 1
+                result.issues_dismissed += 1
 
     # --- Reorder queue: epic issues grouped by dependency_order -----------
-    epic_finding_ids: set[str] = set()
+    epic_issue_ids: set[str] = set()
     epic_ordered_ids: list[str] = []
     for epic_data in sorted(triage.epics, key=lambda e: e.get("dependency_order", 999)):
         for fid in epic_data["issue_ids"]:
-            if fid not in epic_finding_ids and fid not in dismissed_ids:
-                epic_finding_ids.add(fid)
+            if fid not in epic_issue_ids and fid not in dismissed_ids:
+                epic_issue_ids.add(fid)
                 epic_ordered_ids.append(fid)
 
     # Rebuild order: epic items first (by dependency), then non-epic items in original order
-    non_epic_items = [fid for fid in order if fid not in epic_finding_ids]
+    non_epic_items = [fid for fid in order if fid not in epic_issue_ids]
     # Insert epic items at the front.
     new_order: list[str] = []
     new_order.extend(epic_ordered_ids)
@@ -148,7 +148,7 @@ def apply_triage_to_plan(
     order.extend(new_order)
 
     # --- Update triage meta -----------------------------------------------
-    current_hash = review_finding_snapshot_hash(state)
+    current_hash = review_issue_snapshot_hash(state)
     open_review_ids = sorted(
         fid for fid, f in state.get("issues", {}).items()
         if f.get("status") == "open"
@@ -160,7 +160,7 @@ def apply_triage_to_plan(
         "last_run": now,
         "version": version,
         "dismissed_ids": dismissed_ids,
-        "finding_snapshot_hash": current_hash,
+        "issue_snapshot_hash": current_hash,
         "strategy_summary": triage.strategy_summary,
         "trigger": trigger,
     }

@@ -12,7 +12,7 @@ from desloppify.app.commands.review.batch_scoring import (
 )
 from desloppify.app.commands.review import batch_core as batch_core_mod
 from desloppify.intelligence.review.feedback_contract import (
-    LOW_SCORE_FINDING_THRESHOLD,
+    LOW_SCORE_ISSUE_THRESHOLD,
     max_batch_issues_for_dimension_count,
 )
 
@@ -36,7 +36,7 @@ def _merge(batch_results: list[dict]) -> dict[str, object]:
     )
 
 
-def test_merge_penalizes_high_scores_when_severe_findings_exist():
+def test_merge_penalizes_high_scores_when_severe_issues_exist():
     merged = _merge(
         [
             {
@@ -66,11 +66,11 @@ def test_merge_penalizes_high_scores_when_severe_findings_exist():
     )
     assert merged["assessments"]["high_level_elegance"] == 75.7
     quality = merged.get("review_quality", {})
-    assert quality["finding_pressure"] == 4.08
-    assert quality["dimensions_with_findings"] == 1
+    assert quality["issue_pressure"] == 4.08
+    assert quality["dimensions_with_issues"] == 1
 
 
-def test_merge_keeps_scores_without_findings():
+def test_merge_keeps_scores_without_issues():
     merged = _merge(
         [
             {
@@ -92,7 +92,7 @@ def test_merge_keeps_scores_without_findings():
     assert merged["assessments"]["mid_level_elegance"] == 88.0
 
 
-def test_batch_prompt_requires_score_and_finding_consistency():
+def test_batch_prompt_requires_score_and_issue_consistency():
     prompt = batch_core_mod.build_batch_prompt(
         repo_root=Path("/repo"),
         packet_path=Path("/repo/.desloppify/review_packets/p.json"),
@@ -116,7 +116,7 @@ def test_dimension_merge_scorer_penalizes_higher_pressure():
         ScoreInputs(
             weighted_mean=92.0,
             floor=90.0,
-            finding_pressure=1.0,
+            issue_pressure=1.0,
             issue_count=1,
         )
     )
@@ -124,35 +124,35 @@ def test_dimension_merge_scorer_penalizes_higher_pressure():
         ScoreInputs(
             weighted_mean=92.0,
             floor=90.0,
-            finding_pressure=4.08,
+            issue_pressure=4.08,
             issue_count=1,
         )
     )
     assert low.final_score > high.final_score
 
 
-def test_dimension_merge_scorer_penalizes_additional_findings():
+def test_dimension_merge_scorer_penalizes_additional_issues():
     scorer = DimensionMergeScorer()
-    one_finding = scorer.score_dimension(
+    one_issue = scorer.score_dimension(
         ScoreInputs(
             weighted_mean=92.0,
             floor=90.0,
-            finding_pressure=2.0,
+            issue_pressure=2.0,
             issue_count=1,
         )
     )
-    three_findings = scorer.score_dimension(
+    three_issues = scorer.score_dimension(
         ScoreInputs(
             weighted_mean=92.0,
             floor=90.0,
-            finding_pressure=2.0,
+            issue_pressure=2.0,
             issue_count=3,
         )
     )
-    assert one_finding.final_score > three_findings.final_score
+    assert one_issue.final_score > three_issues.final_score
 
 
-def test_merge_batch_results_merges_same_identifier_findings():
+def test_merge_batch_results_merges_same_identifier_issues():
     merged = _merge(
         [
             {
@@ -218,11 +218,11 @@ def test_merge_batch_results_merges_same_identifier_findings():
     assert set(issue["evidence"]) == {"branch A uses OR", "branch B uses AND"}
 
 
-def test_normalize_batch_result_rejects_low_score_without_same_dimension_finding():
+def test_normalize_batch_result_rejects_low_score_without_same_dimension_issue():
     with pytest.raises(ValueError) as exc:
         batch_core_mod.normalize_batch_result(
             payload={
-                "assessments": {"logic_clarity": LOW_SCORE_FINDING_THRESHOLD - 10.0},
+                "assessments": {"logic_clarity": LOW_SCORE_ISSUE_THRESHOLD - 10.0},
                 "dimension_notes": {
                     "logic_clarity": {
                         "evidence": ["branching logic diverges across handlers"],
@@ -241,10 +241,10 @@ def test_normalize_batch_result_rejects_low_score_without_same_dimension_finding
     assert "low-score dimensions must include at least one explicit issue" in str(exc.value)
 
 
-def test_normalize_batch_result_accepts_low_score_with_same_dimension_finding():
+def test_normalize_batch_result_accepts_low_score_with_same_dimension_issue():
     assessments, issues, _notes, _quality = batch_core_mod.normalize_batch_result(
         payload={
-            "assessments": {"logic_clarity": LOW_SCORE_FINDING_THRESHOLD - 10.0},
+            "assessments": {"logic_clarity": LOW_SCORE_ISSUE_THRESHOLD - 10.0},
             "dimension_notes": {
                 "logic_clarity": {
                     "evidence": ["branching logic diverges across handlers"],
@@ -272,12 +272,12 @@ def test_normalize_batch_result_accepts_low_score_with_same_dimension_finding():
         max_batch_issues=max_batch_issues_for_dimension_count(1),
         abstraction_sub_axes=_ABSTRACTION_SUB_AXES,
     )
-    assert assessments["logic_clarity"] == LOW_SCORE_FINDING_THRESHOLD - 10.0
+    assert assessments["logic_clarity"] == LOW_SCORE_ISSUE_THRESHOLD - 10.0
     assert len(issues) == 1
 
 
 def test_normalize_batch_result_accepts_legacy_unreported_risk_key():
-    _assessments, _findings, notes, _quality = batch_core_mod.normalize_batch_result(
+    _assessments, _issues, notes, _quality = batch_core_mod.normalize_batch_result(
         payload={
             "assessments": {"logic_clarity": 90.0},
             "dimension_notes": {

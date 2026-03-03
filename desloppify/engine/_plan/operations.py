@@ -290,7 +290,7 @@ def resurface_stale_skips(
 # Describe / annotate
 # ---------------------------------------------------------------------------
 
-def describe_finding(
+def describe_issue(
     plan: PlanModel, issue_id: str, description: str | None
 ) -> None:
     """Set or clear an augmented description on a issue."""
@@ -303,7 +303,7 @@ def describe_finding(
     overrides[issue_id]["updated_at"] = now
 
 
-def annotate_finding(
+def annotate_issue(
     plan: PlanModel, issue_id: str, note: str | None
 ) -> None:
     """Set or clear a note on a issue."""
@@ -437,7 +437,7 @@ def merge_clusters(
 ) -> tuple[int, list[str]]:
     """Move all source issues to target, copy missing metadata, delete source.
 
-    Returns ``(added_count, source_finding_ids)``.
+    Returns ``(added_count, source_issue_ids)``.
     """
     ensure_plan_defaults(plan)
     if source_name == target_name:
@@ -586,12 +586,12 @@ def purge_ids(plan: PlanModel, issue_ids: list[str]) -> int:
 
 __all__ = [
     "add_to_cluster",
-    "annotate_finding",
+    "annotate_issue",
     "append_log_entry",
     "clear_focus",
     "create_cluster",
     "delete_cluster",
-    "describe_finding",
+    "describe_issue",
     "merge_clusters",
     "move_cluster",
     "move_items",

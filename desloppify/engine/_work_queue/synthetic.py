@@ -146,7 +146,7 @@ def build_triage_stage_items(plan: dict, state: dict) -> list[dict]:
             "stage_index": idx,
             "summary": f"Triage: {label_map.get(name, name)}",
             "detail": {
-                "total_review_findings": open_review_count,
+                "total_review_issues": open_review_count,
                 "stage": name,
                 "stage_label": label_map.get(name, name),
             },
@@ -304,7 +304,7 @@ def build_subjective_items(
                     "dimension": dim_key,
                     "failing": int(entry.get("failing", 0)),
                     "strict_score": strict_val,
-                    "open_review_findings": open_review,
+                    "open_review_issues": open_review,
                     "cli_keys": cli_keys,
                 },
                 "status": "open",

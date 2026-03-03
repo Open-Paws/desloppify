@@ -35,7 +35,7 @@ def render_uncommitted_reminder(plan: dict | None) -> None:
         if not config.get("commit_tracking_enabled", True):
             return
 
-        uncommitted = plan.get("uncommitted_findings", [])
+        uncommitted = plan.get("uncommitted_issues", [])
         if not uncommitted:
             return
 
@@ -89,7 +89,7 @@ def render_single_item_resolution_hint(items: list[dict]) -> None:
 def render_followup_nudges(
     state: dict,
     dim_scores: dict,
-    findings_scoped: dict,
+    issues_scoped: dict,
     *,
     strict_score: float | None,
     target_strict_score: float,
@@ -208,14 +208,14 @@ def render_followup_nudges(
 
     # Collapsed subjective summary.
     coverage_open, _coverage_reasons, _holistic_reasons = subjective_coverage_breakdown(
-        findings_scoped
+        issues_scoped
     )
     parts: list[str] = []
     low_dims = len(followup.low_assessed)
     unassessed_count = len(unassessed_subjective)
     stale_count = sum(1 for e in subjective_entries if e.get("stale"))
     open_review = [
-        f for f in findings_scoped.values()
+        f for f in issues_scoped.values()
         if f.get("status") == "open" and f.get("detector") == "review"
     ]
     if low_dims:

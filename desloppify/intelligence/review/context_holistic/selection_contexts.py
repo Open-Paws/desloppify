@@ -192,7 +192,7 @@ def dependencies_context(
     *,
     allowed_files: set[str] | None = None,
 ) -> dict:
-    cycle_findings = []
+    cycle_issues = []
     issues = state.get("issues", {})
     if not isinstance(issues, dict):
         issues = {}
@@ -203,12 +203,12 @@ def dependencies_context(
             continue
         if not in_allowed_files(issue.get("file", ""), allowed_files):
             continue
-        cycle_findings.append(issue)
-    if not cycle_findings:
+        cycle_issues.append(issue)
+    if not cycle_issues:
         return {}
     return {
-        "existing_cycles": len(cycle_findings),
-        "cycle_summaries": [issue["summary"][:120] for issue in cycle_findings[:10]],
+        "existing_cycles": len(cycle_issues),
+        "cycle_summaries": [issue["summary"][:120] for issue in cycle_issues[:10]],
     }
 
 
@@ -223,18 +223,18 @@ def testing_context(
     if not lang.dep_graph:
         return testing
 
-    tc_findings = {
+    tc_issues = {
         issue["file"]
         for issue in state.get("issues", {}).values()
         if issue.get("detector") == "test_coverage"
         and issue.get("status") == "open"
         and in_allowed_files(issue.get("file", ""), allowed_files)
     }
-    if not tc_findings:
+    if not tc_issues:
         return testing
 
     critical_untested = []
-    for filepath in tc_findings:
+    for filepath in tc_issues:
         entry = lang.dep_graph.get(resolve_path(filepath), {})
         entry_importer_count = importer_count(entry)
         if entry_importer_count >= 3:

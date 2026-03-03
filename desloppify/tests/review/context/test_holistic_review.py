@@ -10,8 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import desloppify.core._internal.text_utils as _utils_text_mod
-import desloppify.file_discovery as _file_discovery_mod
-from desloppify import utils as _u
+import desloppify.core.discovery_api as _discovery_api_mod
 from desloppify.engine.detectors.review_coverage import detect_holistic_review_staleness
 from desloppify.intelligence.narrative.core import _count_open_by_detector
 from desloppify.intelligence.review import (
@@ -55,9 +54,8 @@ def patch_project_root(monkeypatch):
     ctx = current_runtime_context()
     def _patch(tmp_path):
         monkeypatch.setattr(ctx, "project_root", tmp_path)
-        monkeypatch.setattr(_u, "PROJECT_ROOT", tmp_path)
         monkeypatch.setattr(_utils_text_mod, "PROJECT_ROOT", tmp_path)
-        _file_discovery_mod.clear_source_file_cache_for_tests()
+        _discovery_api_mod.clear_source_file_cache_for_tests()
     return _patch
 
 
@@ -618,7 +616,7 @@ class TestImportHolisticIssues:
 
         assert diff["new"] == 0
 
-    def test_multiple_findings(self):
+    def test_multiple_issues(self):
         state = empty_state()
         issues_data = [
             {
@@ -750,7 +748,7 @@ class TestImportHolisticIssues:
         pots = state.get("potentials", {})
         assert pots.get("python", {}).get("review") == HOLISTIC_POTENTIAL
 
-    def test_finding_id_contains_holistic(self):
+    def test_issue_id_contains_holistic(self):
         state = empty_state()
         issues_data = [
             {
@@ -846,7 +844,7 @@ class TestHolisticScoring:
     regardless of the issues present.
     """
 
-    def _holistic_finding(self, confidence="high", status="open"):
+    def _holistic_issue(self, confidence="high", status="open"):
         return {
             "detector": "review",
             "status": status,
@@ -856,7 +854,7 @@ class TestHolisticScoring:
             "detail": {"holistic": True},
         }
 
-    def _file_finding(self, confidence="high", file="src/a.py", status="open"):
+    def _file_issue(self, confidence="high", file="src/a.py", status="open"):
         return {
             "detector": "review",
             "status": status,
@@ -868,18 +866,18 @@ class TestHolisticScoring:
 
     def test_review_excluded_from_scoring(self):
         """Review issues always return perfect pass rate."""
-        issues = {"0": self._holistic_finding(confidence="high")}
+        issues = {"0": self._holistic_issue(confidence="high")}
         rate, issues, weighted = detector_pass_rate("review", issues, 60)
 
         assert rate == 1.0
         assert issues == 0
         assert weighted == 0.0
 
-    def test_multiple_review_findings_still_excluded(self):
+    def test_multiple_review_issues_still_excluded(self):
         """Multiple review issues still produce perfect score."""
         issues = {
-            "0": self._holistic_finding(confidence="high"),
-            "1": self._holistic_finding(confidence="medium"),
+            "0": self._holistic_issue(confidence="high"),
+            "1": self._holistic_issue(confidence="medium"),
         }
         rate, issues, weighted = detector_pass_rate("review", issues, 60)
 
@@ -890,9 +888,9 @@ class TestHolisticScoring:
     def test_mixed_holistic_and_file_excluded(self):
         """Both holistic and file-based review issues are excluded."""
         issues = {
-            "0": self._holistic_finding(confidence="high"),
-            "1": self._file_finding(confidence="high", file="src/a.py"),
-            "2": self._file_finding(confidence="high", file="src/a.py"),
+            "0": self._holistic_issue(confidence="high"),
+            "1": self._file_issue(confidence="high", file="src/a.py"),
+            "2": self._file_issue(confidence="high", file="src/a.py"),
         }
         rate, issues, weighted = detector_pass_rate("review", issues, 60)
 
@@ -902,7 +900,7 @@ class TestHolisticScoring:
 
     def test_resolved_review_also_excluded(self):
         """Even resolved review issues return perfect score."""
-        issues = {"0": self._holistic_finding(confidence="high", status="fixed")}
+        issues = {"0": self._holistic_issue(confidence="high", status="fixed")}
         rate, issues, weighted = detector_pass_rate("review", issues, 60)
 
         assert issues == 0
@@ -1688,13 +1686,13 @@ class TestConventionOutlierPrompt:
 # ===================================================================
 
 
-def _state_with_holistic_findings(*findings_args):
+def _state_with_holistic_issues(*issues_args):
     """Create a state with holistic issues for plan testing."""
     state = empty_state()
     state["potentials"] = {"python": {"review": HOLISTIC_POTENTIAL}}
     state["objective_score"] = 45.0
     state["strict_score"] = 38.0
-    for fid, conf, dim, summary in findings_args:
+    for fid, conf, dim, summary in issues_args:
         state["issues"][fid] = {
             "id": fid,
             "file": ".",
@@ -1716,7 +1714,7 @@ def _state_with_holistic_findings(*findings_args):
 
 class TestGenerateRemediationPlan:
     def test_basic_plan_content(self):
-        state = _state_with_holistic_findings(
+        state = _state_with_holistic_issues(
             (
                 "review::.::holistic::arch::abc",
                 "high",
@@ -1734,7 +1732,7 @@ class TestGenerateRemediationPlan:
         assert "resolve fixed" in plan
 
     def test_priority_ordering_by_weight(self):
-        state = _state_with_holistic_findings(
+        state = _state_with_holistic_issues(
             (
                 "review::.::holistic::test::low1",
                 "low",
@@ -1757,7 +1755,7 @@ class TestGenerateRemediationPlan:
         assert high_pos < low_pos
 
     def test_score_impact_shown(self):
-        state = _state_with_holistic_findings(
+        state = _state_with_holistic_issues(
             (
                 "review::.::holistic::arch::abc",
                 "high",
@@ -1773,7 +1771,7 @@ class TestGenerateRemediationPlan:
 
     def test_resolve_command_included(self):
         fid = "review::.::holistic::arch::abc123"
-        state = _state_with_holistic_findings(
+        state = _state_with_holistic_issues(
             (fid, "high", "cross_module_architecture", "Issue X"),
         )
 
@@ -1782,7 +1780,7 @@ class TestGenerateRemediationPlan:
         assert f'resolve fixed "{fid}"' in plan
 
     def test_related_files_shown(self):
-        state = _state_with_holistic_findings(
+        state = _state_with_holistic_issues(
             (
                 "review::.::holistic::arch::abc",
                 "high",
@@ -1797,7 +1795,7 @@ class TestGenerateRemediationPlan:
         assert "`src/b.py`" in plan
 
     def test_re_evaluate_section(self):
-        state = _state_with_holistic_findings(
+        state = _state_with_holistic_issues(
             (
                 "review::.::holistic::arch::abc",
                 "high",
@@ -1813,7 +1811,7 @@ class TestGenerateRemediationPlan:
         assert "auto-resolve" in plan
 
     def test_how_to_use_section(self):
-        state = _state_with_holistic_findings(
+        state = _state_with_holistic_issues(
             (
                 "review::.::holistic::arch::abc",
                 "high",
@@ -1827,7 +1825,7 @@ class TestGenerateRemediationPlan:
         assert "How to use this plan" in plan
         assert "priority order" in plan
 
-    def test_empty_findings_returns_clean_plan(self):
+    def test_empty_issues_returns_clean_plan(self):
         state = empty_state()
         state["objective_score"] = 95.0
 
@@ -1836,8 +1834,8 @@ class TestGenerateRemediationPlan:
         assert "No open holistic issues" in plan
         assert "95.0/100" in plan
 
-    def test_resolved_findings_excluded(self):
-        state = _state_with_holistic_findings(
+    def test_resolved_issues_excluded(self):
+        state = _state_with_holistic_issues(
             (
                 "review::.::holistic::arch::abc",
                 "high",
@@ -1862,7 +1860,7 @@ class TestGenerateRemediationPlan:
         assert "Resolved issue" not in plan
 
     def test_writes_to_file(self, tmp_path):
-        state = _state_with_holistic_findings(
+        state = _state_with_holistic_issues(
             (
                 "review::.::holistic::arch::abc",
                 "high",
@@ -1879,7 +1877,7 @@ class TestGenerateRemediationPlan:
         assert "Issue" in output.read_text()
 
     def test_lang_name_in_commands(self):
-        state = _state_with_holistic_findings(
+        state = _state_with_holistic_issues(
             (
                 "review::.::holistic::arch::abc",
                 "high",

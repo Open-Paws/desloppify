@@ -17,12 +17,12 @@ class _Phase:
     ):
         self.label = label
         self.slow = slow
-        self._findings = issues
+        self._issues = issues
         self._potentials = potentials
         self.run = self._run
 
     def _run(self, _path, _lang):
-        return self._findings, self._potentials
+        return self._issues, self._potentials
 
 
 def test_is_subjective_phase_checks_label_and_run_name():
@@ -73,26 +73,26 @@ def test_resolve_lang_prefers_explicit_and_fallbacks(monkeypatch):
 
 
 def test_get_next_items_orders_by_tier_confidence_and_count():
-    finding_a = filtering_mod.make_issue(
+    issue_a = filtering_mod.make_issue(
         "unused", "pkg/a.py", "a", tier=3, confidence="low", summary="a"
     )
-    finding_a["detail"] = {"count": 2}
-    finding_b = filtering_mod.make_issue(
+    issue_a["detail"] = {"count": 2}
+    issue_b = filtering_mod.make_issue(
         "unused", "pkg/b.py", "b", tier=2, confidence="medium", summary="b"
     )
-    finding_b["detail"] = {"count": 1}
-    finding_c = filtering_mod.make_issue(
+    issue_b["detail"] = {"count": 1}
+    issue_c = filtering_mod.make_issue(
         "unused", "other/c.py", "c", tier=2, confidence="high", summary="c"
     )
-    finding_c["detail"] = {"count": 10}
+    issue_c["detail"] = {"count": 10}
 
-    state = {"issues": {f["id"]: f for f in [finding_a, finding_b, finding_c]}}
+    state = {"issues": {f["id"]: f for f in [issue_a, issue_b, issue_c]}}
 
     scoped = plan_select_mod.get_next_items(state, count=2, scan_path="pkg")
     assert len(scoped) == 2
-    assert scoped[0]["id"] == finding_b["id"]
-    assert scoped[1]["id"] == finding_a["id"]
+    assert scoped[0]["id"] == issue_b["id"]
+    assert scoped[1]["id"] == issue_a["id"]
 
     top = plan_select_mod.get_next_item(state, tier=2)
     assert top is not None
-    assert top["id"] == finding_c["id"]
+    assert top["id"] == issue_c["id"]

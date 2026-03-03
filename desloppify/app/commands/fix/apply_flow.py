@@ -110,7 +110,7 @@ def _apply_and_report(
             "fixer": fixer_name,
             "files_fixed": len(results),
             "items_fixed": total_items,
-            "findings_resolved": len(resolved_ids),
+            "issues_resolved": len(resolved_ids),
             "overall_score": new.overall,
             "objective_score": new.objective,
             "strict_score": new.strict,

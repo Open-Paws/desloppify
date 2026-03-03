@@ -20,7 +20,7 @@ from desloppify.engine._plan.subjective_policy import compute_subjective_visibil
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _finding(
+def _issue(
     fid: str,
     detector: str = "unused",
     status: str = "open",
@@ -38,7 +38,7 @@ def _finding(
     return f
 
 
-def _state_with_findings(*issues: dict) -> dict:
+def _state_with_issues(*issues: dict) -> dict:
     return {
         "issues": {f["id"]: f for f in issues},
         "scan_count": 5,
@@ -50,7 +50,7 @@ def _state_with_findings(*issues: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 class TestAutoResolveOutOfScope:
-    def test_out_of_scope_findings_are_resolved(self):
+    def test_out_of_scope_issues_are_resolved(self):
         """Issues outside scan_path are auto-resolved, not skipped."""
         existing = {
             "f1": {
@@ -249,12 +249,12 @@ class TestQueueCountingScanPath:
 # ---------------------------------------------------------------------------
 
 class TestSubjectivePolicyScanPathAndPlan:
-    def test_scan_path_excludes_out_of_scope_findings(self):
+    def test_scan_path_excludes_out_of_scope_issues(self):
         """Issues outside scan_path don't count toward objective backlog."""
-        state = _state_with_findings(
-            _finding("f1", "unused", file="src/app.ts"),
-            _finding("f2", "unused", file="supabase/fn.ts"),
-            _finding("f3", "unused", file="src/lib.ts"),
+        state = _state_with_issues(
+            _issue("f1", "unused", file="src/app.ts"),
+            _issue("f2", "unused", file="supabase/fn.ts"),
+            _issue("f3", "unused", file="src/lib.ts"),
         )
         # Without scan_path: all 3 count
         policy_all = compute_subjective_visibility(state)
@@ -268,20 +268,20 @@ class TestSubjectivePolicyScanPathAndPlan:
     def test_scan_path_drains_backlog_correctly(self):
         """When all in-scope issues are resolved, backlog is drained even
         if out-of-scope issues remain open."""
-        state = _state_with_findings(
-            _finding("f1", "unused", file="supabase/fn.ts"),
-            _finding("f2", "unused", file="supabase/other.ts"),
+        state = _state_with_issues(
+            _issue("f1", "unused", file="supabase/fn.ts"),
+            _issue("f2", "unused", file="supabase/other.ts"),
         )
         policy = compute_subjective_visibility(state, scan_path="src")
         assert policy.objective_count == 0
         assert policy.has_objective_backlog is False
 
-    def test_plan_skipped_findings_excluded(self):
+    def test_plan_skipped_issues_excluded(self):
         """Issues in plan['skipped'] don't count toward objective backlog."""
-        state = _state_with_findings(
-            _finding("f1", "unused", file="src/a.ts"),
-            _finding("f2", "unused", file="src/b.ts"),
-            _finding("f3", "unused", file="src/c.ts"),
+        state = _state_with_issues(
+            _issue("f1", "unused", file="src/a.ts"),
+            _issue("f2", "unused", file="src/b.ts"),
+            _issue("f3", "unused", file="src/c.ts"),
         )
         plan = {"skipped": {"f1": {"kind": "temporary"}, "f2": {"kind": "permanent"}}}
         policy = compute_subjective_visibility(state, plan=plan)
@@ -289,10 +289,10 @@ class TestSubjectivePolicyScanPathAndPlan:
 
     def test_scan_path_and_plan_combined(self):
         """Both filters applied together: scope + skipped."""
-        state = _state_with_findings(
-            _finding("f1", "unused", file="src/a.ts"),     # in scope, not skipped → counts
-            _finding("f2", "unused", file="src/b.ts"),     # in scope, skipped → excluded
-            _finding("f3", "unused", file="other/c.ts"),   # out of scope → excluded
+        state = _state_with_issues(
+            _issue("f1", "unused", file="src/a.ts"),     # in scope, not skipped → counts
+            _issue("f2", "unused", file="src/b.ts"),     # in scope, skipped → excluded
+            _issue("f3", "unused", file="other/c.ts"),   # out of scope → excluded
         )
         plan = {"skipped": {"f2": {"kind": "temporary"}}}
         policy = compute_subjective_visibility(state, scan_path="src", plan=plan)
@@ -301,8 +301,8 @@ class TestSubjectivePolicyScanPathAndPlan:
 
     def test_no_params_backward_compat(self):
         """Without new params, behavior is unchanged (all issues counted)."""
-        state = _state_with_findings(
-            _finding("f1", "unused", file="anywhere/a.ts"),
+        state = _state_with_issues(
+            _issue("f1", "unused", file="anywhere/a.ts"),
         )
         policy = compute_subjective_visibility(state)
         assert policy.objective_count == 1

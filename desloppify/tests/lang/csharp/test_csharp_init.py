@@ -3,8 +3,8 @@
 import pytest
 
 import desloppify.core._internal.text_utils as utils_text_mod
-import desloppify.file_discovery as file_discovery_mod
-import desloppify.utils as utils_mod
+import desloppify.core.discovery_api as discovery_api_mod
+import desloppify.core.paths_api as paths_api_mod
 from desloppify.languages.csharp import CSharpConfig
 
 
@@ -15,9 +15,9 @@ def patch_project_root(monkeypatch):
     ctx = current_runtime_context()
     def _patch(tmp_path):
         monkeypatch.setattr(ctx, "project_root", tmp_path)
-        monkeypatch.setattr(utils_mod, "PROJECT_ROOT", tmp_path)
+        monkeypatch.setattr(paths_api_mod, "PROJECT_ROOT", tmp_path)
         monkeypatch.setattr(utils_text_mod, "PROJECT_ROOT", tmp_path)
-        file_discovery_mod.clear_source_file_cache_for_tests()
+        discovery_api_mod.clear_source_file_cache_for_tests()
     return _patch
 
 

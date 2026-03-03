@@ -6,8 +6,8 @@ Covers: __init__, common, imports, vars, logs, params, if_chain, useeffect.
 import textwrap
 
 from desloppify.languages.typescript.fixers import __all__
-from desloppify.languages.typescript.fixers.common import (
-    apply_fixer,
+from desloppify.languages.typescript.fixers.fixer_io import apply_fixer
+from desloppify.languages.typescript.fixers.syntax_scan import (
     collapse_blank_lines,
     extract_body_between_braces,
     find_balanced_end,

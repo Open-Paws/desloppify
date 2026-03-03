@@ -14,8 +14,8 @@ from .import_policy import (
 )
 from desloppify.intelligence.review.feedback_contract import (
     ASSESSMENT_FEEDBACK_THRESHOLD,
-    LOW_SCORE_FINDING_THRESHOLD,
-    score_requires_dimension_finding,
+    LOW_SCORE_ISSUE_THRESHOLD,
+    score_requires_dimension_issue,
     score_requires_explicit_feedback,
 )
 from desloppify.intelligence.review.dimensions.data import load_dimensions_for_lang
@@ -23,7 +23,7 @@ from desloppify.intelligence.review.importing.contracts import (
     AssessmentImportPolicyModel,
     ReviewIssuePayload,
     ReviewImportPayload,
-    validate_review_finding_payload,
+    validate_review_issue_payload,
 )
 from desloppify.state import coerce_assessment_score
 
@@ -227,7 +227,7 @@ def _has_non_empty_strings(items: object) -> bool:
     )
 
 
-def _validate_holistic_findings_schema(
+def _validate_holistic_issues_schema(
     issues_data: ReviewImportPayload,
     *,
     lang_name: str | None = None,
@@ -243,7 +243,7 @@ def _validate_holistic_findings_schema(
     errors: list[str] = []
     for idx, entry in enumerate(issues):
         _normalized: ReviewIssuePayload | None
-        _normalized, entry_errors = validate_review_finding_payload(
+        _normalized, entry_errors = validate_review_issue_payload(
             entry,
             label=f"issues[{idx}]",
             allowed_dimensions=allowed_dimensions or None,
@@ -263,7 +263,7 @@ def _validate_holistic_findings_schema(
     return errors
 
 
-def _feedback_dimensions_from_findings(issues: object) -> set[str]:
+def _feedback_dimensions_from_issues(issues: object) -> set[str]:
     """Return dimensions with explicit improvement guidance in issues payload."""
     if not isinstance(issues, list):
         return set()
@@ -304,33 +304,33 @@ def _validate_assessment_feedback(
     if not assessments:
         return [], []
 
-    finding_dims = _feedback_dimensions_from_findings(issues_data["issues"])
-    feedback_dims = set(finding_dims)
+    issue_dims = _feedback_dimensions_from_issues(issues_data["issues"])
+    feedback_dims = set(issue_dims)
     feedback_dims.update(
         _feedback_dimensions_from_dimension_notes(issues_data["dimension_notes"])
     )
     missing_feedback: list[str] = []
-    missing_low_score_findings: list[str] = []
+    missing_low_score_issues: list[str] = []
     for dim_name, payload in assessments.items():
         if not isinstance(dim_name, str) or not dim_name.strip():
             continue
         score = coerce_assessment_score(payload)
         if score is None:
             continue
-        if score_requires_dimension_finding(score) and dim_name not in finding_dims:
-            missing_low_score_findings.append(f"{dim_name} ({score:.1f})")
+        if score_requires_dimension_issue(score) and dim_name not in issue_dims:
+            missing_low_score_issues.append(f"{dim_name} ({score:.1f})")
         if score_requires_explicit_feedback(score) and dim_name not in feedback_dims:
             missing_feedback.append(f"{dim_name} ({score:.1f})")
-    return sorted(missing_feedback), sorted(missing_low_score_findings)
+    return sorted(missing_feedback), sorted(missing_low_score_issues)
 
 
 def _load_import_json(import_file: str) -> tuple[object | None, list[str]]:
     """Read import file and parse JSON payload."""
-    findings_path = Path(import_file)
-    if not findings_path.exists():
+    issues_path = Path(import_file)
+    if not issues_path.exists():
         return None, [f"file not found: {import_file}"]
     try:
-        return json.loads(findings_path.read_text()), []
+        return json.loads(issues_path.read_text()), []
     except (json.JSONDecodeError, OSError) as exc:
         return None, [f"error reading issues: {exc}"]
 
@@ -376,16 +376,16 @@ def _validate_feedback_requirements(
     override_attest: str | None,
 ) -> list[str]:
     """Validate feedback and low-score issue requirements."""
-    missing_feedback, missing_low_score_findings = _validate_assessment_feedback(issues_data)
-    if missing_low_score_findings:
+    missing_feedback, missing_low_score_issues = _validate_assessment_feedback(issues_data)
+    if missing_low_score_issues:
         if override_enabled:
             if not isinstance(override_attest, str) or not override_attest.strip():
                 return ["--manual-override requires --attest"]
             return []
         return [
-            f"assessments below {LOW_SCORE_FINDING_THRESHOLD:.1f} must include at "
+            f"assessments below {LOW_SCORE_ISSUE_THRESHOLD:.1f} must include at "
             "least one issue for that same dimension with a concrete suggestion. "
-            f"Missing: {', '.join(missing_low_score_findings)}"
+            f"Missing: {', '.join(missing_low_score_issues)}"
         ]
     if not missing_feedback:
         return []
@@ -408,7 +408,7 @@ def _validate_schema_requirements(
     allow_partial: bool,
 ) -> list[str]:
     """Validate holistic issue schema unless partial imports are enabled."""
-    schema_errors = _validate_holistic_findings_schema(issues_data, lang_name=lang_name)
+    schema_errors = _validate_holistic_issues_schema(issues_data, lang_name=lang_name)
     if not schema_errors or allow_partial:
         return []
     visible_errors = schema_errors[:10]
@@ -441,10 +441,10 @@ def _parse_and_validate_import(
     if normalized_root is None:
         return None, ["issues payload root normalization returned no data"]
 
-    normalized_findings_data, shape_errors = _normalize_import_payload_shape(normalized_root)
+    normalized_issues_data, shape_errors = _normalize_import_payload_shape(normalized_root)
     if shape_errors:
         return None, shape_errors
-    if normalized_findings_data is None:
+    if normalized_issues_data is None:
         return None, ["issues payload normalization returned no data"]
 
     override_enabled, override_attest = resolve_override_context(
@@ -461,7 +461,7 @@ def _parse_and_validate_import(
         return None, conflict_errors
 
     issues_data, policy_errors = apply_assessment_import_policy(
-        normalized_findings_data,
+        normalized_issues_data,
         import_file=import_file,
         attested_external=resolved_options.attested_external,
         attested_attest=override_attest,
@@ -494,7 +494,7 @@ def _parse_and_validate_import(
     return issues_data, []
 
 
-def load_import_findings_data(
+def load_import_issues_data(
     import_file: str,
     *,
     colorize_fn=None,

@@ -133,7 +133,7 @@ def auto_resolve_disappeared(
 
 def upsert_issues(
     existing: dict,
-    current_findings: list[dict],
+    current_issues: list[dict],
     ignore: list[str],
     now: str,
     *,
@@ -148,7 +148,7 @@ def upsert_issues(
     by_detector: dict[str, int] = {}
     changed_detectors: set[str] = set()
 
-    for issue in current_findings:
+    for issue in current_issues:
         issue_id = issue["id"]
         detector = issue.get("detector", "unknown")
         current_ids.add(issue_id)

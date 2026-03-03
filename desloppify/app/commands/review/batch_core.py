@@ -14,7 +14,7 @@ from desloppify.intelligence.review.feedback_contract import (
     HIGH_SCORE_ISSUES_NOTE_THRESHOLD,
     LEGACY_DIMENSION_NOTE_ISSUES_KEY,
     LEGACY_REVIEW_QUALITY_HIGH_SCORE_MISSING_ISSUES_KEY,
-    LOW_SCORE_FINDING_THRESHOLD,
+    LOW_SCORE_ISSUE_THRESHOLD,
     REVIEW_QUALITY_HIGH_SCORE_MISSING_ISSUES_KEY,
 )
 from desloppify.intelligence.review.issue_merge import (
@@ -25,7 +25,7 @@ from desloppify.intelligence.review.issue_merge import (
 )
 from desloppify.intelligence.review.importing.contracts import (
     ReviewIssuePayload,
-    validate_review_finding_payload,
+    validate_review_issue_payload,
 )
 
 _DIMENSION_SCORER = DimensionMergeScorer()
@@ -189,7 +189,7 @@ def _normalize_abstraction_sub_axes(
 
 
 def _normalize_issues(
-    raw_findings: object,
+    raw_issues: object,
     dimension_notes: dict[str, dict[str, Any]],
     *,
     max_batch_issues: int,
@@ -197,21 +197,21 @@ def _normalize_issues(
     low_score_dimensions: set[str] | None = None,
 ) -> list[NormalizedBatchIssue]:
     """Validate and normalize the issues array from a batch payload."""
-    if not isinstance(raw_findings, list):
+    if not isinstance(raw_issues, list):
         raise ValueError("issues must be an array")
 
     issues: list[NormalizedBatchIssue] = []
     errors: list[str] = []
-    for idx, item in enumerate(raw_findings):
+    for idx, item in enumerate(raw_issues):
         issue: ReviewIssuePayload | None
-        issue, finding_errors = validate_review_finding_payload(
+        issue, issue_errors = validate_review_issue_payload(
             item,
             label=f"issues[{idx}]",
             allowed_dimensions=allowed_dims,
             allow_dismissed=False,
         )
-        if finding_errors:
-            errors.extend(finding_errors)
+        if issue_errors:
+            errors.extend(issue_errors)
             continue
         assert issue is not None
 
@@ -291,7 +291,7 @@ def _low_score_dimensions(assessments: dict[str, float]) -> set[str]:
     return {
         dim
         for dim, score in assessments.items()
-        if score < LOW_SCORE_FINDING_THRESHOLD
+        if score < LOW_SCORE_ISSUE_THRESHOLD
     }
 
 
@@ -313,7 +313,7 @@ def _enforce_low_score_issues(
     joined = ", ".join(missing)
     raise ValueError(
         "low-score dimensions must include at least one explicit issue: "
-        f"{joined} (threshold {LOW_SCORE_FINDING_THRESHOLD:.1f})"
+        f"{joined} (threshold {LOW_SCORE_ISSUE_THRESHOLD:.1f})"
     )
 
 
@@ -474,7 +474,7 @@ def _accumulate_batch_scores(
     abstraction_sub_axes: tuple[str, ...],
 ) -> None:
     """Accumulate assessment scores, dimension notes, and sub-axis data from one batch."""
-    result_findings = result.get("issues", [])
+    result_issues = result.get("issues", [])
     result_notes = result.get("dimension_notes", {})
     for key, score in result.get("assessments", {}).items():
         if isinstance(score, bool):
@@ -482,7 +482,7 @@ def _accumulate_batch_scores(
         score_value = float(score)
         weight = assessment_weight(
             dimension=key,
-            issues=result_findings,
+            issues=result_issues,
             dimension_notes=result_notes,
         )
         score_buckets.setdefault(key, []).append((score_value, weight))
@@ -584,15 +584,15 @@ def _accumulate_batch_quality(
 def _compute_merged_assessments(
     score_buckets: dict[str, list[tuple[float, float]]],
     score_raw_by_dim: dict[str, list[float]],
-    finding_pressure_by_dim: dict[str, float],
-    finding_count_by_dim: dict[str, int],
+    issue_pressure_by_dim: dict[str, float],
+    issue_count_by_dim: dict[str, int],
 ) -> dict[str, float]:
     """Compute pressure-adjusted weighted mean for each dimension."""
     return _DIMENSION_SCORER.merge_scores(
         score_buckets,
         score_raw_by_dim,
-        finding_pressure_by_dim,
-        finding_count_by_dim,
+        issue_pressure_by_dim,
+        issue_count_by_dim,
     )
 
 

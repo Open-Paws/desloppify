@@ -6,15 +6,16 @@ from pathlib import Path
 import pytest
 
 import desloppify.languages.typescript.detectors.deps as deps_detector_mod
-import desloppify.utils as utils_mod
+import desloppify.languages.typescript.detectors.deps_resolve as deps_resolve_mod
+import desloppify.core.paths_api as paths_api_mod
 from desloppify.engine.detectors import orphaned as orphaned_detector_mod
 
 
 @pytest.fixture(autouse=True)
 def _root(tmp_path, set_project_root, monkeypatch):
     """Point PROJECT_ROOT at the tmp directory via RuntimeContext."""
-    monkeypatch.setattr(utils_mod, "SRC_PATH", tmp_path / "src")
-    deps_detector_mod._load_tsconfig_paths_cached.cache_clear()
+    monkeypatch.setattr(paths_api_mod, "SRC_PATH", tmp_path / "src")
+    deps_resolve_mod.load_tsconfig_paths_cached.cache_clear()
 
 
 def _write(tmp_path: Path, name: str, content: str) -> Path:

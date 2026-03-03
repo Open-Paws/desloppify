@@ -111,7 +111,7 @@ class TestScaleHelper:
 # ===========================================================================
 
 class TestIgnoreWarning:
-    def test_none_when_no_ignored_findings(self):
+    def test_none_when_no_ignored_issues(self):
         assert _scorecard_ignore_warning({"ignore_integrity": {"ignored": 0, "suppressed_pct": 80.0}}) is None
 
     def test_warning_when_suppression_medium(self):

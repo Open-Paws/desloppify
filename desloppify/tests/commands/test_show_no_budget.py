@@ -8,7 +8,7 @@ from desloppify.app.commands.show.scope import resolve_noise
 
 
 class TestNoBudgetFlag:
-    def test_no_budget_returns_all_findings(self):
+    def test_no_budget_returns_all_issues(self):
         """When no_budget=True, all matches are surfaced and nothing is hidden."""
         matches = [
             {"id": f"f{i}", "detector": "review", "summary": f"issue {i}"}

@@ -8,7 +8,7 @@ from desloppify.app.commands.helpers.display import short_issue_id
 from desloppify.core.exception_sets import PLAN_LOAD_EXCEPTIONS, CommandError
 from desloppify.core.output_api import colorize
 from desloppify.engine.plan import (
-    compute_new_finding_ids,
+    compute_new_issue_ids,
     is_triage_stale,
     load_plan,
     triage_phase_banner,
@@ -42,7 +42,7 @@ def triage_guardrail_status(
 
     new_ids: set[str] = set()
     if resolved_state:
-        new_ids = compute_new_finding_ids(resolved_plan, resolved_state)
+        new_ids = compute_new_issue_ids(resolved_plan, resolved_state)
 
     return TriageGuardrailResult(is_stale=True, new_ids=new_ids, _plan=resolved_plan)
 

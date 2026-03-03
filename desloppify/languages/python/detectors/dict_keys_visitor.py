@@ -110,7 +110,7 @@ def _record_call_interactions(visitor: DictKeyVisitor, node: ast.Call) -> None:
             _mark_returned_or_passed(visitor, kw.value)
 
 
-def _analyze_scope_findings(
+def _analyze_scope_issues(
     visitor: DictKeyVisitor,
     scope: dict[str, TrackedDict],
     func_name: str,
@@ -252,7 +252,7 @@ class DictKeyVisitor(ast.NodeVisitor):
         self._scopes: list[dict[str, TrackedDict]] = []
         self._class_dicts: dict[str, TrackedDict] = {}  # self.x dicts
         self._in_init_or_setup = False
-        self._findings: list[dict] = []
+        self._issues: list[dict] = []
         self._dict_literals: list[dict] = []  # for schema drift
 
     def _current_scope(self) -> dict[str, TrackedDict]:
@@ -291,7 +291,7 @@ class DictKeyVisitor(ast.NodeVisitor):
         self._scopes.append({})
         self.generic_visit(node)
         scope = self._scopes.pop()
-        self._findings.extend(_analyze_scope_findings(self, scope, node.name))
+        self._issues.extend(_analyze_scope_issues(self, scope, node.name))
         self._in_init_or_setup = prev_init
 
     visit_AsyncFunctionDef = visit_FunctionDef
@@ -300,8 +300,8 @@ class DictKeyVisitor(ast.NodeVisitor):
         prev_class_dicts = self._class_dicts
         self._class_dicts = {}
         self.generic_visit(node)
-        self._findings.extend(
-            _analyze_scope_findings(
+        self._issues.extend(
+            _analyze_scope_issues(
                 self,
                 self._class_dicts,
                 f"class {node.name}",

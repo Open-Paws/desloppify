@@ -132,8 +132,8 @@ class TestCmdReviewPrepare:
                 "suggestion": "consolidate coupling points",
             }
         ]
-        findings_file = tmp_path / "issues.json"
-        findings_file.write_text(json.dumps(issues))
+        issues_file = tmp_path / "issues.json"
+        issues_file.write_text(json.dumps(issues))
 
         saved = {}
 
@@ -146,7 +146,7 @@ class TestCmdReviewPrepare:
 
         # save_state is imported lazily: from ..state import save_state
         with patch("desloppify.state.save_state", mock_save):
-            _do_import(str(findings_file), empty_state, lang, "fake_sp")
+            _do_import(str(issues_file), empty_state, lang, "fake_sp")
 
         assert saved["sp"] == "fake_sp"
         assert len(empty_state["issues"]) == 1
@@ -244,7 +244,7 @@ class TestCmdReviewPrepare:
 
         assert captured_limit["max_files_per_batch"] == 17
 
-    def test_do_import_untrusted_assessment_only_payload_imports_findings_only(self, empty_state, tmp_path):
+    def test_do_import_untrusted_assessment_only_payload_imports_issues_only(self, empty_state, tmp_path):
         from unittest.mock import MagicMock
 
         from desloppify.app.commands.review.import_cmd import do_import as _do_import
@@ -257,16 +257,16 @@ class TestCmdReviewPrepare:
             "assessments": {"naming_quality": 40, "logic_clarity": 40},
             "issues": [],
         }
-        findings_file = tmp_path / "findings_integrity_block.json"
-        findings_file.write_text(json.dumps(payload))
+        issues_file = tmp_path / "issues_integrity_block.json"
+        issues_file.write_text(json.dumps(payload))
 
         lang = MagicMock()
         lang.name = "typescript"
 
-        _do_import(str(findings_file), empty_state, lang, tmp_path / "state.json")
+        _do_import(str(issues_file), empty_state, lang, tmp_path / "state.json")
         assert empty_state["subjective_assessments"]["naming_quality"]["score"] == 90
         audit = empty_state.get("assessment_import_audit", [])
-        assert audit and audit[-1]["mode"] == "findings_only"
+        assert audit and audit[-1]["mode"] == "issues_only"
 
     def test_do_import_allows_override_with_note(self, empty_state, tmp_path):
         from unittest.mock import MagicMock, patch
@@ -281,8 +281,8 @@ class TestCmdReviewPrepare:
             "assessments": {"naming_quality": 40, "logic_clarity": 40},
             "issues": [],
         }
-        findings_file = tmp_path / "findings_integrity_override.json"
-        findings_file.write_text(json.dumps(payload))
+        issues_file = tmp_path / "issues_integrity_override.json"
+        issues_file.write_text(json.dumps(payload))
 
         saved = {}
 
@@ -295,7 +295,7 @@ class TestCmdReviewPrepare:
 
         with patch("desloppify.state.save_state", mock_save):
             _do_import(
-                str(findings_file),
+                str(issues_file),
                 empty_state,
                 lang,
                 "fake_sp",
@@ -330,15 +330,15 @@ class TestCmdReviewPrepare:
             "assessments": {"naming_quality": 40},
             "issues": [],
         }
-        findings_file = tmp_path / "findings_invalid_combo.json"
-        findings_file.write_text(json.dumps(payload))
+        issues_file = tmp_path / "issues_invalid_combo.json"
+        issues_file.write_text(json.dumps(payload))
 
         lang = MagicMock()
         lang.name = "typescript"
 
         with pytest.raises(CommandError):
             _do_import(
-                str(findings_file),
+                str(issues_file),
                 empty_state,
                 lang,
                 tmp_path / "state.json",
@@ -365,14 +365,14 @@ class TestCmdReviewPrepare:
             "assessments": {"naming_quality": 100},
             "issues": [],
         }
-        findings_file = tmp_path / "findings_trusted_internal.json"
-        findings_file.write_text(json.dumps(payload))
+        issues_file = tmp_path / "issues_trusted_internal.json"
+        issues_file.write_text(json.dumps(payload))
 
         lang = MagicMock()
         lang.name = "typescript"
 
         _do_import(
-            str(findings_file),
+            str(issues_file),
             empty_state,
             lang,
             tmp_path / "state.json",
@@ -429,14 +429,14 @@ class TestCmdReviewPrepare:
             "assessments": {"logic_clarity": 100},
             "issues": [],
         }
-        findings_file = tmp_path / "findings_rebase.json"
-        findings_file.write_text(json.dumps(payload))
+        issues_file = tmp_path / "issues_rebase.json"
+        issues_file.write_text(json.dumps(payload))
 
         lang = MagicMock()
         lang.name = "typescript"
 
         _do_import(
-            str(findings_file),
+            str(issues_file),
             stale_state,
             lang,
             state_file,
@@ -450,7 +450,7 @@ class TestCmdReviewPrepare:
         assert "naming_quality" not in assessments
         audit = stale_state.get("assessment_import_audit", [])
         assert len(audit) == 2
-        assert audit[-1]["import_file"] == str(findings_file)
+        assert audit[-1]["import_file"] == str(issues_file)
 
     def test_attested_external_import_applies_durable_assessment(
         self, empty_state, tmp_path
@@ -475,14 +475,14 @@ class TestCmdReviewPrepare:
                 "packet_sha256": packet_hash,
             },
         }
-        findings_file = tmp_path / "findings_attested_external.json"
-        findings_file.write_text(json.dumps(payload))
+        issues_file = tmp_path / "issues_attested_external.json"
+        issues_file.write_text(json.dumps(payload))
 
         lang = MagicMock()
         lang.name = "typescript"
 
         _do_import(
-            str(findings_file),
+            str(issues_file),
             empty_state,
             lang,
             tmp_path / "state.json",
@@ -520,14 +520,14 @@ class TestCmdReviewPrepare:
                 "packet_sha256": packet_hash,
             },
         }
-        findings_file = tmp_path / "validate_findings.json"
-        findings_file.write_text(json.dumps(payload))
+        issues_file = tmp_path / "validate_issues.json"
+        issues_file.write_text(json.dumps(payload))
 
         lang = MagicMock()
         lang.name = "typescript"
 
         _do_validate_import(
-            str(findings_file),
+            str(issues_file),
             lang,
             attested_external=True,
             manual_attest=(
@@ -548,14 +548,14 @@ class TestCmdReviewPrepare:
             "assessments": {"naming_quality": 88},
             "issues": [],
         }
-        findings_file = tmp_path / "validate_invalid_combo.json"
-        findings_file.write_text(json.dumps(payload))
+        issues_file = tmp_path / "validate_invalid_combo.json"
+        issues_file.write_text(json.dumps(payload))
         lang = MagicMock()
         lang.name = "typescript"
 
         with pytest.raises(CommandError):
             _do_validate_import(
-                str(findings_file),
+                str(issues_file),
                 lang,
                 manual_override=True,
                 manual_attest="operator note",
@@ -589,7 +589,7 @@ class TestCmdReviewPrepare:
         with pytest.raises(CommandError):
             _do_import(str(bad_file), empty_state, lang, "sp")
 
-    def test_do_import_fails_closed_on_skipped_findings(self, empty_state, tmp_path):
+    def test_do_import_fails_closed_on_skipped_issues(self, empty_state, tmp_path):
         payload = {
             "assessments": {"cross_module_architecture": 95},
             "issues": [
@@ -604,15 +604,15 @@ class TestCmdReviewPrepare:
                 }
             ],
         }
-        findings_file = tmp_path / "partial.json"
-        findings_file.write_text(json.dumps(payload))
+        issues_file = tmp_path / "partial.json"
+        issues_file.write_text(json.dumps(payload))
 
         lang = MagicMock()
         lang.name = "typescript"
 
         with patch("desloppify.state.save_state") as mock_save:
             with pytest.raises(CommandError):
-                _do_import(str(findings_file), empty_state, lang, "sp")
+                _do_import(str(issues_file), empty_state, lang, "sp")
         assert mock_save.called is False
         assert empty_state.get("subjective_assessments", {}) == {}
         assert empty_state.get("issues", {}) == {}
@@ -634,15 +634,15 @@ class TestCmdReviewPrepare:
                 }
             ],
         }
-        findings_file = tmp_path / "partial_allowed.json"
-        findings_file.write_text(json.dumps(payload))
+        issues_file = tmp_path / "partial_allowed.json"
+        issues_file.write_text(json.dumps(payload))
 
         lang = MagicMock()
         lang.name = "typescript"
 
         with patch("desloppify.state.save_state") as mock_save:
             _do_import(
-                str(findings_file),
+                str(issues_file),
                 empty_state,
                 lang,
                 "sp",
@@ -651,7 +651,7 @@ class TestCmdReviewPrepare:
         assert mock_save.called is True
         assert empty_state.get("subjective_assessments", {}) == {}
         audit = empty_state.get("assessment_import_audit", [])
-        assert audit and audit[-1]["mode"] == "findings_only"
+        assert audit and audit[-1]["mode"] == "issues_only"
 
     def test_do_run_batches_dry_run_generates_packet_and_prompts(
         self,
@@ -2407,20 +2407,20 @@ class TestSetupLang:
 
 class TestUpdateReviewCache:
     def test_cache_created_from_scratch(
-        self, empty_state, sample_findings_data, tmp_path
+        self, empty_state, sample_issues_data, tmp_path
     ):
         (tmp_path / "src").mkdir(exist_ok=True)
         (tmp_path / "src" / "foo.ts").write_text("content")
         (tmp_path / "src" / "bar.ts").write_text("content")
         update_review_cache(
             empty_state,
-            sample_findings_data,
+            sample_issues_data,
             project_root=tmp_path,
         )
         assert "review_cache" in empty_state
         assert "files" in empty_state["review_cache"]
 
-    def test_cache_survives_partial_review_cache(self, sample_findings_data, tmp_path):
+    def test_cache_survives_partial_review_cache(self, sample_issues_data, tmp_path):
         """If review_cache exists without files key, shouldn't crash."""
         state = {"review_cache": {}}  # No "files" key
         (tmp_path / "src").mkdir(exist_ok=True)
@@ -2428,7 +2428,7 @@ class TestUpdateReviewCache:
         (tmp_path / "src" / "bar.ts").write_text("content")
         update_review_cache(
             state,
-            sample_findings_data,
+            sample_issues_data,
             project_root=tmp_path,
         )
         assert "files" in state["review_cache"]

@@ -7,10 +7,7 @@ from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _PACKAGE_ROOT = _PROJECT_ROOT / "desloppify"
-_ALLOWED_COMPAT_MODULES = {
-    "desloppify/utils.py",
-    "desloppify/file_discovery.py",
-}
+_ALLOWED_COMPAT_MODULES: set[str] = set()
 
 
 def _runtime_python_files() -> list[tuple[Path, str]]:

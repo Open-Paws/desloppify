@@ -26,7 +26,7 @@ from desloppify.engine._work_queue.ranking import item_sort_key
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _finding(fid: str, detector: str = "unused", tier: int = 1,
+def _issue(fid: str, detector: str = "unused", tier: int = 1,
              file: str = "test.py", detail: dict | None = None) -> dict:
     return {
         "id": fid,
@@ -53,7 +53,7 @@ def _state_with(*issues: dict) -> dict:
 
 def test_grouping_key_auto_fix():
     from desloppify.core.registry import DETECTORS
-    f = _finding("a", "unused")
+    f = _issue("a", "unused")
     meta = DETECTORS.get("unused")
     key = _grouping_key(f, meta)
     assert key == "auto::unused"
@@ -61,7 +61,7 @@ def test_grouping_key_auto_fix():
 
 def test_grouping_key_review():
     from desloppify.core.registry import DETECTORS
-    f = _finding("a", "review", detail={"dimension": "abstraction_fitness"})
+    f = _issue("a", "review", detail={"dimension": "abstraction_fitness"})
     meta = DETECTORS.get("review")
     key = _grouping_key(f, meta)
     assert key == "review::abstraction_fitness"
@@ -69,7 +69,7 @@ def test_grouping_key_review():
 
 def test_grouping_key_needs_judgment_with_kind():
     from desloppify.core.registry import DETECTORS
-    f = _finding("a", "dict_keys", detail={"kind": "phantom_read"})
+    f = _issue("a", "dict_keys", detail={"kind": "phantom_read"})
     meta = DETECTORS.get("dict_keys")
     key = _grouping_key(f, meta)
     assert key == "typed::dict_keys::phantom_read"
@@ -77,14 +77,14 @@ def test_grouping_key_needs_judgment_with_kind():
 
 def test_grouping_key_structural():
     from desloppify.core.registry import DETECTORS
-    f = _finding("a", "structural", file="src/big_file.py")
+    f = _issue("a", "structural", file="src/big_file.py")
     meta = DETECTORS.get("structural")
     key = _grouping_key(f, meta)
     assert key == "file::structural::big_file.py"
 
 
 def test_grouping_key_unknown_detector():
-    f = _finding("a", "totally_unknown")
+    f = _issue("a", "totally_unknown")
     key = _grouping_key(f, None)
     assert key == "detector::totally_unknown"
 
@@ -113,12 +113,12 @@ def test_cluster_name_review():
 # auto_cluster_issues — core behavior
 # ---------------------------------------------------------------------------
 
-def test_auto_cluster_creates_cluster_from_findings():
+def test_auto_cluster_creates_cluster_from_issues():
     plan = empty_plan()
     state = _state_with(
-        _finding("u1", "unused"),
-        _finding("u2", "unused"),
-        _finding("u3", "unused"),
+        _issue("u1", "unused"),
+        _issue("u2", "unused"),
+        _issue("u3", "unused"),
     )
 
     changes = auto_cluster_issues(plan, state)
@@ -133,8 +133,8 @@ def test_auto_cluster_creates_cluster_from_findings():
 def test_auto_cluster_skips_singletons():
     plan = empty_plan()
     state = _state_with(
-        _finding("u1", "unused"),
-        _finding("s1", "security"),  # only one security issue
+        _issue("u1", "unused"),
+        _issue("s1", "security"),  # only one security issue
     )
 
     auto_cluster_issues(plan, state)
@@ -145,8 +145,8 @@ def test_auto_cluster_skips_singletons():
 
 def test_auto_cluster_skips_non_open():
     plan = empty_plan()
-    f1 = _finding("u1", "unused")
-    f2 = _finding("u2", "unused")
+    f1 = _issue("u1", "unused")
+    f2 = _issue("u2", "unused")
     f2["status"] = "resolved"
     state = _state_with(f1, f2)
 
@@ -156,8 +156,8 @@ def test_auto_cluster_skips_non_open():
 
 def test_auto_cluster_skips_suppressed():
     plan = empty_plan()
-    f1 = _finding("u1", "unused")
-    f2 = _finding("u2", "unused")
+    f1 = _issue("u1", "unused")
+    f2 = _issue("u2", "unused")
     f2["suppressed"] = True
     state = _state_with(f1, f2)
 
@@ -173,8 +173,8 @@ def test_auto_cluster_skips_manual_cluster_members():
     add_to_cluster(plan, "my-cluster", ["u1"])
 
     state = _state_with(
-        _finding("u1", "unused"),
-        _finding("u2", "unused"),
+        _issue("u1", "unused"),
+        _issue("u2", "unused"),
     )
 
     auto_cluster_issues(plan, state)
@@ -185,16 +185,16 @@ def test_auto_cluster_skips_manual_cluster_members():
 def test_auto_cluster_replaces_membership_on_rescan():
     plan = empty_plan()
     state = _state_with(
-        _finding("u1", "unused"),
-        _finding("u2", "unused"),
+        _issue("u1", "unused"),
+        _issue("u2", "unused"),
     )
     auto_cluster_issues(plan, state)
     assert set(plan["clusters"]["auto/unused"]["issue_ids"]) == {"u1", "u2"}
 
     # Rescan: u2 gone, u3 added
     state2 = _state_with(
-        _finding("u1", "unused"),
-        _finding("u3", "unused"),
+        _issue("u1", "unused"),
+        _issue("u3", "unused"),
     )
     changes = auto_cluster_issues(plan, state2)
     assert changes >= 1
@@ -204,8 +204,8 @@ def test_auto_cluster_replaces_membership_on_rescan():
 def test_auto_cluster_user_modified_merges():
     plan = empty_plan()
     state = _state_with(
-        _finding("u1", "unused"),
-        _finding("u2", "unused"),
+        _issue("u1", "unused"),
+        _issue("u2", "unused"),
     )
     auto_cluster_issues(plan, state)
     # Simulate user removing u2 — sets user_modified
@@ -214,9 +214,9 @@ def test_auto_cluster_user_modified_merges():
 
     # Rescan: u2 still there, u3 added
     state2 = _state_with(
-        _finding("u1", "unused"),
-        _finding("u2", "unused"),
-        _finding("u3", "unused"),
+        _issue("u1", "unused"),
+        _issue("u2", "unused"),
+        _issue("u3", "unused"),
     )
     auto_cluster_issues(plan, state2)
     # user_modified: merges new issues in, doesn't replace
@@ -228,8 +228,8 @@ def test_auto_cluster_user_modified_merges():
 def test_auto_cluster_deletes_stale():
     plan = empty_plan()
     state = _state_with(
-        _finding("u1", "unused"),
-        _finding("u2", "unused"),
+        _issue("u1", "unused"),
+        _issue("u2", "unused"),
     )
     auto_cluster_issues(plan, state)
     assert "auto/unused" in plan["clusters"]
@@ -244,9 +244,9 @@ def test_auto_cluster_deletes_stale():
 def test_auto_cluster_no_tier_on_cluster():
     plan = empty_plan()
     state = _state_with(
-        _finding("a", "unused", tier=2),
-        _finding("b", "unused", tier=1),
-        _finding("c", "unused", tier=3),
+        _issue("a", "unused", tier=2),
+        _issue("b", "unused", tier=1),
+        _issue("c", "unused", tier=3),
     )
     auto_cluster_issues(plan, state)
     # Clusters should not carry a tier field
@@ -310,17 +310,17 @@ def test_collapse_clusters_skips_manual():
     assert all(i["kind"] == "issue" for i in result)
 
 
-def test_cluster_sort_key_before_findings():
+def test_cluster_sort_key_before_issues():
     cluster_item = {
         "kind": "cluster", "action_type": "auto_fix",
         "member_count": 5, "id": "auto/unused",
     }
-    finding_item = {
+    issue_item = {
         "kind": "issue", "tier": 1,
         "confidence": "high", "detector": "unused", "detail": {},
         "id": "some-issue",
     }
-    assert item_sort_key(cluster_item) < item_sort_key(finding_item)
+    assert item_sort_key(cluster_item) < item_sort_key(issue_item)
 
 
 def test_cluster_sort_auto_fix_before_refactor():
@@ -373,8 +373,8 @@ def test_ensure_plan_defaults_adds_cluster_fields():
 
 def test_build_work_queue_collapses_clusters():
     state = _state_with(
-        _finding("u1", "unused", tier=1),
-        _finding("u2", "unused", tier=1),
+        _issue("u1", "unused", tier=1),
+        _issue("u2", "unused", tier=1),
     )
     plan = empty_plan()
     auto_cluster_issues(plan, state)
@@ -395,8 +395,8 @@ def test_build_work_queue_collapses_clusters():
 
 def test_build_work_queue_no_collapse_when_drilling():
     state = _state_with(
-        _finding("u1", "unused", tier=1),
-        _finding("u2", "unused", tier=1),
+        _issue("u1", "unused", tier=1),
+        _issue("u2", "unused", tier=1),
     )
     plan = empty_plan()
     auto_cluster_issues(plan, state)
@@ -583,7 +583,7 @@ def _stale_state(*dim_keys: str, score: float = 50.0) -> dict:
         assessments[dim_key] = {
             "score": score,
             "needs_review_refresh": True,
-            "refresh_reason": "mechanical_findings_changed",
+            "refresh_reason": "mechanical_issues_changed",
             "stale_since": "2025-01-01T00:00:00+00:00",
         }
     return {
@@ -844,8 +844,8 @@ def test_under_target_evicted_when_objective_backlog_returns():
     state_with_obj = {
         **ut,
         "issues": {
-            "u1": _finding("u1", "unused"),
-            "u2": _finding("u2", "unused"),
+            "u1": _issue("u1", "unused"),
+            "u2": _issue("u2", "unused"),
         },
     }
     auto_cluster_issues(plan, state_with_obj)
@@ -885,8 +885,8 @@ def test_under_target_lifecycle_inject_then_evict():
     state_obj = {
         **ut,
         "issues": {
-            "u1": _finding("u1", "unused"),
-            "u2": _finding("u2", "unused"),
+            "u1": _issue("u1", "unused"),
+            "u2": _issue("u2", "unused"),
         },
     }
     changes = auto_cluster_issues(plan, state_obj)

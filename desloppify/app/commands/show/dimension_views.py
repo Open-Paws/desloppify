@@ -77,7 +77,7 @@ def _render_clean_mechanical_dimension(state: dict, entity) -> None:
     )
 
 
-def _load_dimension_findings(
+def _load_dimension_issues(
     state: dict,
     entity,
     status_filter: str,
@@ -140,7 +140,7 @@ def _render_subjective_views_guide(entity) -> None:
 
 
 __all__ = [
-    "_load_dimension_findings",
+    "_load_dimension_issues",
     "_print_dimension_score",
     "_render_clean_mechanical_dimension",
     "_render_no_matches",

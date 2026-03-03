@@ -53,7 +53,7 @@ def test_csharp_full_profile_keeps_subjective_review():
     assert "subjective_review" in potentials
 
 
-def test_csharp_signal_rich_fixture_emits_meaningful_findings(tmp_path):
+def test_csharp_signal_rich_fixture_emits_meaningful_issues(tmp_path):
     fixture = (Path("desloppify") / "tests" / "fixtures" / "csharp" / "signal_rich").resolve()
     path = (tmp_path / "signal_rich").resolve()
     shutil.copytree(fixture, path)
@@ -85,14 +85,14 @@ def test_csharp_signal_rich_fixture_emits_meaningful_findings(tmp_path):
     assert "import_count" in single_use["detail"]
 
 
-def test_csharp_signal_rich_fixture_findings_are_deterministic(tmp_path):
+def test_csharp_signal_rich_fixture_issues_are_deterministic(tmp_path):
     fixture = (Path("desloppify") / "tests" / "fixtures" / "csharp" / "signal_rich").resolve()
     path = (tmp_path / "signal_rich").resolve()
     shutil.copytree(fixture, path)
 
     cfg_a = CSharpConfig()
     cfg_a.get_area = _signal_rich_area
-    findings_a, _ = generate_issues(
+    issues_a, _ = generate_issues(
         path,
         lang=cfg_a,
         options=PlanScanOptions(include_slow=False, profile="objective"),
@@ -100,7 +100,7 @@ def test_csharp_signal_rich_fixture_findings_are_deterministic(tmp_path):
 
     cfg_b = CSharpConfig()
     cfg_b.get_area = _signal_rich_area
-    findings_b, _ = generate_issues(
+    issues_b, _ = generate_issues(
         path,
         lang=cfg_b,
         options=PlanScanOptions(include_slow=False, profile="objective"),
@@ -119,7 +119,7 @@ def test_csharp_signal_rich_fixture_findings_are_deterministic(tmp_path):
             for f in issues
         )
 
-    assert _stable_projection(findings_a) == _stable_projection(findings_b)
+    assert _stable_projection(issues_a) == _stable_projection(issues_b)
 
 
 def test_csharp_actionability_gate_downgrades_without_corroboration():

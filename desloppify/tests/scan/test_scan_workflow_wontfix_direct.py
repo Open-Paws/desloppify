@@ -12,7 +12,7 @@ from desloppify.app.commands.scan.scan_workflow import (
 )
 
 
-def test_stale_wontfix_adds_decay_and_drift_finding(tmp_path, monkeypatch):
+def test_stale_wontfix_adds_decay_and_drift_issue(tmp_path, monkeypatch):
     monkeypatch.setattr(scan_workflow_mod, "PROJECT_ROOT", tmp_path)
 
     runtime = ScanRuntime(

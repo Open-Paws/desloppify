@@ -8,7 +8,7 @@ from desloppify.app.commands.helpers.guardrails import print_triage_guardrail_in
 from desloppify.app.commands.helpers.runtime import command_runtime
 from desloppify.app.commands.helpers.state import require_completed_scan
 from desloppify.core.output_api import colorize, print_table
-from desloppify.engine.plan import compute_new_finding_ids, load_plan
+from desloppify.engine.plan import compute_new_issue_ids, load_plan
 from desloppify.engine._work_queue.plan_order import collapse_clusters
 from desloppify.engine.work_queue import QueueBuildOptions, build_work_queue
 
@@ -162,7 +162,7 @@ def cmd_plan_queue(args: argparse.Namespace) -> None:
     sort_by = getattr(args, "sort", "priority")
     all_new_ids: set[str] = queue.get("new_ids", set())
     # Merge review-based new issue IDs (since last triage)
-    review_new_ids = compute_new_finding_ids(plan, state)
+    review_new_ids = compute_new_issue_ids(plan, state)
     all_new_ids = all_new_ids | review_new_ids
     item_ids = {it.get("id") for it in items}
     new_ids = all_new_ids & item_ids

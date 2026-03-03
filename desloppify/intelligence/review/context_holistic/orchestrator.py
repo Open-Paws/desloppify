@@ -138,5 +138,5 @@ def _enrich_sections_from_evidence(
         context.conventions["duplicate_clusters"] = evidence["duplicate_clusters"]
     if "naming_drift" in evidence:
         context.conventions["naming_drift"] = evidence["naming_drift"]
-    if "flat_dir_findings" in evidence:
-        context.structure["flat_dir_findings"] = evidence["flat_dir_findings"]
+    if "flat_dir_issues" in evidence:
+        context.structure["flat_dir_issues"] = evidence["flat_dir_issues"]

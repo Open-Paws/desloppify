@@ -10,8 +10,8 @@ from desloppify.tests.review.shared_review_fixtures import (
     empty_state,
     mock_lang,
     mock_lang_with_zones,
-    sample_findings_data,
-    state_with_findings,
+    sample_issues_data,
+    state_with_issues,
 )
 
 
@@ -25,6 +25,6 @@ __all__ = [
     "empty_state",
     "mock_lang",
     "mock_lang_with_zones",
-    "sample_findings_data",
-    "state_with_findings",
+    "sample_issues_data",
+    "state_with_issues",
 ]

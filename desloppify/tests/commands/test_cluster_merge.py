@@ -48,7 +48,7 @@ def _plan_with_clusters():
 # ---------------------------------------------------------------------------
 
 class TestMergeClusters:
-    def test_merge_moves_findings(self):
+    def test_merge_moves_issues(self):
         """All source issues are moved to target."""
         plan = _plan_with_clusters()
         added, source_ids = merge_clusters(plan, "source-cluster", "target-cluster")

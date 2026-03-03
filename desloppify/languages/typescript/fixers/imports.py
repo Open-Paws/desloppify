@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from .common import apply_fixer, process_unused_import_lines
+from .fixer_io import apply_fixer
+from .import_rewrite import process_unused_import_lines
 
 
 def fix_unused_imports(entries: list[dict], *, dry_run: bool = False) -> list[dict]:

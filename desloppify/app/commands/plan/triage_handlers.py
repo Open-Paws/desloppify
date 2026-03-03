@@ -43,7 +43,7 @@ from desloppify.engine.plan import (
     extract_issue_citations,
     load_plan,
     purge_ids,
-    review_finding_snapshot_hash,
+    review_issue_snapshot_hash,
     save_plan,
 )
 from desloppify.state import utc_now
@@ -256,10 +256,10 @@ def _apply_completion(args: argparse.Namespace, plan: dict, strategy: str) -> No
     # Purge all triage stage IDs.
     purge_ids(plan, list(TRIAGE_IDS))
 
-    current_hash = review_finding_snapshot_hash(state)
+    current_hash = review_issue_snapshot_hash(state)
 
     meta = plan.setdefault("epic_triage_meta", {})
-    meta["finding_snapshot_hash"] = current_hash
+    meta["issue_snapshot_hash"] = current_hash
     open_review_ids = sorted(
         fid for fid, f in state.get("issues", {}).items()
         if f.get("status") == "open" and f.get("detector") in ("review", "concerns")
@@ -1025,8 +1025,8 @@ def _cmd_confirm_existing(args: argparse.Namespace) -> None:
         print()
 
     # Require existing enriched clusters
-    clusters_with_findings = _manual_clusters_with_issues(plan)
-    if not clusters_with_findings:
+    clusters_with_issues = _manual_clusters_with_issues(plan)
+    if not clusters_with_issues:
         print(colorize("  Cannot confirm existing: no clusters with issues exist.", "red"))
         print(colorize("  Use the full organize flow instead.", "dim"))
         return
@@ -1091,7 +1091,7 @@ def _cmd_confirm_existing(args: argparse.Namespace) -> None:
         "report": f"[confirmed-existing] {note}",
         "cited_ids": [],
         "timestamp": utc_now(),
-        "issue_count": len(clusters_with_findings),
+        "issue_count": len(clusters_with_issues),
         "confirmed_at": utc_now(),
         "confirmed_text": confirmed.strip(),
     }

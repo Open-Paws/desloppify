@@ -36,7 +36,7 @@ def _lang_from_capabilities(state: dict) -> str | None:
     return None
 
 
-def _lang_from_findings(state: dict) -> str | None:
+def _lang_from_issues(state: dict) -> str | None:
     issues = state.get("issues")
     if not isinstance(issues, dict):
         return None
@@ -59,7 +59,7 @@ def resolve_scorecard_lang(state: dict) -> str | None:
     return (
         _lang_from_scan_history(state)
         or _lang_from_capabilities(state)
-        or _lang_from_findings(state)
+        or _lang_from_issues(state)
     )
 
 

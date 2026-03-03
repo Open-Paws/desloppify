@@ -43,7 +43,7 @@ def group_matches_by_file(matches: list[dict]) -> list[tuple[str, list]]:
     return sorted(by_file.items(), key=lambda item: -len(item[1]))
 
 
-def _print_single_finding(issue: dict, *, show_code: bool) -> None:
+def _print_single_issue(issue: dict, *, show_code: bool) -> None:
     """Render a single issue to terminal."""
     normalized_status = canonical_issue_status(issue.get("status"))
     status_icon = {
@@ -83,7 +83,7 @@ def _print_single_finding(issue: dict, *, show_code: bool) -> None:
     print(colorize(f"      {issue['id']}", "dim"))
 
 
-def render_findings(
+def render_issues(
     matches: list[dict],
     *,
     pattern: str,
@@ -126,7 +126,7 @@ def render_findings(
 
     shown_files = sorted_files[:top]
     remaining_files = sorted_files[top:]
-    remaining_findings = sum(len(files) for _, files in remaining_files)
+    remaining_issues = sum(len(files) for _, files in remaining_files)
 
     for filepath, issues in shown_files:
         issues.sort(
@@ -142,15 +142,15 @@ def render_findings(
         )
 
         for issue in issues:
-            _print_single_finding(issue, show_code=show_code)
+            _print_single_issue(issue, show_code=show_code)
         print()
 
-    if remaining_findings:
+    if remaining_issues:
         print(
             colorize(
                 (
                     f"  ... and {len(remaining_files)} more files "
-                    f"({remaining_findings} issues). "
+                    f"({remaining_issues} issues). "
                     f"Use --top {top + 20} to see more.\n"
                 ),
                 "dim",
@@ -280,7 +280,7 @@ def show_subjective_followup(
 
 __all__ = [
     "group_matches_by_file",
-    "render_findings",
+    "render_issues",
     "show_agent_plan",
     "show_subjective_followup",
     "write_show_output_file",

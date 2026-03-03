@@ -36,8 +36,8 @@ class TestDefaultConfig:
         assert cfg["holistic_max_age_days"] == 30
         assert cfg["generate_scorecard"] is True
         assert cfg["badge_path"] == "scorecard.png"
-        assert cfg["finding_noise_budget"] == 10
-        assert cfg["finding_noise_global_budget"] == 0
+        assert cfg["issue_noise_budget"] == 10
+        assert cfg["issue_noise_global_budget"] == 0
         assert cfg["languages"] == {}
         assert cfg["exclude"] == []
         assert cfg["ignore"] == []
@@ -132,13 +132,13 @@ class TestSetConfigValue:
 
     def test_set_noise_budget_int(self):
         cfg = default_config()
-        set_config_value(cfg, "finding_noise_budget", "25")
-        assert cfg["finding_noise_budget"] == 25
+        set_config_value(cfg, "issue_noise_budget", "25")
+        assert cfg["issue_noise_budget"] == 25
 
     def test_set_noise_global_budget_int(self):
         cfg = default_config()
-        set_config_value(cfg, "finding_noise_global_budget", "50")
-        assert cfg["finding_noise_global_budget"] == 50
+        set_config_value(cfg, "issue_noise_global_budget", "50")
+        assert cfg["issue_noise_global_budget"] == 50
 
     def test_set_never(self):
         cfg = default_config()

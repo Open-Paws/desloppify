@@ -163,7 +163,7 @@ class TestBuildTree:
         assert leaf["fan_in"] == 3
         assert leaf["fan_out"] == 5
 
-    def test_findings_overlay(self):
+    def test_issues_overlay(self):
         files = [self._file("src/foo.ts")]
         issues = {
             "src/foo.ts": [
@@ -174,9 +174,9 @@ class TestBuildTree:
         }
         tree = _build_tree(files, {}, issues)
         leaf = tree["children"][0]
-        assert leaf["findings_total"] == 3
-        assert leaf["findings_open"] == 2
-        assert len(leaf["finding_summaries"]) == 2
+        assert leaf["issues_total"] == 3
+        assert leaf["issues_open"] == 2
+        assert len(leaf["issue_summaries"]) == 2
 
     def test_children_converted_to_arrays(self):
         """After _build_tree, children should be lists, not dicts."""
@@ -225,7 +225,7 @@ class TestAggregate:
         leaf = {
             "name": "foo.ts",
             "loc": 100,
-            "findings_open": 3,
+            "issues_open": 3,
             "fan_in": 2,
             "fan_out": 5,
         }
@@ -242,14 +242,14 @@ class TestAggregate:
                 {
                     "name": "a.ts",
                     "loc": 50,
-                    "findings_open": 1,
+                    "issues_open": 1,
                     "fan_in": 0,
                     "fan_out": 0,
                 },
                 {
                     "name": "b.ts",
                     "loc": 30,
-                    "findings_open": 2,
+                    "issues_open": 2,
                     "fan_in": 3,
                     "fan_out": 4,
                 },
@@ -271,14 +271,14 @@ class TestAggregate:
                         {
                             "name": "x.ts",
                             "loc": 10,
-                            "findings_open": 0,
+                            "issues_open": 0,
                             "fan_in": 0,
                             "fan_out": 0,
                         },
                         {
                             "name": "y.ts",
                             "loc": 20,
-                            "findings_open": 1,
+                            "issues_open": 1,
                             "fan_in": 1,
                             "fan_out": 1,
                         },
@@ -287,7 +287,7 @@ class TestAggregate:
                 {
                     "name": "z.ts",
                     "loc": 30,
-                    "findings_open": 0,
+                    "issues_open": 0,
                     "fan_in": 5,
                     "fan_out": 5,
                 },
@@ -317,10 +317,10 @@ class TestPrintTree:
         node = {
             "name": "foo.ts",
             "loc": 150,
-            "findings_open": 2,
+            "issues_open": 2,
             "fan_in": 0,
             "fan_out": 0,
-            "finding_summaries": [],
+            "issue_summaries": [],
         }
         lines = []
         _print_tree(node, 0, 2, 0, "loc", False, lines)
@@ -328,14 +328,14 @@ class TestPrintTree:
         assert "foo.ts" in lines[0]
         assert "150 LOC" in lines[0]
 
-    def test_leaf_with_findings_shows_warning(self):
+    def test_leaf_with_issues_shows_warning(self):
         node = {
             "name": "bar.ts",
             "loc": 50,
-            "findings_open": 3,
+            "issues_open": 3,
             "fan_in": 0,
             "fan_out": 0,
-            "finding_summaries": [],
+            "issue_summaries": [],
         }
         lines = []
         _print_tree(node, 0, 2, 0, "loc", False, lines)
@@ -345,10 +345,10 @@ class TestPrintTree:
         node = {
             "name": "hub.ts",
             "loc": 100,
-            "findings_open": 0,
+            "issues_open": 0,
             "fan_in": 8,
             "fan_out": 5,
-            "finding_summaries": [],
+            "issue_summaries": [],
         }
         lines = []
         _print_tree(node, 0, 2, 0, "loc", False, lines)
@@ -358,10 +358,10 @@ class TestPrintTree:
         node = {
             "name": "tiny.ts",
             "loc": 5,
-            "findings_open": 0,
+            "issues_open": 0,
             "fan_in": 0,
             "fan_out": 0,
-            "finding_summaries": [],
+            "issue_summaries": [],
         }
         lines = []
         _print_tree(node, 0, 2, 10, "loc", False, lines)
@@ -374,18 +374,18 @@ class TestPrintTree:
                 {
                     "name": "A.tsx",
                     "loc": 100,
-                    "findings_open": 1,
+                    "issues_open": 1,
                     "fan_in": 0,
                     "fan_out": 0,
-                    "finding_summaries": [],
+                    "issue_summaries": [],
                 },
                 {
                     "name": "B.tsx",
                     "loc": 200,
-                    "findings_open": 0,
+                    "issues_open": 0,
                     "fan_in": 0,
                     "fan_out": 0,
-                    "finding_summaries": [],
+                    "issue_summaries": [],
                 },
             ],
         }
@@ -406,10 +406,10 @@ class TestPrintTree:
                         {
                             "name": "deep.ts",
                             "loc": 10,
-                            "findings_open": 0,
+                            "issues_open": 0,
                             "fan_in": 0,
                             "fan_out": 0,
-                            "finding_summaries": [],
+                            "issue_summaries": [],
                         },
                     ],
                 },
@@ -428,10 +428,10 @@ class TestPrintTree:
                 {
                     "name": "leaf.ts",
                     "loc": 10,
-                    "findings_open": 0,
+                    "issues_open": 0,
                     "fan_in": 0,
                     "fan_out": 0,
-                    "finding_summaries": [],
+                    "issue_summaries": [],
                 },
             ],
         }
@@ -441,14 +441,14 @@ class TestPrintTree:
         assert lines[0].startswith("root/")
         assert lines[1].startswith("  ")  # 2 spaces per indent level
 
-    def test_detail_mode_shows_finding_summaries(self):
+    def test_detail_mode_shows_issue_summaries(self):
         node = {
             "name": "bad.ts",
             "loc": 50,
-            "findings_open": 2,
+            "issues_open": 2,
             "fan_in": 0,
             "fan_out": 0,
-            "finding_summaries": ["unused import X", "console.log found"],
+            "issue_summaries": ["unused import X", "console.log found"],
         }
         lines = []
         _print_tree(node, 0, 2, 0, "loc", True, lines)
@@ -460,34 +460,34 @@ class TestPrintTree:
         node = {
             "name": "bad.ts",
             "loc": 50,
-            "findings_open": 2,
+            "issues_open": 2,
             "fan_in": 0,
             "fan_out": 0,
-            "finding_summaries": ["unused import X"],
+            "issue_summaries": ["unused import X"],
         }
         lines = []
         _print_tree(node, 0, 2, 0, "loc", False, lines)
         assert len(lines) == 1
 
-    def test_sort_by_findings(self):
+    def test_sort_by_issues(self):
         tree = {
             "name": "root",
             "children": [
                 {
                     "name": "clean.ts",
                     "loc": 200,
-                    "findings_open": 0,
+                    "issues_open": 0,
                     "fan_in": 0,
                     "fan_out": 0,
-                    "finding_summaries": [],
+                    "issue_summaries": [],
                 },
                 {
                     "name": "messy.ts",
                     "loc": 50,
-                    "findings_open": 5,
+                    "issues_open": 5,
                     "fan_in": 0,
                     "fan_out": 0,
-                    "finding_summaries": [],
+                    "issue_summaries": [],
                 },
             ],
         }
@@ -506,18 +506,18 @@ class TestPrintTree:
                 {
                     "name": "small.ts",
                     "loc": 10,
-                    "findings_open": 0,
+                    "issues_open": 0,
                     "fan_in": 0,
                     "fan_out": 0,
-                    "finding_summaries": [],
+                    "issue_summaries": [],
                 },
                 {
                     "name": "big.ts",
                     "loc": 500,
-                    "findings_open": 0,
+                    "issues_open": 0,
                     "fan_in": 0,
                     "fan_out": 0,
-                    "finding_summaries": [],
+                    "issue_summaries": [],
                 },
             ],
         }
@@ -535,18 +535,18 @@ class TestPrintTree:
                 {
                     "name": "isolated.ts",
                     "loc": 100,
-                    "findings_open": 0,
+                    "issues_open": 0,
                     "fan_in": 0,
                     "fan_out": 0,
-                    "finding_summaries": [],
+                    "issue_summaries": [],
                 },
                 {
                     "name": "coupled.ts",
                     "loc": 100,
-                    "findings_open": 0,
+                    "issues_open": 0,
                     "fan_in": 10,
                     "fan_out": 10,
-                    "finding_summaries": [],
+                    "issue_summaries": [],
                 },
             ],
         }
@@ -562,10 +562,10 @@ class TestPrintTree:
         node = {
             "name": "ok.ts",
             "loc": 50,
-            "findings_open": 0,
+            "issues_open": 0,
             "fan_in": 3,
             "fan_out": 5,
-            "finding_summaries": [],
+            "issue_summaries": [],
         }
         lines = []
         _print_tree(node, 0, 2, 0, "loc", False, lines)
@@ -578,10 +578,10 @@ class TestPrintTree:
                 {
                     "name": "a.ts",
                     "loc": 3,
-                    "findings_open": 0,
+                    "issues_open": 0,
                     "fan_in": 0,
                     "fan_out": 0,
-                    "finding_summaries": [],
+                    "issue_summaries": [],
                 },
             ],
         }

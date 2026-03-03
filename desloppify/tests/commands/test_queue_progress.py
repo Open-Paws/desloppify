@@ -27,7 +27,7 @@ def testis_subjective_queue_item_plain():
     assert is_subjective_queue_item({"kind": "subjective_dimension"}) is True
 
 
-def testis_subjective_queue_item_finding():
+def testis_subjective_queue_item_issue():
     assert is_subjective_queue_item({"kind": "issue"}) is False
 
 

@@ -55,15 +55,15 @@ def _issue_weight(issue: Issue, *, use_loc_weight: bool) -> float:
     return CONFIDENCE_WEIGHTS.get(issue.get("confidence", "medium"), 0.7)
 
 
-def _file_count_cap(findings_in_file: int) -> float:
+def _file_count_cap(issues_in_file: int) -> float:
     """Tiered cap for non-LOC file-based detectors.
 
     Keeps file-count denominator semantics while preserving concentration signal:
     1-2 issues => _FILE_CAP_LOW, 3-5 => _FILE_CAP_MID, 6+ => _FILE_CAP_HIGH.
     """
-    if findings_in_file >= _FILE_CAP_HIGH_THRESHOLD:
+    if issues_in_file >= _FILE_CAP_HIGH_THRESHOLD:
         return _FILE_CAP_HIGH
-    if findings_in_file >= _FILE_CAP_MID_THRESHOLD:
+    if issues_in_file >= _FILE_CAP_MID_THRESHOLD:
         return _FILE_CAP_MID
     return _FILE_CAP_LOW
 

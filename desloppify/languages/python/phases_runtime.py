@@ -19,11 +19,11 @@ from desloppify.languages._framework.base.structural import (
     merge_structural_signals,
 )
 from desloppify.languages._framework.issue_factories import (
-    make_cycle_findings,
-    make_facade_findings,
-    make_orphaned_findings,
-    make_passthrough_findings,
-    make_single_use_findings,
+    make_cycle_issues,
+    make_facade_issues,
+    make_orphaned_issues,
+    make_passthrough_issues,
+    make_single_use_issues,
 )
 from desloppify.languages._framework.runtime import LangRun
 from desloppify.languages.python.detectors import (
@@ -121,7 +121,7 @@ def run_phase_structural(
 
     passthrough_entries = detect_passthrough_functions(path)
     results.extend(
-        make_passthrough_findings(
+        make_passthrough_issues(
             passthrough_entries,
             "function",
             "total_params",
@@ -149,13 +149,13 @@ def run_phase_coupling(path: Path, lang: LangRun, *, log_fn) -> tuple[list[Issue
         )
     )
     single_entries = filter_entries(zone_map, single_entries, "single_use")
-    results = make_single_use_findings(
+    results = make_single_use_issues(
         single_entries, lang.get_area, skip_dir_names={"commands"}, stderr_fn=log_fn
     )
 
     cycle_entries, _ = graph_detector_mod.detect_cycles(graph)
     cycle_entries = filter_entries(zone_map, cycle_entries, "cycles", file_key="files")
-    results.extend(make_cycle_findings(cycle_entries, log_fn))
+    results.extend(make_cycle_issues(cycle_entries, log_fn))
 
     orphan_entries, total_graph_files = orphaned_detector_mod.detect_orphaned_files(
         path,
@@ -168,11 +168,11 @@ def run_phase_coupling(path: Path, lang: LangRun, *, log_fn) -> tuple[list[Issue
         ),
     )
     orphan_entries = filter_entries(zone_map, orphan_entries, "orphaned")
-    results.extend(make_orphaned_findings(orphan_entries, log_fn))
+    results.extend(make_orphaned_issues(orphan_entries, log_fn))
 
     facade_entries, _ = facade_detector_mod.detect_reexport_facades(graph)
     facade_entries = filter_entries(zone_map, facade_entries, "facade")
-    results.extend(make_facade_findings(facade_entries, log_fn))
+    results.extend(make_facade_issues(facade_entries, log_fn))
 
     mixin_entries, coupling_candidates = (
         coupling_contracts_detector_mod.detect_implicit_mixin_contracts(path)

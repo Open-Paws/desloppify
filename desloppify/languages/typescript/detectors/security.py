@@ -121,7 +121,7 @@ def detect_ts_security_result(
             if stripped.startswith("//"):
                 continue
             entries.extend(
-                _line_security_findings(
+                _line_security_issues(
                     filepath=filepath,
                     normalized_path=normalized_path,
                     lines=lines,
@@ -133,7 +133,7 @@ def detect_ts_security_result(
             )
 
         entries.extend(
-            _file_level_security_findings(
+            _file_level_security_issues(
                 filepath=filepath,
                 normalized_path=normalized_path,
                 lines=lines,
@@ -144,7 +144,7 @@ def detect_ts_security_result(
     return DetectorResult(entries=entries, population_kind="files", population_size=scanned)
 
 
-def _line_security_findings(
+def _line_security_issues(
     *,
     filepath: str,
     normalized_path: str,
@@ -155,12 +155,12 @@ def _line_security_findings(
     has_dev_guard: bool,
 ) -> list[dict]:
     """Detect per-line security patterns and return issues."""
-    line_findings: list[dict] = []
+    line_issues: list[dict] = []
 
     if _CREATE_CLIENT_RE.search(line):
         context = "\n".join(lines[max(0, line_num - 3) : min(len(lines), line_num + 3)])
         if SERVICE_ROLE_TOKEN_RE.search(context) and not is_server_only:
-            line_findings.append(
+            line_issues.append(
                 _make_security_entry(
                     filepath,
                     line_num,
@@ -174,7 +174,7 @@ def _line_security_findings(
             )
 
     if _EVAL_PATTERNS.search(line):
-        line_findings.append(
+        line_issues.append(
             _make_security_entry(
                 filepath,
                 line_num,
@@ -188,7 +188,7 @@ def _line_security_findings(
         )
 
     if _DANGEROUS_HTML_RE.search(line):
-        line_findings.append(
+        line_issues.append(
             _make_security_entry(
                 filepath,
                 line_num,
@@ -202,7 +202,7 @@ def _line_security_findings(
         )
 
     if _INNER_HTML_RE.search(line):
-        line_findings.append(
+        line_issues.append(
             _make_security_entry(
                 filepath,
                 line_num,
@@ -218,7 +218,7 @@ def _line_security_findings(
     if _DEV_CRED_RE.search(line):
         is_dev_file = "/dev/" in normalized_path or "dev." in Path(filepath).name
         if not (is_dev_file and has_dev_guard):
-            line_findings.append(
+            line_issues.append(
                 _make_security_entry(
                     filepath,
                     line_num,
@@ -232,7 +232,7 @@ def _line_security_findings(
             )
 
     if _OPEN_REDIRECT_RE.search(line):
-        line_findings.append(
+        line_issues.append(
             _make_security_entry(
                 filepath,
                 line_num,
@@ -248,7 +248,7 @@ def _line_security_findings(
     if _ATOB_JWT_RE.search(line):
         context = "\n".join(lines[max(0, line_num - 3) : min(len(lines), line_num + 3)])
         if _JWT_PAYLOAD_RE.search(context):
-            line_findings.append(
+            line_issues.append(
                 _make_security_entry(
                     filepath,
                     line_num,
@@ -261,10 +261,10 @@ def _line_security_findings(
                 )
             )
 
-    return line_findings
+    return line_issues
 
 
-def _file_level_security_findings(
+def _file_level_security_issues(
     *,
     filepath: str,
     normalized_path: str,
@@ -272,11 +272,11 @@ def _file_level_security_findings(
     content: str,
 ) -> list[dict]:
     """Detect file-level security patterns and return issues."""
-    file_findings: list[dict] = []
+    file_issues: list[dict] = []
 
     if _looks_like_edge_handler(normalized_path, content):
         if not _handler_has_auth_check(content):
-            file_findings.append(
+            file_issues.append(
                 _make_security_entry(
                     filepath,
                     1,
@@ -289,10 +289,10 @@ def _file_level_security_findings(
                 )
             )
 
-    _check_json_parse_unguarded(filepath, lines, file_findings)
+    _check_json_parse_unguarded(filepath, lines, file_issues)
     if filepath.endswith(".sql"):
-        _check_rls_bypass(filepath, content, lines, file_findings)
-    return file_findings
+        _check_rls_bypass(filepath, content, lines, file_issues)
+    return file_issues
 
 
 def _looks_like_edge_handler(normalized_path: str, content: str) -> bool:

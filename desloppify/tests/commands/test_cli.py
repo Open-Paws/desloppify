@@ -719,7 +719,6 @@ class TestResolveLang:
         (ts_src / "index.ts").write_text("export const x = 1\n")
 
         monkeypatch.setattr(lang_helpers_mod, "PROJECT_ROOT", cwd_root)
-        monkeypatch.setattr("desloppify.utils.PROJECT_ROOT", cwd_root)
         args = SimpleNamespace(lang=None, path=str(target_root))
         lang = resolve_lang(args)
         assert lang is not None
@@ -736,7 +735,6 @@ class TestResolveLang:
         (src / "main.py").write_text("print('x')\n")
 
         monkeypatch.setattr(lang_helpers_mod, "PROJECT_ROOT", root)
-        monkeypatch.setattr("desloppify.utils.PROJECT_ROOT", root)
         args = SimpleNamespace(lang=None, path=str(src))
         lang = resolve_lang(args)
         assert lang is not None
@@ -760,7 +758,6 @@ class TestResolveLang:
         (target_src / "index.ts").write_text("export const x = 1\n")
 
         monkeypatch.setattr(lang_helpers_mod, "PROJECT_ROOT", cwd_root)
-        monkeypatch.setattr("desloppify.utils.PROJECT_ROOT", cwd_root)
         args = SimpleNamespace(lang=None, path=str(target_src))
         lang = resolve_lang(args)
         assert lang is not None
@@ -784,7 +781,6 @@ class TestResolveLang:
             (py_dir / f"job_{i}.py").write_text("print('x')\n")
 
         monkeypatch.setattr(lang_helpers_mod, "PROJECT_ROOT", root)
-        monkeypatch.setattr("desloppify.utils.PROJECT_ROOT", root)
 
         # Path points to python subtree; detection should use this subtree first,
         # not the entire repo where TypeScript files are more numerous.

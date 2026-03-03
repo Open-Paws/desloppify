@@ -23,7 +23,7 @@ def _render_workflow_stage(item: dict) -> None:
     print(colorize("  " + "─" * 60, "dim"))
     print(f"  {colorize(item.get('summary', ''), 'yellow')}")
     detail = item.get("detail", {})
-    total = detail.get("total_review_findings", 0)
+    total = detail.get("total_review_issues", 0)
     if total:
         print(colorize(f"  {total} review issues to analyze", "dim"))
     if blocked:
@@ -176,7 +176,7 @@ def _render_score_impact(
 
 
 def _render_item(
-    item: dict, dim_scores: dict, findings_scoped: dict, explain: bool,
+    item: dict, dim_scores: dict, issues_scoped: dict, explain: bool,
     potentials: dict | None = None,
 ) -> None:
     if item.get("kind") == "cluster":
@@ -211,7 +211,7 @@ def _render_item(
     if is_auto_fix_command(auto_fix_command):
         similar_count = sum(
             1
-            for issue in findings_scoped.values()
+            for issue in issues_scoped.values()
             if issue.get("detector") == detector_name and issue["status"] == "open"
         )
         if similar_count > 1:
@@ -256,7 +256,7 @@ def _render_item(
 def render_terminal_items(
     items: list[dict],
     dim_scores: dict,
-    findings_scoped: dict,
+    issues_scoped: dict,
     *,
     group: str,
     explain: bool,
@@ -297,7 +297,7 @@ def render_terminal_items(
             pos_str = f"  (#{ queue_pos} in queue)" if queue_pos else ""
             label = f"  Next item{pos_str}"
         print(colorize(label, "bold"))
-        _render_item(item, dim_scores, findings_scoped, explain=explain, potentials=potentials)
+        _render_item(item, dim_scores, issues_scoped, explain=explain, potentials=potentials)
 
 
 __all__ = [

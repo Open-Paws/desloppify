@@ -16,7 +16,7 @@ from .import_output import (
 )
 from .import_parse import (
     _validate_assessment_feedback,
-    _validate_holistic_findings_schema,
+    _validate_holistic_issues_schema,
     resolve_override_context,
 )
 from .import_policy import (
@@ -33,7 +33,7 @@ from desloppify.intelligence.review.importing.contracts import (
 )
 from desloppify.intelligence.review.feedback_contract import (
     ASSESSMENT_FEEDBACK_THRESHOLD,
-    LOW_SCORE_FINDING_THRESHOLD,
+    LOW_SCORE_ISSUE_THRESHOLD,
 )
 
 
@@ -136,11 +136,11 @@ def _parse_and_validate_import(
     Returns ``(data, errors)`` where *data* is the normalized payload on
     success, or ``None`` when errors prevent import.
     """
-    findings_path = Path(import_file)
-    if not findings_path.exists():
+    issues_path = Path(import_file)
+    if not issues_path.exists():
         return None, [f"file not found: {import_file}"]
     try:
-        issues_data = json.loads(findings_path.read_text())
+        issues_data = json.loads(issues_path.read_text())
     except (json.JSONDecodeError, OSError) as exc:
         return None, [f"error reading issues: {exc}"]
 
@@ -152,12 +152,12 @@ def _parse_and_validate_import(
 
     if "issues" not in issues_data:
         return None, ["issues object must contain a 'issues' key"]
-    normalized_findings_data, shape_errors = _normalize_import_payload_shape(
+    normalized_issues_data, shape_errors = _normalize_import_payload_shape(
         issues_data
     )
     if shape_errors:
         return None, shape_errors
-    assert normalized_findings_data is not None
+    assert normalized_issues_data is not None
 
     override_enabled, override_attest = resolve_override_context(
         manual_override=manual_override,
@@ -180,7 +180,7 @@ def _parse_and_validate_import(
             "manual score imports require fully valid issues payloads"
         ]
     issues_data, policy_errors = apply_assessment_import_policy(
-        normalized_findings_data,
+        normalized_issues_data,
         import_file=import_file,
         attested_external=attested_external,
         attested_attest=override_attest,
@@ -193,18 +193,18 @@ def _parse_and_validate_import(
         return None, policy_errors
     assert issues_data is not None
 
-    missing_feedback, missing_low_score_findings = _validate_assessment_feedback(
+    missing_feedback, missing_low_score_issues = _validate_assessment_feedback(
         issues_data
     )
-    if missing_low_score_findings:
+    if missing_low_score_issues:
         if override_enabled:
             if not isinstance(override_attest, str) or not override_attest.strip():
                 return None, ["--manual-override requires --attest"]
             return issues_data, []
         return None, [
-            f"assessments below {LOW_SCORE_FINDING_THRESHOLD:.1f} must include at "
+            f"assessments below {LOW_SCORE_ISSUE_THRESHOLD:.1f} must include at "
             "least one issue for that same dimension with a concrete suggestion. "
-            f"Missing: {', '.join(missing_low_score_findings)}"
+            f"Missing: {', '.join(missing_low_score_issues)}"
         ]
 
     if missing_feedback:
@@ -219,7 +219,7 @@ def _parse_and_validate_import(
             f"Missing: {', '.join(missing_feedback)}"
         ]
 
-    schema_errors = _validate_holistic_findings_schema(
+    schema_errors = _validate_holistic_issues_schema(
         issues_data,
         lang_name=lang_name,
     )
@@ -238,7 +238,7 @@ def _parse_and_validate_import(
     return issues_data, []
 
 
-def load_import_findings_data(
+def load_import_issues_data(
     import_file: str,
     *,
     colorize_fn=None,
@@ -334,7 +334,7 @@ def print_assessment_policy_notice(
             print(colorize_fn(f"  Reason: {reason}", "dim"))
         return
 
-    if mode == "findings_only":
+    if mode == "issues_only":
         count = int(policy_model.assessment_count or 0)
         print(
             colorize_fn(
@@ -379,7 +379,7 @@ __all__ = [
     "assessment_mode_label",
     "assessment_policy_model_from_payload",
     "assessment_policy_from_payload",
-    "load_import_findings_data",
+    "load_import_issues_data",
     "print_assessment_mode_banner",
     "print_import_load_errors",
     "print_assessment_policy_notice",

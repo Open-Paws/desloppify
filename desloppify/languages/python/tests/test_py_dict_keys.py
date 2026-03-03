@@ -299,7 +299,7 @@ class TestDictMethods:
 
 
 class TestCleanDictUsage:
-    def test_no_findings_for_clean_code(self, tmp_path):
+    def test_no_issues_for_clean_code(self, tmp_path):
         path = _write_py(
             tmp_path,
             """\
@@ -344,7 +344,7 @@ class TestSchemaDrift:
         entries, _ = detect_schema_drift(path)
         assert len(entries) == 0
 
-    def test_too_few_literals_no_findings(self, tmp_path):
+    def test_too_few_literals_no_issues(self, tmp_path):
         code = textwrap.dedent("""\
             d1 = {"name": "a", "age": 1, "city": "x"}
             d2 = {"name": "b", "age": 2, "town": "y"}
@@ -359,7 +359,7 @@ class TestSchemaDrift:
 
 
 class TestOutputStructure:
-    def test_finding_keys(self, tmp_path):
+    def test_issue_keys(self, tmp_path):
         path = _write_py(
             tmp_path,
             """\

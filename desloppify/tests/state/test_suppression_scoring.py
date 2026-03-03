@@ -8,7 +8,7 @@ from desloppify.engine._state.filtering import (
     remove_ignored_issues,
 )
 from desloppify.engine._state.merge_issues import upsert_issues
-from desloppify.engine._state.scoring import _count_findings
+from desloppify.engine._state.scoring import _count_issues
 
 
 # ---------------------------------------------------------------------------
@@ -60,7 +60,7 @@ def _minimal_state(issues: dict | None = None) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# _count_findings excludes suppressed
+# _count_issues excludes suppressed
 # ---------------------------------------------------------------------------
 
 
@@ -70,14 +70,14 @@ class TestCountIssuesExcludesSuppressed:
             "f1": _make_issue("f1", status="open"),
             "f2": _make_issue("f2", status="open", suppressed=True),
         }
-        counters, _ = _count_findings(issues)
+        counters, _ = _count_issues(issues)
         assert counters["open"] == 1
 
     def test_all_suppressed_gives_zero(self):
         issues = {
             "f1": _make_issue("f1", status="open", suppressed=True),
         }
-        counters, _ = _count_findings(issues)
+        counters, _ = _count_issues(issues)
         assert counters["open"] == 0
 
     def test_unsuppressed_counted_normally(self):
@@ -85,7 +85,7 @@ class TestCountIssuesExcludesSuppressed:
             "f1": _make_issue("f1", status="open"),
             "f2": _make_issue("f2", status="fixed"),
         }
-        counters, _ = _count_findings(issues)
+        counters, _ = _count_issues(issues)
         assert counters["open"] == 1
         assert counters["fixed"] == 1
 
@@ -94,7 +94,7 @@ class TestCountIssuesExcludesSuppressed:
             "f1": _make_issue("f1", status="open", tier=1),
             "f2": _make_issue("f2", status="open", tier=1, suppressed=True),
         }
-        _, tier_stats = _count_findings(issues)
+        _, tier_stats = _count_issues(issues)
         assert tier_stats[1]["open"] == 1
 
 
@@ -281,8 +281,8 @@ class TestUpsertPreservesResolvedStatus:
 
 
 class TestIgnoreDoesNotCorruptScore:
-    def test_suppressed_findings_invisible_to_scoring(self):
-        """After suppression, _count_findings and _iter_scoring_candidates
+    def test_suppressed_issues_invisible_to_scoring(self):
+        """After suppression, _count_issues and _iter_scoring_candidates
         both exclude the issue — no phantom open debt."""
         issues = {
             "unused::src/a.ts::foo": _make_issue(
@@ -300,8 +300,8 @@ class TestIgnoreDoesNotCorruptScore:
         assert f["suppressed"] is True
         assert f["status"] == "fixed"  # preserved
 
-        # _count_findings should not see it
-        counters, _ = _count_findings(state["issues"])
+        # _count_issues should not see it
+        counters, _ = _count_issues(state["issues"])
         assert counters.get("open", 0) == 0
         assert counters.get("fixed", 0) == 0  # suppressed => invisible
 

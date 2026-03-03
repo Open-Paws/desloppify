@@ -58,7 +58,7 @@ _check_queue_order_guard = _get_guard_fn()
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _state_with_findings(*ids: str) -> dict:
+def _state_with_issues(*ids: str) -> dict:
     issues = {}
     for fid in ids:
         issues[fid] = {
@@ -93,7 +93,7 @@ def _setup_plan(tmp_path, monkeypatch, queue_order: list[str], clusters: dict | 
 
 def test_guard_blocks_out_of_order(tmp_path, monkeypatch, capsys):
     """Resolving item #2 when item #1 is next should be blocked."""
-    state = _state_with_findings("a", "b", "c")
+    state = _state_with_issues("a", "b", "c")
     _setup_plan(tmp_path, monkeypatch, ["a", "b", "c"])
 
     blocked = _check_queue_order_guard(state, ["b"], "fixed")
@@ -106,7 +106,7 @@ def test_guard_blocks_out_of_order(tmp_path, monkeypatch, capsys):
 
 def test_guard_allows_front_item(tmp_path, monkeypatch):
     """Resolving the front item should be allowed."""
-    state = _state_with_findings("a", "b")
+    state = _state_with_issues("a", "b")
     _setup_plan(tmp_path, monkeypatch, ["a", "b"])
 
     blocked = _check_queue_order_guard(state, ["a"], "fixed")
@@ -115,7 +115,7 @@ def test_guard_allows_front_item(tmp_path, monkeypatch):
 
 def test_guard_allows_non_fixed_status(tmp_path, monkeypatch):
     """Non-fixed statuses (wontfix, open) bypass the guard."""
-    state = _state_with_findings("a", "b")
+    state = _state_with_issues("a", "b")
     _setup_plan(tmp_path, monkeypatch, ["a", "b"])
 
     blocked = _check_queue_order_guard(state, ["b"], "wontfix")
@@ -124,7 +124,7 @@ def test_guard_allows_non_fixed_status(tmp_path, monkeypatch):
 
 def test_guard_allows_cluster_member(tmp_path, monkeypatch):
     """If the front item is a cluster, its members should be allowed."""
-    state = _state_with_findings("a", "b", "c")
+    state = _state_with_issues("a", "b", "c")
     _setup_plan(
         tmp_path, monkeypatch,
         ["a", "b", "c"],
@@ -151,7 +151,7 @@ def test_guard_allows_cluster_member(tmp_path, monkeypatch):
 
 def test_guard_blocks_item_behind_cluster(tmp_path, monkeypatch, capsys):
     """Item behind a cluster should be blocked."""
-    state = _state_with_findings("a", "b", "c")
+    state = _state_with_issues("a", "b", "c")
     _setup_plan(
         tmp_path, monkeypatch,
         ["a", "b", "c"],
@@ -180,14 +180,14 @@ def test_guard_no_plan(tmp_path, monkeypatch):
     plan_file = tmp_path / "nonexistent.json"
     monkeypatch.setattr(persist_mod, "PLAN_FILE", plan_file)
 
-    state = _state_with_findings("a")
+    state = _state_with_issues("a")
     blocked = _check_queue_order_guard(state, ["a"], "fixed")
     assert blocked is False
 
 
 def test_guard_empty_queue(tmp_path, monkeypatch):
     """Empty queue order → no blocking."""
-    state = _state_with_findings("a")
+    state = _state_with_issues("a")
     _setup_plan(tmp_path, monkeypatch, [])
 
     blocked = _check_queue_order_guard(state, ["a"], "fixed")
@@ -196,7 +196,7 @@ def test_guard_empty_queue(tmp_path, monkeypatch):
 
 def test_guard_prints_reorganize_commands(tmp_path, monkeypatch, capsys):
     """Blocked output should show plan reorder/skip/next commands."""
-    state = _state_with_findings("a", "b")
+    state = _state_with_issues("a", "b")
     _setup_plan(tmp_path, monkeypatch, ["a", "b"])
 
     _check_queue_order_guard(state, ["b"], "fixed")
@@ -213,7 +213,7 @@ def test_guard_prints_reorganize_commands(tmp_path, monkeypatch, capsys):
 def test_guard_skips_stale_ids_in_queue_order(tmp_path, monkeypatch):
     """Stale IDs at the front of queue_order should not block live items."""
     # "stale" is in queue_order but NOT in state issues at all
-    state = _state_with_findings("b", "c")
+    state = _state_with_issues("b", "c")
     _setup_plan(tmp_path, monkeypatch, ["stale", "b", "c"])
 
     # "b" should be treated as the effective front since "stale" is gone
@@ -223,7 +223,7 @@ def test_guard_skips_stale_ids_in_queue_order(tmp_path, monkeypatch):
 
 def test_guard_skips_resolved_ids_in_queue_order(tmp_path, monkeypatch):
     """Resolved (non-open) IDs at the front of queue_order should not block."""
-    state = _state_with_findings("a", "b")
+    state = _state_with_issues("a", "b")
     # Mark "a" as fixed — it's still in state but no longer open
     state["issues"]["a"]["status"] = "fixed"
     _setup_plan(tmp_path, monkeypatch, ["a", "b"])
@@ -236,7 +236,7 @@ def test_guard_skips_resolved_ids_in_queue_order(tmp_path, monkeypatch):
 def test_guard_cluster_with_stale_members(tmp_path, monkeypatch):
     """Cluster with stale members should not cause false queue-order violation."""
     # "a" is alive, "stale_member" is not in state
-    state = _state_with_findings("a", "c")
+    state = _state_with_issues("a", "c")
     _setup_plan(
         tmp_path, monkeypatch,
         ["a", "stale_member", "c"],
@@ -260,7 +260,7 @@ def test_guard_cluster_with_stale_members(tmp_path, monkeypatch):
 
 def test_guard_all_resolved_ids_stale(tmp_path, monkeypatch):
     """If all resolved IDs are stale, guard should not block."""
-    state = _state_with_findings("a")
+    state = _state_with_issues("a")
     _setup_plan(tmp_path, monkeypatch, ["stale_1", "stale_2", "a"])
 
     # Trying to resolve only stale IDs → nothing to block

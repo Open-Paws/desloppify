@@ -17,7 +17,7 @@ from desloppify.engine._plan.stale_dimensions import TRIAGE_STAGE_IDS
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _state_with_findings(*ids: str, dimension: str = "naming") -> dict:
+def _state_with_issues(*ids: str, dimension: str = "naming") -> dict:
     """Build minimal state with open review issues in a given dimension."""
     issues = {}
     for fid in ids:
@@ -207,7 +207,7 @@ class TestConfirmObserveValidation:
     def test_confirm_observe_rejects_generic_attestation(self, monkeypatch, capsys):
         """Attestation of 80+ chars that doesn't mention any dimension is rejected."""
         plan = _plan_with_stages("observe")
-        state = _state_with_findings("r1", "r2", "r3", dimension="naming")
+        state = _state_with_issues("r1", "r2", "r3", dimension="naming")
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))
@@ -227,7 +227,7 @@ class TestConfirmObserveValidation:
     def test_confirm_observe_accepts_specific_attestation(self, monkeypatch, capsys):
         """Attestation of 80+ chars that mentions a dimension name is accepted."""
         plan = _plan_with_stages("observe")
-        state = _state_with_findings("r1", "r2", "r3", dimension="naming")
+        state = _state_with_issues("r1", "r2", "r3", dimension="naming")
         saved = []
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)

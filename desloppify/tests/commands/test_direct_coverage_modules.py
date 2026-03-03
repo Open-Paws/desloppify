@@ -124,7 +124,7 @@ def test_smoke_commands():
         review_batch_core.merge_batch_results,
         review_batches.do_run_batches,
         review_import.do_import,
-        review_import_helpers.load_import_findings_data,
+        review_import_helpers.load_import_issues_data,
         review_prepare.do_prepare,
         review_runner_helpers.run_codex_batch,
         review_runtime.setup_lang,
@@ -283,14 +283,14 @@ def test_noise_budget_defaults():
 
 def test_noise_budget_from_config():
     """resolve_issue_noise_budget reads the config value."""
-    assert noise.resolve_issue_noise_budget({"finding_noise_budget": 5}) == 5
-    assert noise.resolve_issue_noise_budget({"finding_noise_budget": 0}) == 0
+    assert noise.resolve_issue_noise_budget({"issue_noise_budget": 5}) == 5
+    assert noise.resolve_issue_noise_budget({"issue_noise_budget": 0}) == 0
 
 
 def test_noise_settings_invalid_config():
     """resolve_issue_noise_settings returns warning for invalid values."""
     per, glob, warning = noise.resolve_issue_noise_settings(
-        {"finding_noise_budget": "bad"}
+        {"issue_noise_budget": "bad"}
     )
     assert per == 10  # default
     assert warning is not None

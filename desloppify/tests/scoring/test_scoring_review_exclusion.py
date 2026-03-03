@@ -12,7 +12,7 @@ from desloppify.scoring import (
 )
 
 
-def _finding(
+def _issue(
     detector: str,
     *,
     status: str = "open",
@@ -31,7 +31,7 @@ def _finding(
     }
 
 
-def _findings_dict(*issues: dict) -> dict:
+def _issues_dict(*issues: dict) -> dict:
     return {str(i): f for i, f in enumerate(issues)}
 
 
@@ -40,9 +40,9 @@ class TestReviewIssuesExcludedFromScoring:
 
     def test_review_detector_returns_perfect_pass_rate(self):
         """detector_pass_rate('review', ...) always returns (1.0, 0, 0.0)."""
-        f = _finding("review", confidence="high", file=".")
+        f = _issue("review", confidence="high", file=".")
         f["detail"] = {"holistic": True}
-        issues = _findings_dict(f)
+        issues = _issues_dict(f)
 
         rate, issues, weighted = detector_pass_rate("review", issues, 60)
         assert rate == 1.0
@@ -51,9 +51,9 @@ class TestReviewIssuesExcludedFromScoring:
 
     def test_review_stats_by_mode_all_perfect(self):
         """All scoring modes return perfect scores for review detector."""
-        f = _finding("review", confidence="high", file=".")
+        f = _issue("review", confidence="high", file=".")
         f["detail"] = {"holistic": True}
-        issues = _findings_dict(f)
+        issues = _issues_dict(f)
 
         result = detector_stats_by_mode("review", issues, 60)
         for mode in SCORING_MODES:
@@ -62,7 +62,7 @@ class TestReviewIssuesExcludedFromScoring:
             assert issues == 0
             assert weighted == 0.0
 
-    def test_open_review_findings_do_not_affect_score_bundle(self):
+    def test_open_review_issues_do_not_affect_score_bundle(self):
         """Open review issues don't change objective/strict scores."""
         potentials = {"unused": 100, "review": 10}
 
@@ -70,30 +70,30 @@ class TestReviewIssuesExcludedFromScoring:
         baseline = compute_score_bundle({}, potentials)
 
         # Add open review issues
-        review_f = _finding("review", confidence="high", file=".")
+        review_f = _issue("review", confidence="high", file=".")
         review_f["detail"] = {"holistic": True, "dimension": "naming_quality"}
-        result = compute_score_bundle(_findings_dict(review_f), potentials)
+        result = compute_score_bundle(_issues_dict(review_f), potentials)
 
         # Scores should be identical — review issues don't affect scoring
         assert result.overall_score == baseline.overall_score
         assert result.strict_score == baseline.strict_score
         assert result.objective_score == baseline.objective_score
 
-    def test_resolving_review_finding_does_not_change_scores(self):
+    def test_resolving_review_issue_does_not_change_scores(self):
         """Resolving a review issue results in identical scores."""
-        review_open = _finding("review", status="open", confidence="high", file=".")
+        review_open = _issue("review", status="open", confidence="high", file=".")
         review_open["detail"] = {"holistic": True, "dimension": "naming_quality"}
         potentials = {"unused": 100, "review": 10}
 
         open_result = compute_score_bundle(
-            _findings_dict(review_open), potentials
+            _issues_dict(review_open), potentials
         )
 
-        review_fixed = _finding("review", status="fixed", confidence="high", file=".")
+        review_fixed = _issue("review", status="fixed", confidence="high", file=".")
         review_fixed["detail"] = {"holistic": True, "dimension": "naming_quality"}
 
         fixed_result = compute_score_bundle(
-            _findings_dict(review_fixed), potentials
+            _issues_dict(review_fixed), potentials
         )
 
         assert open_result.overall_score == fixed_result.overall_score
@@ -101,8 +101,8 @@ class TestReviewIssuesExcludedFromScoring:
 
     def test_non_review_detectors_still_scored_normally(self):
         """Other detectors are unaffected by the review exclusion."""
-        f = _finding("unused", confidence="high")
-        issues = _findings_dict(f)
+        f = _issue("unused", confidence="high")
+        issues = _issues_dict(f)
 
         rate, issues, weighted = detector_pass_rate("unused", issues, 100)
         assert issues == 1
@@ -136,7 +136,7 @@ class TestReviewIssuesExcludedFromScoring:
                 "naming_quality": {
                     "score": 75.0,
                     "needs_review_refresh": True,
-                    "refresh_reason": "review_finding_fixed",
+                    "refresh_reason": "review_issue_fixed",
                 }
             },
         }

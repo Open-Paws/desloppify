@@ -7,13 +7,13 @@ from collections import defaultdict
 
 def summary_lines(stats: dict) -> list[str]:
     open_count = stats.get("open", 0)
-    total_findings = sum(
+    total_issues = sum(
         stats.get(key, 0) for key in ("open", "fixed", "wontfix", "auto_resolved")
     )
-    addressed = total_findings - open_count
-    pct = round(addressed / total_findings * 100) if total_findings else 100
+    addressed = total_issues - open_count
+    pct = round(addressed / total_issues * 100) if total_issues else 100
     return [
-        f"- **{open_count} open** / {total_findings} total ({pct}% addressed)",
+        f"- **{open_count} open** / {total_issues} total ({pct}% addressed)",
         "",
     ]
 

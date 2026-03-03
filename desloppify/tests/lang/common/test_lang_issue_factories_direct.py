@@ -3,18 +3,18 @@
 from __future__ import annotations
 
 from desloppify.languages._framework.issue_factories import (
-    make_single_use_findings,
-    make_unused_findings,
+    make_single_use_issues,
+    make_unused_issues,
 )
 
 
-def test_make_unused_findings_shapes_entries():
+def test_make_unused_issues_shapes_entries():
     logs: list[str] = []
     entries = [
         {"file": "src/a.py", "name": "x", "line": 3, "category": "imports"},
         {"file": "src/b.py", "name": "y", "line": 6, "category": "vars"},
     ]
-    issues = make_unused_findings(entries, logs.append)
+    issues = make_unused_issues(entries, logs.append)
 
     assert len(issues) == 2
     assert issues[0]["tier"] == 1
@@ -23,7 +23,7 @@ def test_make_unused_findings_shapes_entries():
     assert logs and "2 issues" in logs[-1]
 
 
-def test_make_single_use_findings_applies_loc_filtering():
+def test_make_single_use_issues_applies_loc_filtering():
     logs: list[str] = []
     entries = [
         {"file": "src/low.py", "loc": 80, "sole_importer": "src/app.py"},
@@ -35,7 +35,7 @@ def test_make_single_use_findings_applies_loc_filtering():
             return "feature"
         return "app"
 
-    issues = make_single_use_findings(entries, get_area=_area, stderr_fn=logs.append)
+    issues = make_single_use_issues(entries, get_area=_area, stderr_fn=logs.append)
 
     assert len(issues) == 1
     assert issues[0]["file"] == "src/high.py"

@@ -14,16 +14,16 @@ import desloppify.engine._state.schema as schema_mod
 def test_noise_budget_resolution_and_capping():
     per_budget, global_budget, warning = noise_mod.resolve_issue_noise_settings(
         {
-            "finding_noise_budget": "bad",
-            "finding_noise_global_budget": -5,
+            "issue_noise_budget": "bad",
+            "issue_noise_global_budget": -5,
         }
     )
 
     assert per_budget == noise_mod.DEFAULT_ISSUE_NOISE_BUDGET
     assert global_budget == 0
     assert warning is not None
-    assert "finding_noise_budget" in warning
-    assert "finding_noise_global_budget" in warning
+    assert "issue_noise_budget" in warning
+    assert "issue_noise_global_budget" in warning
 
     issues = [
         {
@@ -76,7 +76,7 @@ def test_load_state_missing_and_backup_fallback(tmp_path):
 
 def test_match_and_resolve_issues_updates_state():
     state = schema_mod.empty_state()
-    open_finding = filtering_mod.make_issue(
+    open_issue = filtering_mod.make_issue(
         "unused",
         "pkg/a.py",
         "name",
@@ -84,7 +84,7 @@ def test_match_and_resolve_issues_updates_state():
         confidence="high",
         summary="unused name",
     )
-    hidden_finding = filtering_mod.make_issue(
+    hidden_issue = filtering_mod.make_issue(
         "unused",
         "pkg/b.py",
         "name",
@@ -92,16 +92,16 @@ def test_match_and_resolve_issues_updates_state():
         confidence="high",
         summary="unused name",
     )
-    hidden_finding["suppressed"] = True
+    hidden_issue["suppressed"] = True
 
     state["issues"] = {
-        open_finding["id"]: open_finding,
-        hidden_finding["id"]: hidden_finding,
+        open_issue["id"]: open_issue,
+        hidden_issue["id"]: hidden_issue,
     }
 
     matches = resolution_mod.match_issues(state, "unused", status_filter="open")
     assert len(matches) == 1
-    assert matches[0]["id"] == open_finding["id"]
+    assert matches[0]["id"] == open_issue["id"]
 
     resolved_ids = resolution_mod.resolve_issues(
         state,
@@ -111,8 +111,8 @@ def test_match_and_resolve_issues_updates_state():
         attestation="I fixed this",
     )
 
-    assert resolved_ids == [open_finding["id"]]
-    resolved = state["issues"][open_finding["id"]]
+    assert resolved_ids == [open_issue["id"]]
+    resolved = state["issues"][open_issue["id"]]
     assert resolved["status"] == "fixed"
     assert resolved["note"] == "done"
     assert resolved["resolved_at"] is not None
@@ -158,7 +158,7 @@ def test_open_scope_breakdown_splits_in_scope_and_out_of_scope():
 def test_resolve_fixed_review_marks_assessment_stale_preserves_score():
     """Resolving a review issue as fixed marks assessment stale but keeps score."""
     state = schema_mod.empty_state()
-    review_finding = filtering_mod.make_issue(
+    review_issue = filtering_mod.make_issue(
         "review",
         "pkg/a.py",
         "naming",
@@ -167,7 +167,7 @@ def test_resolve_fixed_review_marks_assessment_stale_preserves_score():
         summary="naming issue",
         detail={"dimension": "naming_quality"},
     )
-    state["issues"] = {review_finding["id"]: review_finding}
+    state["issues"] = {review_issue["id"]: review_issue}
     state["subjective_assessments"] = {
         "naming_quality": {"score": 82, "source": "holistic"},
         "logic_clarity": {"score": 74, "source": "holistic"},
@@ -186,7 +186,7 @@ def test_resolve_fixed_review_marks_assessment_stale_preserves_score():
     # Score preserved (not zeroed) — only a fresh review changes scores.
     assert naming["score"] == 82
     assert naming["needs_review_refresh"] is True
-    assert naming["refresh_reason"] == "review_finding_fixed"
+    assert naming["refresh_reason"] == "review_issue_fixed"
     assert naming["stale_since"] is not None
     # Untouched dimension is unchanged.
     assert logic["score"] == 74
@@ -196,7 +196,7 @@ def test_resolve_fixed_review_marks_assessment_stale_preserves_score():
 def test_resolve_wontfix_review_marks_assessment_stale():
     """Resolving a review issue as wontfix also marks assessment stale."""
     state = schema_mod.empty_state()
-    review_finding = filtering_mod.make_issue(
+    review_issue = filtering_mod.make_issue(
         "review",
         "pkg/a.py",
         "naming",
@@ -205,7 +205,7 @@ def test_resolve_wontfix_review_marks_assessment_stale():
         summary="naming issue",
         detail={"dimension": "naming_quality"},
     )
-    state["issues"] = {review_finding["id"]: review_finding}
+    state["issues"] = {review_issue["id"]: review_issue}
     state["subjective_assessments"] = {
         "naming_quality": {"score": 82, "source": "holistic"}
     }
@@ -221,14 +221,14 @@ def test_resolve_wontfix_review_marks_assessment_stale():
     naming = state["subjective_assessments"]["naming_quality"]
     assert naming["score"] == 82
     assert naming["needs_review_refresh"] is True
-    assert naming["refresh_reason"] == "review_finding_wontfix"
+    assert naming["refresh_reason"] == "review_issue_wontfix"
     assert naming["stale_since"] is not None
 
 
 def test_resolve_false_positive_review_marks_assessment_stale():
     """Resolving a review issue as false_positive also marks assessment stale."""
     state = schema_mod.empty_state()
-    review_finding = filtering_mod.make_issue(
+    review_issue = filtering_mod.make_issue(
         "review",
         "pkg/a.py",
         "naming",
@@ -237,7 +237,7 @@ def test_resolve_false_positive_review_marks_assessment_stale():
         summary="naming issue",
         detail={"dimension": "naming_quality"},
     )
-    state["issues"] = {review_finding["id"]: review_finding}
+    state["issues"] = {review_issue["id"]: review_issue}
     state["subjective_assessments"] = {
         "naming_quality": {"score": 82, "source": "holistic"}
     }
@@ -253,10 +253,10 @@ def test_resolve_false_positive_review_marks_assessment_stale():
     naming = state["subjective_assessments"]["naming_quality"]
     assert naming["score"] == 82
     assert naming["needs_review_refresh"] is True
-    assert naming["refresh_reason"] == "review_finding_false_positive"
+    assert naming["refresh_reason"] == "review_issue_false_positive"
 
 
-def test_resolve_non_review_finding_does_not_mark_stale():
+def test_resolve_non_review_issue_does_not_mark_stale():
     """Resolving a non-review issue does not touch subjective assessments."""
     state = schema_mod.empty_state()
     issue = filtering_mod.make_issue(
@@ -315,7 +315,7 @@ def test_resolve_wontfix_captures_snapshot_metadata():
     assert resolved["wontfix_snapshot"]["detail"]["complexity_score"] == 42
 
 
-def test_resolve_open_reopens_non_open_finding_and_increments_reopen_count():
+def test_resolve_open_reopens_non_open_issue_and_increments_reopen_count():
     state = schema_mod.empty_state()
     issue = filtering_mod.make_issue(
         "review",

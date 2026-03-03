@@ -9,7 +9,7 @@ def _aggregate(node: dict) -> dict:
         return {
             "files": 1,
             "loc": node.get("loc", 0),
-            "issues": node.get("findings_open", 0),
+            "issues": node.get("issues_open", 0),
             "max_coupling": node.get("fan_in", 0) + node.get("fan_out", 0),
         }
     agg = {"files": 0, "loc": 0, "issues": 0, "max_coupling": 0}
@@ -33,7 +33,7 @@ def _render_leaf_node(
     loc = node.get("loc", 0)
     if loc < min_loc:
         return False
-    issues = node.get("findings_open", 0)
+    issues = node.get("issues_open", 0)
     coupling = node.get("fan_in", 0) + node.get("fan_out", 0)
     parts = [f"{loc:,} LOC"]
     if issues > 0:
@@ -41,8 +41,8 @@ def _render_leaf_node(
     if coupling > 10:
         parts.append(f"c:{coupling}")
     lines.append(f"{prefix}{node['name']}  ({', '.join(parts)})")
-    if detail and node.get("finding_summaries"):
-        for summary in node["finding_summaries"]:
+    if detail and node.get("issue_summaries"):
+        for summary in node["issue_summaries"]:
             lines.append(f"{prefix}  → {summary}")
     return True
 

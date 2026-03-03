@@ -415,8 +415,8 @@ def do_external_submit(
             "Error: only Claude external sessions currently support durable score submit.",
         )
 
-    findings_path = Path(import_file)
-    raw_payload = _load_json_object(findings_path, label="external issues")
+    issues_path = Path(import_file)
+    raw_payload = _load_json_object(issues_path, label="external issues")
     canonical_payload = _canonical_external_payload(raw_payload, session=session)
 
     stamp = runner_helpers_mod.run_stamp()
@@ -448,7 +448,7 @@ def do_external_submit(
     submitted_at = _iso_seconds(_utc_now())
     session["status"] = "submitted"
     session["submitted_at"] = submitted_at
-    session["submitted_input_file"] = str(findings_path)
+    session["submitted_input_file"] = str(issues_path)
     session["submitted_canonical_file"] = str(canonical_path)
     safe_write_text(session_path, json.dumps(session, indent=2) + "\n")
 

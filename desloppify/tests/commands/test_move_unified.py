@@ -18,7 +18,7 @@ def _plan_with_queue(*ids: str) -> dict:
     return plan
 
 
-def _state_with_findings(*ids: str, status: str = "open") -> dict:
+def _state_with_issues(*ids: str, status: str = "open") -> dict:
     issues = {}
     for fid in ids:
         parts = fid.split("::")
@@ -45,19 +45,19 @@ def test_resolve_cluster_name_to_member_ids():
     plan["clusters"] = {
         "my-cluster": {"issue_ids": ["a", "b"]},
     }
-    state = _state_with_findings("a", "b", "c")
+    state = _state_with_issues("a", "b", "c")
 
     result = resolve_ids_from_patterns(state, ["my-cluster"], plan=plan)
     assert result == ["a", "b"]
 
 
-def test_resolve_mix_of_cluster_and_finding():
+def test_resolve_mix_of_cluster_and_issue():
     """Cluster name + issue pattern resolve together."""
     plan = _plan_with_queue("a", "b", "c")
     plan["clusters"] = {
         "my-cluster": {"issue_ids": ["a"]},
     }
-    state = _state_with_findings("a", "b", "c")
+    state = _state_with_issues("a", "b", "c")
 
     result = resolve_ids_from_patterns(state, ["my-cluster", "c"], plan=plan)
     # "my-cluster" → ["a"], "c" → exact match on issue ID "c"
@@ -72,7 +72,7 @@ def test_resolve_cluster_deduplicates():
     plan["clusters"] = {
         "my-cluster": {"issue_ids": ["a", "b"]},
     }
-    state = _state_with_findings("a", "b", "c")
+    state = _state_with_issues("a", "b", "c")
 
     # "a" matches as a issue ID, "my-cluster" expands to [a, b]
     result = resolve_ids_from_patterns(state, ["a", "my-cluster"], plan=plan)
@@ -80,14 +80,14 @@ def test_resolve_cluster_deduplicates():
     assert result == ["a", "b"]
 
 
-def test_finding_pattern_priority_over_cluster_name():
+def test_issue_pattern_priority_over_cluster_name():
     """Detector match wins over same-named cluster."""
     plan = _plan_with_queue("review::file.py::naming", "other::x")
     plan["clusters"] = {
         "review": {"issue_ids": ["other::x"]},
     }
     # "review" detector matches the issue
-    state = _state_with_findings("review::file.py::naming", "other::x")
+    state = _state_with_issues("review::file.py::naming", "other::x")
 
     result = resolve_ids_from_patterns(state, ["review"], plan=plan)
     # Should match the detector "review", not the cluster named "review"

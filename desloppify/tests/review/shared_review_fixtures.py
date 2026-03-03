@@ -23,7 +23,7 @@ def empty_state():
 
 
 @pytest.fixture
-def state_with_findings():
+def state_with_issues():
     state = build_empty_state()
     state["issues"] = {
         "unused::src/foo.ts::bar": {
@@ -104,7 +104,7 @@ def mock_lang_with_zones(mock_lang):
 
 
 @pytest.fixture
-def sample_findings_data():
+def sample_issues_data():
     """Sample agent-produced review issues."""
     return [
         {

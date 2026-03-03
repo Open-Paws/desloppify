@@ -6,7 +6,7 @@ from pathlib import Path
 
 from desloppify import state as state_mod
 from desloppify.engine.policy.zones import adjust_potential, filter_entries
-from desloppify.languages._framework.issue_factories import make_smell_findings
+from desloppify.languages._framework.issue_factories import make_smell_issues
 from desloppify.languages._framework.runtime import LangRun
 from desloppify.languages.python.detectors import dict_keys as dict_keys_detector_mod
 from desloppify.languages.python.detectors import (
@@ -28,7 +28,7 @@ def phase_smells(path: Path, lang: LangRun) -> tuple[list[Issue], dict[str, int]
     ruff_entries = detect_with_ruff_smells(path)
     if ruff_entries:
         entries = entries + ruff_entries
-    results = make_smell_findings(entries, log)
+    results = make_smell_issues(entries, log)
 
     return results, {
         "smells": adjust_potential(lang.zone_map, total_files),

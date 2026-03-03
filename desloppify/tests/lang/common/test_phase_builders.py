@@ -163,7 +163,7 @@ def test_make_unused_imports_phase_label():
     assert phase.label == "Unused imports"
 
 
-def test_make_ast_smells_phase_run_with_no_findings():
+def test_make_ast_smells_phase_run_with_no_issues():
     """Run an AST smells phase when detectors return empty results."""
     from desloppify.languages._framework.treesitter.phases import make_ast_smells_phase
 

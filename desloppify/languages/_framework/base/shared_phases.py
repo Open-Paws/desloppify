@@ -43,10 +43,10 @@ from desloppify.languages._framework.base.types import (
     DetectorCoverageStatus,
 )
 from desloppify.languages._framework.issue_factories import (
-    make_cycle_findings,
-    make_dupe_findings,
-    make_orphaned_findings,
-    make_single_use_findings,
+    make_cycle_issues,
+    make_dupe_issues,
+    make_orphaned_issues,
+    make_single_use_issues,
 )
 from desloppify.languages._framework.runtime import LangRuntimeContract
 from desloppify.state import Issue, make_issue
@@ -74,7 +74,7 @@ def phase_dupes(path: Path, lang: LangRuntimeContract) -> tuple[list[Issue], dic
             log(f"         zones: {excluded} functions excluded (non-production)")
 
     entries, total_functions = detect_duplicates(functions)
-    issues = make_dupe_findings(entries, log)
+    issues = make_dupe_issues(entries, log)
     return issues, {"dupes": total_functions}
 
 
@@ -186,7 +186,7 @@ def find_external_test_files(path: Path, lang: LangRuntimeContract) -> set[str]:
     return extra
 
 
-def _entries_to_findings(
+def _entries_to_issues(
     detector: str,
     entries: list[dict],
     *,
@@ -300,7 +300,7 @@ def phase_security(path: Path, lang: LangRuntimeContract) -> tuple[list[Issue], 
     entries = filter_entries(zone_map, entries, "security")
     potential = max(cross_lang_scanned, lang_scanned)
 
-    results = _entries_to_findings(
+    results = _entries_to_issues(
         "security",
         entries,
         include_zone=True,
@@ -343,7 +343,7 @@ def phase_test_coverage(
     )
     entries = filter_entries(zone_map, entries, "test_coverage")
 
-    results = _entries_to_findings("test_coverage", entries, default_name="")
+    results = _entries_to_issues("test_coverage", entries, default_name="")
     _log_phase_summary("test coverage", results, potential, "production files")
 
     return results, {"test_coverage": potential}
@@ -360,7 +360,7 @@ def phase_private_imports(
     entries, potential = lang.detect_private_imports(graph, zone_map)
     entries = filter_entries(zone_map, entries, "private_imports")
 
-    results = _entries_to_findings("private_imports", entries)
+    results = _entries_to_issues("private_imports", entries)
     _log_phase_summary("private imports", results, potential, "files scanned")
 
     return results, {"private_imports": potential}
@@ -409,7 +409,7 @@ def phase_subjective_review(
     )
     entries.extend(holistic_entries)
 
-    results = _entries_to_findings("subjective_review", entries)
+    results = _entries_to_issues("subjective_review", entries)
     _log_phase_summary("subjective review", results, potential, "reviewable files")
 
     return results, {"subjective_review": potential}
@@ -574,16 +574,16 @@ def run_coupling_phase(
         barrel_names=lang.barrel_names,
     )
     single_entries = filter_entries(zone_map, single_entries, "single_use")
-    single_findings = make_single_use_findings(
+    single_issues = make_single_use_issues(
         single_entries, lang.get_area, stderr_fn=log_fn,
     )
     if post_process_fn:
-        post_process_fn(single_findings, single_entries, lang)
-    results.extend(single_findings)
+        post_process_fn(single_issues, single_entries, lang)
+    results.extend(single_issues)
 
     cycle_entries, _ = detect_cycles(graph)
     cycle_entries = filter_entries(zone_map, cycle_entries, "cycles", file_key="files")
-    results.extend(make_cycle_findings(cycle_entries, log_fn))
+    results.extend(make_cycle_issues(cycle_entries, log_fn))
 
     orphan_entries, total_graph_files = detect_orphaned_files(
         path,
@@ -595,10 +595,10 @@ def run_coupling_phase(
         ),
     )
     orphan_entries = filter_entries(zone_map, orphan_entries, "orphaned")
-    orphan_findings = make_orphaned_findings(orphan_entries, log_fn)
+    orphan_issues = make_orphaned_issues(orphan_entries, log_fn)
     if post_process_fn:
-        post_process_fn(orphan_findings, orphan_entries, lang)
-    results.extend(orphan_findings)
+        post_process_fn(orphan_issues, orphan_entries, lang)
+    results.extend(orphan_issues)
 
     log_fn(f"         -> {len(results)} coupling/structural issues total")
     potentials = {

@@ -354,8 +354,8 @@ def _batch_package_organization(
     """Batch 7: Package Organization - file placement, directory boundaries."""
     structure = ctx.structure
     struct_files: list[dict] = []
-    # Add flat_dir_findings directory representatives
-    for entry in structure.get("flat_dir_findings", []):
+    # Add flat_dir_issues directory representatives
+    for entry in structure.get("flat_dir_issues", []):
         if isinstance(entry, dict):
             directory = entry.get("directory", "")
             for filepath in _representative_files_for_directory(ctx, directory):

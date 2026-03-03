@@ -80,7 +80,7 @@ def _same_issue_concept(
     return True
 
 
-def _merge_finding_details(primary: dict, duplicate: dict) -> None:
+def _merge_issue_details(primary: dict, duplicate: dict) -> None:
     primary_detail = primary.setdefault("detail", {})
     duplicate_detail = duplicate.get("detail", {})
 
@@ -164,7 +164,7 @@ def do_merge(args: argparse.Namespace) -> None:
         if dry_run:
             continue
         for duplicate in duplicates:
-            _merge_finding_details(primary, duplicate)
+            _merge_issue_details(primary, duplicate)
             duplicate["status"] = "auto_resolved"
             duplicate["resolved_at"] = timestamp
             duplicate["note"] = f"merged into {primary.get('id', '')}"

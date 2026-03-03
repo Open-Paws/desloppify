@@ -147,7 +147,7 @@ def detect_dict_key_flow(path: Path) -> tuple[list[dict], int]:
 
         visitor = dict_key_visitor(filepath)
         visitor.visit(tree)
-        all_issues.extend(visitor._findings)
+        all_issues.extend(visitor._issues)
         all_literals.extend(visitor._dict_literals)
 
     return all_issues, len(files)
@@ -265,7 +265,7 @@ def _closest_consensus_key(outlier_key: str, consensus: set[str]) -> str | None:
     return None
 
 
-def _build_schema_drift_findings(clusters: list[list[dict]]) -> list[dict]:
+def _build_schema_drift_issues(clusters: list[list[dict]]) -> list[dict]:
     issues: list[dict] = []
     for cluster in clusters:
         if len(cluster) < 3:
@@ -316,6 +316,6 @@ def detect_schema_drift(path: Path) -> tuple[list[dict], int]:
         return [], len(all_literals)
 
     clusters = _cluster_by_jaccard(all_literals, threshold=0.8)
-    issues = _build_schema_drift_findings(clusters)
+    issues = _build_schema_drift_issues(clusters)
 
     return issues, len(all_literals)

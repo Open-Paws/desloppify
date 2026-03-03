@@ -155,13 +155,13 @@ def merge_batch_results(
         )
 
     merged_issues = _merge_issues_transitively(all_issues)
-    finding_pressure_by_dim, finding_count_by_dim = _issue_pressure_by_dimension(
+    issue_pressure_by_dim, issue_count_by_dim = _issue_pressure_by_dimension(
         merged_issues,
         dimension_notes=merged_dimension_notes,
     )
 
     merged_assessments = _compute_merged_assessments(
-        score_buckets, score_raw_by_dim, finding_pressure_by_dim, finding_count_by_dim
+        score_buckets, score_raw_by_dim, issue_pressure_by_dim, issue_count_by_dim
     )
 
     merged_assessment_payload: dict[str, float | dict[str, object]] = {
@@ -197,8 +197,8 @@ def merge_batch_results(
             REVIEW_QUALITY_HIGH_SCORE_MISSING_ISSUES_KEY: int(
                 high_score_missing_issue_note_total
             ),
-            "finding_pressure": round(sum(finding_pressure_by_dim.values()), 3),
-            "dimensions_with_findings": len(finding_count_by_dim),
+            "issue_pressure": round(sum(issue_pressure_by_dim.values()), 3),
+            "dimensions_with_issues": len(issue_count_by_dim),
         },
     }
 

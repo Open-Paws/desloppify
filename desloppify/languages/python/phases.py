@@ -8,7 +8,7 @@ from desloppify import state as state_mod
 from desloppify.engine.detectors.base import ComplexitySignal, GodRule
 from desloppify.engine.policy.zones import adjust_potential, filter_entries
 from desloppify.languages._framework.issue_factories import (
-    make_unused_findings,
+    make_unused_issues,
 )
 from desloppify.languages._framework.runtime import LangRun
 from desloppify.languages.python.detectors import (
@@ -107,7 +107,7 @@ PY_ENTRY_PATTERNS = [
 
 def phase_unused(path: Path, lang: LangRun) -> tuple[list[Issue], dict[str, int]]:
     entries, total_files = unused_detector_mod.detect_unused(path)
-    return make_unused_findings(entries, log), {
+    return make_unused_issues(entries, log), {
         "unused": adjust_potential(lang.zone_map, total_files),
     }
 

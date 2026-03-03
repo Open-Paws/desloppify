@@ -27,7 +27,7 @@ ASSESSMENT_MODE_LABELS = {
     "trusted_internal": "trusted internal (durable scores)",
     "attested_external": "attested external (durable scores)",
     "manual_override": "manual override (provisional scores)",
-    "findings_only": "issues-only (assessments skipped)",
+    "issues_only": "issues-only (assessments skipped)",
 }
 
 
@@ -207,7 +207,7 @@ def apply_assessment_import_policy(
             manual_attest=manual_attest,
         )
 
-    return _apply_findings_only_policy(
+    return _apply_issues_only_policy(
         issues_data,
         policy=policy,
         provenance_status=provenance_status,
@@ -273,7 +273,7 @@ def _apply_manual_override_policy(
     return _attach_assessment_policy(issues_data, override_policy), []
 
 
-def _findings_only_reason(
+def _issues_only_reason(
     issues_data: ReviewImportPayload,
     *,
     provenance_status: AssessmentProvenanceModel,
@@ -297,20 +297,20 @@ def _findings_only_reason(
     )
 
 
-def _apply_findings_only_policy(
+def _apply_issues_only_policy(
     issues_data: ReviewImportPayload,
     *,
     policy: AssessmentImportPolicyModel,
     provenance_status: AssessmentProvenanceModel,
 ) -> tuple[ReviewImportPayload, list[str]]:
-    findings_only_policy = replace(
+    issues_only_policy = replace(
         policy,
-        mode="findings_only",
-        reason=_findings_only_reason(issues_data, provenance_status=provenance_status),
+        mode="issues_only",
+        reason=_issues_only_reason(issues_data, provenance_status=provenance_status),
     )
     payload = dict(issues_data)
     payload["assessments"] = {}
-    payload[ASSESSMENT_POLICY_KEY] = findings_only_policy.to_dict()
+    payload[ASSESSMENT_POLICY_KEY] = issues_only_policy.to_dict()
     return payload, []
 
 

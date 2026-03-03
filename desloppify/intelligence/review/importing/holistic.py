@@ -12,7 +12,7 @@ from desloppify.intelligence.review.importing.contracts import (
     ReviewIssuePayload,
     ReviewImportPayload,
     ReviewScopePayload,
-    validate_review_finding_payload,
+    validate_review_issue_payload,
 )
 from desloppify.intelligence.review.importing.shared import (
     _lang_potentials,
@@ -70,7 +70,7 @@ _POSITIVE_PREFIXES = (
 
 
 def _validate_and_build_issues(
-    findings_list: list[ReviewIssuePayload],
+    issues_list: list[ReviewIssuePayload],
     holistic_prompts: dict[str, Any],
     lang_name: str,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
@@ -85,21 +85,21 @@ def _validate_and_build_issues(
         dim for dim in holistic_prompts if isinstance(dim, str) and dim.strip()
     }
 
-    for idx, raw_finding in enumerate(findings_list):
-        issue, finding_errors = validate_review_finding_payload(
-            raw_finding,
+    for idx, raw_issue in enumerate(issues_list):
+        issue, issue_errors = validate_review_issue_payload(
+            raw_issue,
             label=f"issues[{idx}]",
             allowed_dimensions=allowed_dimensions,
             allow_dismissed=True,
         )
-        if finding_errors:
+        if issue_errors:
             skipped.append(
                 {
                     "index": idx,
-                    "missing": finding_errors,
+                    "missing": issue_errors,
                     "identifier": (
-                        raw_finding.get("identifier", "<none>")
-                        if isinstance(raw_finding, dict)
+                        raw_issue.get("identifier", "<none>")
+                        if isinstance(raw_issue, dict)
                         else "<none>"
                     ),
                 }
@@ -172,7 +172,7 @@ def _validate_and_build_issues(
 
 def _collect_imported_dimensions(
     *,
-    findings_list: list[ReviewIssuePayload],
+    issues_list: list[ReviewIssuePayload],
     review_issues: list[dict[str, Any]],
     assessments: dict[str, Any] | None,
     review_scope: ReviewScopePayload | dict[str, Any] | None,
@@ -189,7 +189,7 @@ def _collect_imported_dimensions(
                 if normalized in valid_dimensions:
                     imported_dimensions.add(normalized)
 
-    for issue in findings_list:
+    for issue in issues_list:
         if not isinstance(issue, dict):
             continue
         normalized = normalize_dimension_name(str(issue.get("dimension", "")))
@@ -266,7 +266,7 @@ def import_holistic_issues(
         issues_data,
         mode_name="Holistic",
     )
-    findings_list = payload.issues
+    issues_list = payload.issues
     assessments = payload.assessments
     reviewed_files = payload.reviewed_files
     review_scope = issues_data.get("review_scope", {})
@@ -291,10 +291,10 @@ def import_holistic_issues(
         if isinstance(dim, str)
     }
     review_issues, skipped, dismissed_concerns = _validate_and_build_issues(
-        findings_list, holistic_prompts, lang_name
+        issues_list, holistic_prompts, lang_name
     )
     imported_dimensions = _collect_imported_dimensions(
-        findings_list=findings_list,
+        issues_list=issues_list,
         review_issues=review_issues,
         assessments=assessments if isinstance(assessments, dict) else None,
         review_scope=review_scope,
@@ -307,7 +307,7 @@ def import_holistic_issues(
 
         store = state.setdefault("concern_dismissals", {})
         now = utc_now_fn()
-        # Compute current concerns to get source_finding_ids for each fingerprint.
+        # Compute current concerns to get source_issue_ids for each fingerprint.
         current_concerns = generate_concerns(state, lang_name=lang_name)
         concern_sources = {
             c.fingerprint: list(c.source_issues) for c in current_concerns
@@ -319,7 +319,7 @@ def import_holistic_issues(
                 "reasoning": dc.get("reasoning", ""),
                 "concern_type": dc.get("concern_type", ""),
                 "concern_file": dc.get("concern_file", ""),
-                "source_finding_ids": concern_sources.get(fp, []),
+                "source_issue_ids": concern_sources.get(fp, []),
             }
 
     potentials = _lang_potentials(state, lang_name)
@@ -372,7 +372,7 @@ def import_holistic_issues(
     )
     update_holistic_review_cache(
         state,
-        findings_list,
+        issues_list,
         lang_name=lang_name,
         review_scope=review_scope,
         utc_now_fn=utc_now_fn,
@@ -531,8 +531,8 @@ def resolve_reviewed_file_coverage_issues(
         if "::holistic_unreviewed" in issue_id or "::holistic_stale" in issue_id:
             continue
 
-        finding_file = issue.get("file", "")
-        if finding_file not in reviewed_set:
+        issue_file = issue.get("file", "")
+        if issue_file not in reviewed_set:
             continue
 
         issue["status"] = "auto_resolved"

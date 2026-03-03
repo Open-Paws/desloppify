@@ -64,7 +64,7 @@ def _dimension_name(detector: str) -> str:
     return dimension.name if dimension else "Unknown"
 
 
-def _fixer_has_applicable_findings(
+def _fixer_has_applicable_issues(
     state: StateModel, detector: str, fixer_name: str
 ) -> bool:
     """For the smells detector, verify the fixer has matching open issues.
@@ -108,7 +108,7 @@ def _append_auto_fix_actions(
             fixer
             for fixer in tool_info["fixers"]
             if (supported is None or fixer in supported)
-            and _fixer_has_applicable_findings(state, detector, fixer)
+            and _fixer_has_applicable_issues(state, detector, fixer)
         ]
         if not available_fixers:
             actions.append(

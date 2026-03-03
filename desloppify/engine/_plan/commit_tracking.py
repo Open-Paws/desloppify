@@ -9,9 +9,9 @@ from desloppify.engine._plan.schema import CommitRecord
 from desloppify.engine._state.schema import utc_now
 
 
-def add_uncommitted_findings(plan: dict[str, Any], issue_ids: list[str]) -> int:
+def add_uncommitted_issues(plan: dict[str, Any], issue_ids: list[str]) -> int:
     """Add issue IDs to the uncommitted list (deduplicates).  Returns count added."""
-    uncommitted: list[str] = plan.setdefault("uncommitted_findings", [])
+    uncommitted: list[str] = plan.setdefault("uncommitted_issues", [])
     existing = set(uncommitted)
     added = 0
     for fid in issue_ids:
@@ -25,15 +25,15 @@ def add_uncommitted_findings(plan: dict[str, Any], issue_ids: list[str]) -> int:
 def purge_uncommitted_ids(plan: dict[str, Any], issue_ids: list[str]) -> int:
     """Remove issue IDs from the uncommitted list.  Returns count removed."""
     to_remove = set(issue_ids)
-    uncommitted: list[str] = plan.get("uncommitted_findings", [])
+    uncommitted: list[str] = plan.get("uncommitted_issues", [])
     original = len(uncommitted)
-    plan["uncommitted_findings"] = [fid for fid in uncommitted if fid not in to_remove]
-    return original - len(plan["uncommitted_findings"])
+    plan["uncommitted_issues"] = [fid for fid in uncommitted if fid not in to_remove]
+    return original - len(plan["uncommitted_issues"])
 
 
-def get_uncommitted_findings(plan: dict[str, Any]) -> list[str]:
+def get_uncommitted_issues(plan: dict[str, Any]) -> list[str]:
     """Return the current uncommitted issue IDs."""
-    return list(plan.get("uncommitted_findings", []))
+    return list(plan.get("uncommitted_issues", []))
 
 
 def record_commit(
@@ -48,7 +48,7 @@ def record_commit(
 
     If *issue_ids* is None, all uncommitted issues are recorded.
     """
-    uncommitted = plan.get("uncommitted_findings", [])
+    uncommitted = plan.get("uncommitted_issues", [])
     if issue_ids is None:
         ids_to_record = list(uncommitted)
     else:
@@ -68,12 +68,12 @@ def record_commit(
 
     # Remove recorded IDs from uncommitted
     recorded_set = set(ids_to_record)
-    plan["uncommitted_findings"] = [fid for fid in uncommitted if fid not in recorded_set]
+    plan["uncommitted_issues"] = [fid for fid in uncommitted if fid not in recorded_set]
 
     return record
 
 
-def find_commit_for_finding(plan: dict[str, Any], issue_id: str) -> CommitRecord | None:
+def find_commit_for_issue(plan: dict[str, Any], issue_id: str) -> CommitRecord | None:
     """Find the CommitRecord that contains a given issue ID."""
     for record in plan.get("commit_log", []):
         if issue_id in record.get("issue_ids", []):
@@ -83,7 +83,7 @@ def find_commit_for_finding(plan: dict[str, Any], issue_id: str) -> CommitRecord
 
 def commit_tracking_summary(plan: dict[str, Any]) -> dict[str, int]:
     """Return summary counts: uncommitted, committed, total."""
-    uncommitted = len(plan.get("uncommitted_findings", []))
+    uncommitted = len(plan.get("uncommitted_issues", []))
     committed = sum(
         len(r.get("issue_ids", [])) for r in plan.get("commit_log", [])
     )
@@ -94,7 +94,7 @@ def commit_tracking_summary(plan: dict[str, Any]) -> dict[str, int]:
     }
 
 
-def _finding_summary(state: dict[str, Any], issue_id: str) -> str:
+def _issue_summary(state: dict[str, Any], issue_id: str) -> str:
     """Extract a short summary for a issue ID from state."""
     issue = state.get("issues", {}).get(issue_id, {})
     summary = issue.get("summary", "")
@@ -135,12 +135,12 @@ def generate_pr_body(plan: dict[str, Any], state: dict[str, Any]) -> str:
     if commit_log:
         lines.append("### Commits")
         lines.append("")
-        total_findings = 0
+        total_issues = 0
         for record in commit_log:
             sha = record.get("sha", "?")[:7]
             note = record.get("note") or ""
             issue_ids = record.get("issue_ids", [])
-            total_findings += len(issue_ids)
+            total_issues += len(issue_ids)
 
             header = f"**{sha}**"
             if note:
@@ -148,7 +148,7 @@ def generate_pr_body(plan: dict[str, Any], state: dict[str, Any]) -> str:
             lines.append(header)
 
             for fid in issue_ids:
-                summary = _finding_summary(state, fid)
+                summary = _issue_summary(state, fid)
                 if summary and summary != fid:
                     lines.append(f"- `{fid}` — {summary}")
                 else:
@@ -158,7 +158,7 @@ def generate_pr_body(plan: dict[str, Any], state: dict[str, Any]) -> str:
         lines.append("### Summary")
         commit_count = len(commit_log)
         lines.append(
-            f"{total_findings} issue{'s' if total_findings != 1 else ''} "
+            f"{total_issues} issue{'s' if total_issues != 1 else ''} "
             f"resolved across {commit_count} commit{'s' if commit_count != 1 else ''}"
         )
         score_line = _score_delta_line(plan, state)
@@ -175,7 +175,7 @@ def suggest_commit_message(
     template: str,
 ) -> str:
     """Generate a suggested commit message from uncommitted issues."""
-    uncommitted = plan.get("uncommitted_findings", [])
+    uncommitted = plan.get("uncommitted_issues", [])
     if not uncommitted:
         return ""
 
@@ -209,7 +209,7 @@ def suggest_commit_message(
     )
 
 
-def filter_finding_ids_by_pattern(issue_ids: list[str], patterns: list[str]) -> list[str]:
+def filter_issue_ids_by_pattern(issue_ids: list[str], patterns: list[str]) -> list[str]:
     """Filter issue IDs by glob patterns (used for --only)."""
     result: list[str] = []
     for fid in issue_ids:
@@ -221,12 +221,12 @@ def filter_finding_ids_by_pattern(issue_ids: list[str], patterns: list[str]) -> 
 
 
 __all__ = [
-    "add_uncommitted_findings",
+    "add_uncommitted_issues",
     "commit_tracking_summary",
-    "filter_finding_ids_by_pattern",
-    "find_commit_for_finding",
+    "filter_issue_ids_by_pattern",
+    "find_commit_for_issue",
     "generate_pr_body",
-    "get_uncommitted_findings",
+    "get_uncommitted_issues",
     "purge_uncommitted_ids",
     "record_commit",
     "suggest_commit_message",

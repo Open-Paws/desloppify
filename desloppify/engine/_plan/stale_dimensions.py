@@ -334,7 +334,7 @@ def sync_stale_dimensions(
 # Triage snapshot hash + sync
 # ---------------------------------------------------------------------------
 
-def review_finding_snapshot_hash(state: StateModel) -> str:
+def review_issue_snapshot_hash(state: StateModel) -> str:
     """Hash open review issue IDs to detect changes.
 
     Returns empty string when there are no open review issues.
@@ -386,8 +386,8 @@ def sync_triage_needed(
     # Check if any triage stage is already in queue
     already_present = any(sid in order for sid in TRIAGE_IDS)
 
-    current_hash = review_finding_snapshot_hash(state)
-    last_hash = meta.get("finding_snapshot_hash", "")
+    current_hash = review_issue_snapshot_hash(state)
+    last_hash = meta.get("issue_snapshot_hash", "")
 
     if already_present:
         # Stages present — check if the reason for injection still applies.
@@ -411,7 +411,7 @@ def sync_triage_needed(
                     while sid in order:
                         order.remove(sid)
                 if current_hash:
-                    meta["finding_snapshot_hash"] = current_hash
+                    meta["issue_snapshot_hash"] = current_hash
                     plan["epic_triage_meta"] = meta
                 result.pruned = True
         return result
@@ -442,7 +442,7 @@ def sync_triage_needed(
                 result.injected = True
         else:
             # Only resolved issues changed the hash — update silently
-            meta["finding_snapshot_hash"] = current_hash
+            meta["issue_snapshot_hash"] = current_hash
             plan["epic_triage_meta"] = meta
 
     return result
@@ -565,7 +565,7 @@ def sync_create_plan_needed(
     return result
 
 
-def compute_new_finding_ids(plan: PlanModel, state: StateModel) -> set[str]:
+def compute_new_issue_ids(plan: PlanModel, state: StateModel) -> set[str]:
     """Return the set of open review/concerns issue IDs added since last triage.
 
     Returns an empty set when no prior triage has recorded ``triaged_ids``.
@@ -638,7 +638,7 @@ def sync_import_scores_needed(
     """Inject ``workflow::import-scores`` after issues-only import.
 
     Only injects when:
-    - Assessment mode was ``findings_only`` (scores were skipped)
+    - Assessment mode was ``issues_only`` (scores were skipped)
     - ``workflow::import-scores`` is not already in the queue
     - There are assessments in the payload that could be imported
 
@@ -652,7 +652,7 @@ def sync_import_scores_needed(
         return result
 
     # Only inject when scores were skipped (issues-only mode)
-    if assessment_mode != "findings_only":
+    if assessment_mode != "issues_only":
         return result
 
     # Insert after any subjective/workflow items
@@ -680,30 +680,43 @@ def sync_communicate_score_needed(
     plan: PlanModel,
     state: StateModel,
     *,
+    policy: SubjectiveVisibility | None = None,
     scores_just_imported: bool = False,
 ) -> CommunicateScoreSyncResult:
-    """Inject ``workflow::communicate-score`` after scores are imported.
+    """Inject ``workflow::communicate-score`` when scores should be shown.
 
-    Only injects when:
-    - Scores were just imported (trusted or attested)
-    - ``workflow::communicate-score`` is not already in the queue
+    Injects when either:
+    - All initial subjective reviews are complete (no unscored dimensions), OR
+    - Scores were just imported (trusted/attested/override)
 
-    Positioned after import-scores/score-checkpoint, before create-plan.
+    And ``workflow::communicate-score`` is not already in the queue.
+    Positioned after subjective items but before triage/create-plan.
     """
     ensure_plan_defaults(plan)
     result = CommunicateScoreSyncResult()
     order: list[str] = plan["queue_order"]
 
-    if WORKFLOW_COMMUNICATE_SCORE_ID in order:
+    # Also treat legacy score-checkpoint as already-present
+    if WORKFLOW_COMMUNICATE_SCORE_ID in order or WORKFLOW_SCORE_CHECKPOINT_ID in order:
         return result
 
-    if not scores_just_imported:
+    # Trigger 1: scores just imported
+    should_inject = scores_just_imported
+
+    # Trigger 2: all initial reviews complete (no unscored dimensions)
+    if not should_inject:
+        if policy is not None:
+            should_inject = not policy.unscored_ids
+        else:
+            should_inject = not current_unscored_ids(state)
+
+    if not should_inject:
         return result
 
-    # Insert after any subjective/workflow items
+    # Insert after any subjective items, before triage/workflow/issues
     insert_at = 0
     for i, fid in enumerate(order):
-        if fid.startswith(SUBJECTIVE_PREFIX) or fid.startswith(WORKFLOW_PREFIX):
+        if fid.startswith(SUBJECTIVE_PREFIX):
             insert_at = i + 1
     order.insert(insert_at, WORKFLOW_COMMUNICATE_SCORE_ID)
     result.injected = True
@@ -732,9 +745,9 @@ __all__ = [
     "UnscoredDimensionSyncResult",
     "current_under_target_ids",
     "current_unscored_ids",
-    "compute_new_finding_ids",
+    "compute_new_issue_ids",
     "is_triage_stale",
-    "review_finding_snapshot_hash",
+    "review_issue_snapshot_hash",
     "sync_communicate_score_needed",
     "sync_create_plan_needed",
     "sync_import_scores_needed",

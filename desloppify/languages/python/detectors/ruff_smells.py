@@ -2,7 +2,7 @@
 
 Runs ``ruff check`` with a targeted rule set and maps each ruff code to a
 desloppify smell ID. Produces smell entries in the same format as detect_smells()
-so they flow through make_smell_findings() without any plumbing changes.
+so they flow through make_smell_issues() without any plumbing changes.
 
 Falls back gracefully to [] when ruff is not installed.
 
@@ -68,7 +68,7 @@ _SELECT = ",".join(_RULE_MAP)
 def detect_with_ruff_smells(path: Path) -> list[dict] | None:
     """Run ruff on supplemental B/E/W rules and return smell entries, or None on failure.
 
-    Each entry matches the format expected by make_smell_findings():
+    Each entry matches the format expected by make_smell_issues():
         {
             "id": smell_id,
             "label": label,

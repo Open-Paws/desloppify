@@ -33,10 +33,10 @@ def scorecard_subjective(
 
 
 def subjective_coverage_breakdown(
-    findings_scoped: dict,
+    issues_scoped: dict,
 ) -> tuple[int, dict[str, int], dict[str, int]]:
     """Return open subjective-review count plus reason and holistic-reason breakdowns."""
-    return subjective_review_open_breakdown(findings_scoped)
+    return subjective_review_open_breakdown(issues_scoped)
 
 
 def is_auto_fix_command(command: str | None) -> bool:

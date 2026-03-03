@@ -87,9 +87,9 @@ def _run_phases(path: Path, lang: LangRun, phases: list[DetectorPhase]) -> tuple
     total = len(phases)
     for idx, phase in enumerate(phases, start=1):
         _stderr(f"  [{idx}/{total}] {phase.label}...")
-        phase_findings, phase_potentials = phase.run(path, lang)
+        phase_issues, phase_potentials = phase.run(path, lang)
         all_potentials.update(phase_potentials)
-        issues.extend(phase_findings)
+        issues.extend(phase_issues)
 
     return issues, all_potentials
 

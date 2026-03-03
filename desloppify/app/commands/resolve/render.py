@@ -198,7 +198,7 @@ def render_commit_guidance(
 
         from desloppify.core.git_context import detect_git_context
         from desloppify.engine.plan import (
-            get_uncommitted_findings,
+            get_uncommitted_issues,
             suggest_commit_message,
         )
 
@@ -206,7 +206,7 @@ def render_commit_guidance(
         if not git.available:
             return
 
-        uncommitted = get_uncommitted_findings(plan)
+        uncommitted = get_uncommitted_issues(plan)
         if not uncommitted:
             return
 

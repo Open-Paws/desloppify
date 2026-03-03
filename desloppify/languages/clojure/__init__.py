@@ -11,7 +11,7 @@ generic_lang(
             "label": "clj-kondo",
             "cmd": "clj-kondo --lint . --config '{:output {:format :json}}'",
             "fmt": "json",
-            "id": "clj_kondo_finding",
+            "id": "clj_kondo_issue",
             "tier": 2,
             "fix_cmd": None,
         },

@@ -14,7 +14,7 @@ def build_work_queue(state, **kwargs):
     return _build_work_queue(state, options=QueueBuildOptions(**kwargs))
 
 
-def _finding(
+def _issue(
     fid: str,
     *,
     detector: str = "smells",
@@ -43,14 +43,14 @@ def _state(issues: list[dict], *, dimension_scores: dict | None = None) -> dict:
     }
 
 
-def test_review_finding_uses_natural_tier():
-    review = _finding(
+def test_review_issue_uses_natural_tier():
+    review = _issue(
         "review::src/a.py::naming",
         detector="review",
         tier=2,
         detail={"dimension": "naming_quality"},
     )
-    mechanical = _finding("smells::src/a.py::x", detector="smells", tier=3)
+    mechanical = _issue("smells::src/a.py::x", detector="smells", tier=3)
     state = _state(
         [review, mechanical],
         dimension_scores={
@@ -65,10 +65,10 @@ def test_review_finding_uses_natural_tier():
 
 
 def test_review_items_ranked_alongside_mechanical():
-    urgent = _finding(
+    urgent = _issue(
         "security::src/a.py::x", detector="security", tier=1, confidence="high"
     )
-    review = _finding(
+    review = _issue(
         "review::src/a.py::naming",
         detector="review",
         tier=2,
@@ -90,14 +90,14 @@ def test_review_items_ranked_alongside_mechanical():
 
 
 def test_review_items_sort_by_issue_weight_within_tier():
-    standard = _finding(
+    standard = _issue(
         "review::src/a.py::naming",
         detector="review",
         tier=2,
         confidence="high",
         detail={"dimension": "naming_quality"},
     )
-    holistic = _finding(
+    holistic = _issue(
         "review::src/a.py::logic",
         detector="review",
         tier=2,
@@ -137,7 +137,7 @@ def test_queue_contains_mechanical_and_synthetic_subjective_items():
 
 def test_subjective_items_do_not_starve_objective_queue_head():
     """Non-initial subjective items are excluded when objective backlog exists."""
-    review = _finding(
+    review = _issue(
         "review::.::holistic::naming_quality::abc12345",
         detector="review",
         tier=3,
@@ -145,8 +145,8 @@ def test_subjective_items_do_not_starve_objective_queue_head():
     )
     state = _state(
         [
-            _finding("security::src/a.py::x", detector="security", tier=1, confidence="high"),
-            _finding("smells::src/a.py::y", detector="smells", tier=2, confidence="medium"),
+            _issue("security::src/a.py::x", detector="security", tier=1, confidence="high"),
+            _issue("smells::src/a.py::y", detector="smells", tier=2, confidence="medium"),
             review,
         ],
         dimension_scores={
@@ -167,7 +167,7 @@ def test_impact_sort_with_count_limit():
     confidence mechanical leads."""
     state = _state(
         [
-            _finding("security::src/a.py::x", detector="security", tier=1, confidence="high"),
+            _issue("security::src/a.py::x", detector="security", tier=1, confidence="high"),
         ],
         dimension_scores={
             "Naming quality": {"score": 80.0, "strict": 80.0, "failing": 5},
@@ -181,7 +181,7 @@ def test_impact_sort_with_count_limit():
 def test_explain_payload_added_when_requested():
     state = _state(
         [
-            _finding(
+            _issue(
                 "smells::src/a.py::x", tier=3, confidence="medium", detail={"count": 7}
             )
         ]
@@ -216,8 +216,8 @@ def test_subjective_items_respect_target_threshold():
     assert "subjective::ai_generated_debt" not in ids
 
 
-def test_subjective_item_uses_show_review_when_matching_review_findings_exist():
-    review = _finding(
+def test_subjective_item_uses_show_review_when_matching_review_issues_exist():
+    review = _issue(
         "review::.::holistic::mid_level_elegance::split::abc12345",
         detector="review",
         tier=3,
@@ -238,11 +238,11 @@ def test_subjective_item_uses_show_review_when_matching_review_findings_exist():
     )
     assert subj["id"] == "subjective::mid_level_elegance"
     assert subj["primary_command"] == "desloppify show review --status open"
-    assert subj["detail"]["open_review_findings"] == 1
+    assert subj["detail"]["open_review_issues"] == 1
 
 
-def test_stale_subjective_item_uses_show_review_when_matching_review_findings_exist():
-    review = _finding(
+def test_stale_subjective_item_uses_show_review_when_matching_review_issues_exist():
+    review = _issue(
         "review::.::holistic::initialization_coupling::abc12345",
         detector="review",
         tier=3,
@@ -280,7 +280,7 @@ def test_stale_subjective_item_uses_show_review_when_matching_review_findings_ex
     )
     assert "[stale — re-review]" in subj["summary"]
     assert subj["primary_command"] == "desloppify show review --status open"
-    assert subj["detail"]["open_review_findings"] == 1
+    assert subj["detail"]["open_review_issues"] == 1
 
 
 def test_unassessed_subjective_item_points_to_holistic_refresh():
@@ -301,8 +301,8 @@ def test_unassessed_subjective_item_points_to_holistic_refresh():
     assert subj["primary_command"] == "desloppify review --prepare --dimensions high_level_elegance"
 
 
-def test_subjective_review_finding_points_to_review_triage():
-    coverage = _finding(
+def test_subjective_review_issue_points_to_review_triage():
+    coverage = _issue(
         "subjective_review::src/a.py::changed",
         detector="subjective_review",
         tier=4,
@@ -315,8 +315,8 @@ def test_subjective_review_finding_points_to_review_triage():
     assert item["primary_command"] == "desloppify show subjective"
 
 
-def test_holistic_subjective_review_finding_points_to_holistic_refresh():
-    holistic = _finding(
+def test_holistic_subjective_review_issue_points_to_holistic_refresh():
+    holistic = _issue(
         "subjective_review::.::holistic_unreviewed",
         detector="subjective_review",
         file=".",
@@ -352,19 +352,19 @@ def test_queue_build_options_defaults():
 def test_invalid_status_raises_value_error():
     import pytest
 
-    state = _state([_finding("a")])
+    state = _state([_issue("a")])
     with pytest.raises(ValueError, match="Unsupported status filter"):
         build_work_queue(state, status="bogus")
 
 
 def test_legacy_string_detail_does_not_crash_queue_build():
     """Queue building should tolerate issues whose detail is a plain string."""
-    review = _finding(
+    review = _issue(
         "review::src/a.py::legacy",
         detector="review",
         detail={"dimension": "naming_quality"},
     )
-    weird = _finding("responsibility_cohesion::src/a.py::legacy", detector="smells")
+    weird = _issue("responsibility_cohesion::src/a.py::legacy", detector="smells")
     weird["detail"] = "Clusters: alpha, beta"
 
     state = _state(
@@ -411,9 +411,9 @@ def test_subjective_threshold_clamped_to_valid_range():
 def test_count_limits_returned_items():
     state = _state(
         [
-            _finding("a", detector="unused", tier=2, confidence="high"),
-            _finding("b", detector="unused", tier=2, confidence="medium"),
-            _finding("c", detector="unused", tier=2, confidence="low"),
+            _issue("a", detector="unused", tier=2, confidence="high"),
+            _issue("b", detector="unused", tier=2, confidence="medium"),
+            _issue("c", detector="unused", tier=2, confidence="low"),
         ]
     )
 
@@ -424,7 +424,7 @@ def test_count_limits_returned_items():
 
 def test_count_none_returns_all_items():
     state = _state(
-        [_finding("a", tier=2), _finding("b", tier=3), _finding("c", tier=4)]
+        [_issue("a", tier=2), _issue("b", tier=3), _issue("c", tier=4)]
     )
 
     queue = build_work_queue(state, count=None, include_subjective=False)
@@ -434,7 +434,7 @@ def test_count_none_returns_all_items():
 
 def test_default_count_is_1():
     state = _state(
-        [_finding("a", tier=2), _finding("b", tier=3)]
+        [_issue("a", tier=2), _issue("b", tier=3)]
     )
 
     queue = build_work_queue(state, include_subjective=False)
@@ -456,8 +456,8 @@ def test_empty_state_returns_empty_queue():
 def test_grouped_output_groups_by_item():
     state = _state(
         [
-            _finding("a", file="src/a.py"),
-            _finding("b", file="src/b.py"),
+            _issue("a", file="src/a.py"),
+            _issue("b", file="src/b.py"),
         ]
     )
 
@@ -473,8 +473,8 @@ def test_grouped_output_groups_by_item():
 def test_status_filter_fixed():
     state = _state(
         [
-            _finding("open_one", status="open"),
-            _finding("fixed_one", status="fixed"),
+            _issue("open_one", status="open"),
+            _issue("fixed_one", status="fixed"),
         ]
     )
 
@@ -486,8 +486,8 @@ def test_status_filter_fixed():
 def test_status_filter_all():
     state = _state(
         [
-            _finding("open_one", status="open"),
-            _finding("fixed_one", status="fixed"),
+            _issue("open_one", status="open"),
+            _issue("fixed_one", status="fixed"),
         ]
     )
 
@@ -498,11 +498,11 @@ def test_status_filter_all():
 # ── Chronic mode ──────────────────────────────────────────
 
 
-def test_chronic_mode_filters_reopened_findings():
+def test_chronic_mode_filters_reopened_issues():
     issues = [
-        {**_finding("chronic_one"), "reopen_count": 3},
-        {**_finding("normal_one"), "reopen_count": 0},
-        {**_finding("once_reopened"), "reopen_count": 1},
+        {**_issue("chronic_one"), "reopen_count": 3},
+        {**_issue("normal_one"), "reopen_count": 0},
+        {**_issue("once_reopened"), "reopen_count": 1},
     ]
     state = _state(issues)
 
@@ -536,12 +536,12 @@ def test_chronic_mode_excludes_subjective_items():
 
 def test_stale_subjective_gated_when_objective_backlog_exists():
     """Stale subjective items are suppressed while objective backlog exists."""
-    objective_findings = [
-        _finding(f"smells::src/{c}.py::x", detector="smells", tier=3)
+    objective_issues = [
+        _issue(f"smells::src/{c}.py::x", detector="smells", tier=3)
         for c in "abcd"
     ]
     state = _state(
-        objective_findings,
+        objective_issues,
         dimension_scores={
             "Naming quality": {
                 "score": 70.0,
@@ -603,12 +603,12 @@ def test_stale_subjective_appear_when_no_objective_backlog():
 
 def test_unassessed_subjective_appear_with_objective_backlog():
     """Unassessed (placeholder) subjective items appear alongside objective issues."""
-    objective_findings = [
-        _finding(f"smells::src/{c}.py::x", detector="smells", tier=3)
+    objective_issues = [
+        _issue(f"smells::src/{c}.py::x", detector="smells", tier=3)
         for c in "abcd"
     ]
     state = _state(
-        objective_findings,
+        objective_issues,
         dimension_scores={
             "Naming quality": {
                 "score": 0.0,
@@ -723,7 +723,7 @@ def test_impact_fallback_when_no_dimension_scores():
 def test_low_confidence_props_excluded_from_queue():
     """Low-confidence issues from detectors with standalone_threshold are filtered."""
     state = _state(
-        [_finding("props::src/a.tsx::big", detector="props", confidence="low")]
+        [_issue("props::src/a.tsx::big", detector="props", confidence="low")]
     )
     queue = build_work_queue(state, count=None, include_subjective=False)
     assert len(queue["items"]) == 0
@@ -732,7 +732,7 @@ def test_low_confidence_props_excluded_from_queue():
 def test_medium_confidence_props_included_in_queue():
     """Medium-confidence issues pass the standalone_threshold='medium' check."""
     state = _state(
-        [_finding("props::src/a.tsx::big", detector="props", confidence="medium")]
+        [_issue("props::src/a.tsx::big", detector="props", confidence="medium")]
     )
     queue = build_work_queue(state, count=None, include_subjective=False)
     ids = {item["id"] for item in queue["items"]}
@@ -742,7 +742,7 @@ def test_medium_confidence_props_included_in_queue():
 def test_high_confidence_always_passes():
     """High-confidence issues always pass any standalone threshold."""
     state = _state(
-        [_finding("props::src/a.tsx::huge", detector="props", confidence="high")]
+        [_issue("props::src/a.tsx::huge", detector="props", confidence="high")]
     )
     queue = build_work_queue(state, count=None, include_subjective=False)
     ids = {item["id"] for item in queue["items"]}
@@ -752,16 +752,16 @@ def test_high_confidence_always_passes():
 def test_detector_without_threshold_unaffected():
     """Detectors without standalone_threshold (e.g. unused) pass at any confidence."""
     state = _state(
-        [_finding("unused::src/a.py::x", detector="unused", confidence="low")]
+        [_issue("unused::src/a.py::x", detector="unused", confidence="low")]
     )
     queue = build_work_queue(state, count=None, include_subjective=False)
     ids = {item["id"] for item in queue["items"]}
     assert "unused::src/a.py::x" in ids
 
 
-def test_evidence_only_finding_still_in_state():
+def test_evidence_only_issue_still_in_state():
     """Evidence-only issues are filtered from queue but remain in state (scoring intact)."""
-    issues = [_finding("props::src/a.tsx::big", detector="props", confidence="low")]
+    issues = [_issue("props::src/a.tsx::big", detector="props", confidence="low")]
     state = _state(issues)
     # Issue exists in state
     assert "props::src/a.tsx::big" in state["issues"]
@@ -775,7 +775,7 @@ def test_evidence_only_reduces_objective_count():
     letting subjective items surface sooner."""
     # All issues are low-confidence smells (has standalone_threshold)
     issues = [
-        _finding(f"smells::src/{c}.py::x", detector="smells", confidence="low")
+        _issue(f"smells::src/{c}.py::x", detector="smells", confidence="low")
         for c in "abcd"
     ]
     state = _state(
@@ -797,7 +797,7 @@ def test_evidence_only_reduces_objective_count():
 def test_impact_floor_filters_negligible_impact():
     """Mechanical issues with estimated_impact < 0.05 are dropped."""
     state = _state(
-        [_finding("unused::src/a.py::x", detector="unused", confidence="high")],
+        [_issue("unused::src/a.py::x", detector="unused", confidence="high")],
         dimension_scores={
             "Code quality": {"score": 99.99, "strict": 99.99, "checks": 10000, "failing": 1},
         },
@@ -812,7 +812,7 @@ def test_impact_floor_filters_negligible_impact():
 def test_impact_floor_preserves_items_without_scores():
     """When no dimension_scores exist, items get impact 0.0 and are preserved."""
     state = _state(
-        [_finding("unused::src/a.py::x", detector="unused", confidence="high")],
+        [_issue("unused::src/a.py::x", detector="unused", confidence="high")],
         dimension_scores={},
     )
     queue = build_work_queue(state, count=None, include_subjective=False)
@@ -889,12 +889,12 @@ def test_plan_ordered_stale_subjective_surfaces_with_objective_backlog():
     """
     from desloppify.engine._plan.schema import empty_plan
 
-    objective_findings = [
-        _finding(f"smells::src/{c}.py::x", detector="smells", tier=3)
+    objective_issues = [
+        _issue(f"smells::src/{c}.py::x", detector="smells", tier=3)
         for c in "abcd"
     ]
     state = _state(
-        objective_findings,
+        objective_issues,
         dimension_scores={
             "Naming quality": {
                 "score": 70.0,
@@ -946,7 +946,7 @@ def test_plan_ordered_stale_subjective_surfaces_with_objective_backlog():
 # ── Wontfix / resolved issues excluded (#193) ──────────
 
 
-def test_wontfixed_findings_excluded_from_queue():
+def test_wontfixed_issues_excluded_from_queue():
     """Issues with status 'wontfix' never appear in the default queue.
 
     Regression test for #193: wontfixed issues were leaking into the
@@ -955,10 +955,10 @@ def test_wontfixed_findings_excluded_from_queue():
     """
     state = _state(
         [
-            _finding("a", status="open"),
-            _finding("b", status="wontfix"),
-            _finding("c", status="fixed"),
-            _finding("d", status="open"),
+            _issue("a", status="open"),
+            _issue("b", status="wontfix"),
+            _issue("c", status="fixed"),
+            _issue("d", status="open"),
         ]
     )
 
@@ -970,7 +970,7 @@ def test_wontfixed_findings_excluded_from_queue():
     assert "c" not in ids  # fixed excluded
 
 
-def test_wontfixed_findings_excluded_with_plan():
+def test_wontfixed_issues_excluded_with_plan():
     """Wontfixed issues stay out even when a plan is active."""
     from desloppify.engine._plan.schema import empty_plan
 
@@ -979,10 +979,10 @@ def test_wontfixed_findings_excluded_with_plan():
 
     state = _state(
         [
-            _finding("a", status="open"),
-            _finding("b", status="wontfix"),
-            _finding("c", status="fixed"),
-            _finding("d", status="open"),
+            _issue("a", status="open"),
+            _issue("b", status="wontfix"),
+            _issue("c", status="fixed"),
+            _issue("d", status="open"),
         ]
     )
 

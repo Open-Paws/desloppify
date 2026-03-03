@@ -102,7 +102,7 @@ def _format_drift_summary(drift: dict[str, dict[str, float]]) -> str:
     return f"; drift: {', '.join(parts)}" if parts else ""
 
 
-def _build_stale_wontfix_finding(
+def _build_stale_wontfix_issue(
     issue_id: str,
     previous: dict[str, Any],
     *,
@@ -129,7 +129,7 @@ def _build_stale_wontfix_finding(
         summary=summary,
         detail={
             "subtype": "stale_wontfix",
-            "original_finding_id": issue_id,
+            "original_issue_id": issue_id,
             "original_detector": previous.get("detector"),
             "reasons": reasons,
             "scans_since_wontfix": since_scan,
@@ -188,7 +188,7 @@ def augment_with_stale_wontfix_issues(
             continue
 
         augmented.append(
-            _build_stale_wontfix_finding(
+            _build_stale_wontfix_issue(
                 issue_id,
                 previous,
                 reasons=reasons,

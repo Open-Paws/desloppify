@@ -6,14 +6,14 @@ from desloppify.languages._framework.base.structural import (
 )
 from desloppify.languages._framework.issue_factories import (
     SMELL_TIER_MAP,
-    make_cycle_findings,
-    make_dupe_findings,
-    make_facade_findings,
-    make_orphaned_findings,
-    make_passthrough_findings,
-    make_single_use_findings,
-    make_smell_findings,
-    make_unused_findings,
+    make_cycle_issues,
+    make_dupe_issues,
+    make_facade_issues,
+    make_orphaned_issues,
+    make_passthrough_issues,
+    make_single_use_issues,
+    make_smell_issues,
+    make_unused_issues,
 )
 
 
@@ -32,7 +32,7 @@ def _capture_log():
     return messages, log
 
 
-# ── make_unused_findings ─────────────────────────────────────
+# ── make_unused_issues ─────────────────────────────────────
 
 
 class TestMakeUnusedIssues:
@@ -41,7 +41,7 @@ class TestMakeUnusedIssues:
         entries = [
             {"file": "/proj/a.py", "name": "os", "line": 1, "category": "imports"}
         ]
-        results = make_unused_findings(entries, _noop_log)
+        results = make_unused_issues(entries, _noop_log)
         assert len(results) == 1
         assert results[0]["tier"] == 1
         assert results[0]["confidence"] == "high"
@@ -53,13 +53,13 @@ class TestMakeUnusedIssues:
         entries = [
             {"file": "/proj/a.py", "name": "foo", "line": 5, "category": "exports"}
         ]
-        results = make_unused_findings(entries, _noop_log)
+        results = make_unused_issues(entries, _noop_log)
         assert len(results) == 1
         assert results[0]["tier"] == 2
 
     def test_empty_entries(self):
         """Empty entries produce empty results."""
-        results = make_unused_findings([], _noop_log)
+        results = make_unused_issues([], _noop_log)
         assert results == []
 
     def test_multiple_entries(self):
@@ -68,7 +68,7 @@ class TestMakeUnusedIssues:
             {"file": "/proj/a.py", "name": "os", "line": 1, "category": "imports"},
             {"file": "/proj/b.py", "name": "sys", "line": 2, "category": "imports"},
         ]
-        results = make_unused_findings(entries, _noop_log)
+        results = make_unused_issues(entries, _noop_log)
         assert len(results) == 2
 
     def test_stderr_called(self):
@@ -77,12 +77,12 @@ class TestMakeUnusedIssues:
         entries = [
             {"file": "/proj/a.py", "name": "os", "line": 1, "category": "imports"}
         ]
-        make_unused_findings(entries, log)
+        make_unused_issues(entries, log)
         assert len(messages) == 1
         assert "1 instances" in messages[0]
 
 
-# ── make_dupe_findings ───────────────────────────────────────
+# ── make_dupe_issues ───────────────────────────────────────
 
 
 class TestMakeDupeIssues:
@@ -97,7 +97,7 @@ class TestMakeDupeIssues:
     def test_exact_dupe_tier2(self):
         """Exact duplicates produce tier 2 issues."""
         entries = [self._make_entry(kind="exact")]
-        results = make_dupe_findings(entries, _noop_log)
+        results = make_dupe_issues(entries, _noop_log)
         assert len(results) == 1
         assert results[0]["tier"] == 2
         assert results[0]["confidence"] == "high"
@@ -106,7 +106,7 @@ class TestMakeDupeIssues:
     def test_near_dupe_tier3(self):
         """Near duplicates produce tier 3 issues."""
         entries = [self._make_entry(kind="near", similarity=0.85)]
-        results = make_dupe_findings(entries, _noop_log)
+        results = make_dupe_issues(entries, _noop_log)
         assert len(results) == 1
         assert results[0]["tier"] == 3
         assert results[0]["confidence"] == "low"
@@ -115,13 +115,13 @@ class TestMakeDupeIssues:
     def test_small_functions_suppressed(self):
         """Both functions under 10 LOC are suppressed."""
         entries = [self._make_entry(loc_a=5, loc_b=8)]
-        results = make_dupe_findings(entries, _noop_log)
+        results = make_dupe_issues(entries, _noop_log)
         assert len(results) == 0
 
     def test_one_large_function_not_suppressed(self):
         """Only one function under 10 LOC: not suppressed."""
         entries = [self._make_entry(loc_a=5, loc_b=50)]
-        results = make_dupe_findings(entries, _noop_log)
+        results = make_dupe_issues(entries, _noop_log)
         assert len(results) == 1
 
     def test_cluster_size_in_summary(self):
@@ -129,13 +129,13 @@ class TestMakeDupeIssues:
         entry = self._make_entry()
         entry["cluster_size"] = 4
         entry["cluster"] = [entry["fn_a"], entry["fn_b"]]
-        results = make_dupe_findings([entry], _noop_log)
+        results = make_dupe_issues([entry], _noop_log)
         assert "cluster (4 functions" in results[0]["summary"]
 
     def test_detector_is_dupes(self):
         """Issues have detector='dupes'."""
         entries = [self._make_entry()]
-        results = make_dupe_findings(entries, _noop_log)
+        results = make_dupe_issues(entries, _noop_log)
         assert results[0]["detector"] == "dupes"
 
 
@@ -231,7 +231,7 @@ class TestStructuralSignals:
         assert results == []
 
 
-# ── make_smell_findings ──────────────────────────────────────
+# ── make_smell_issues ──────────────────────────────────────
 
 
 class TestMakeSmellIssues:
@@ -250,7 +250,7 @@ class TestMakeSmellIssues:
                 ],
             }
         ]
-        results = make_smell_findings(entries, _noop_log)
+        results = make_smell_issues(entries, _noop_log)
         assert len(results) == 1
         assert results[0]["tier"] == 2
         assert results[0]["confidence"] == "medium"
@@ -267,7 +267,7 @@ class TestMakeSmellIssues:
                 "matches": [{"file": "/proj/a.py", "line": 5, "content": "# TODO"}],
             }
         ]
-        results = make_smell_findings(entries, _noop_log)
+        results = make_smell_issues(entries, _noop_log)
         assert results[0]["tier"] == 3
 
     def test_low_severity_low_confidence(self):
@@ -282,7 +282,7 @@ class TestMakeSmellIssues:
                 "matches": [{"file": "/proj/a.py", "line": 5, "content": "x = 42"}],
             }
         ]
-        results = make_smell_findings(entries, _noop_log)
+        results = make_smell_issues(entries, _noop_log)
         assert results[0]["confidence"] == "low"
         assert results[0]["tier"] == 3
 
@@ -302,12 +302,12 @@ class TestMakeSmellIssues:
                 ],
             }
         ]
-        results = make_smell_findings(entries, _noop_log)
+        results = make_smell_issues(entries, _noop_log)
         assert len(results) == 2  # One per file
 
     def test_empty_entries(self):
         """Empty entries produce empty results."""
-        results = make_smell_findings([], _noop_log)
+        results = make_smell_issues([], _noop_log)
         assert results == []
 
     def test_detail_contains_smell_info(self):
@@ -322,7 +322,7 @@ class TestMakeSmellIssues:
                 "matches": [{"file": "/proj/a.py", "line": 10, "content": "eval(x)"}],
             }
         ]
-        results = make_smell_findings(entries, _noop_log)
+        results = make_smell_issues(entries, _noop_log)
         d = results[0]["detail"]
         assert d["smell_id"] == "eval_exec"
         assert d["severity"] == "high"
@@ -330,14 +330,14 @@ class TestMakeSmellIssues:
         assert d["lines"] == [10]
 
 
-# ── make_cycle_findings ──────────────────────────────────────
+# ── make_cycle_issues ──────────────────────────────────────
 
 
 class TestMakeCycleIssues:
     def test_short_cycle_tier3(self):
         """Cycles of length <= 3 produce tier 3."""
         entries = [{"files": ["/proj/a.py", "/proj/b.py", "/proj/c.py"], "length": 3}]
-        results = make_cycle_findings(entries, _noop_log)
+        results = make_cycle_issues(entries, _noop_log)
         assert len(results) == 1
         assert results[0]["tier"] == 3
         assert results[0]["confidence"] == "high"
@@ -346,36 +346,36 @@ class TestMakeCycleIssues:
         """Cycles of length > 3 produce tier 4."""
         files = [f"/proj/{c}.py" for c in "abcde"]
         entries = [{"files": files, "length": 5}]
-        results = make_cycle_findings(entries, _noop_log)
+        results = make_cycle_issues(entries, _noop_log)
         assert results[0]["tier"] == 4
 
     def test_empty_entries(self):
         """Empty entries produce empty results."""
-        results = make_cycle_findings([], _noop_log)
+        results = make_cycle_issues([], _noop_log)
         assert results == []
 
     def test_summary_contains_cycle_info(self):
         """Summary mentions cycle length and file names."""
         entries = [{"files": ["/proj/a.py", "/proj/b.py"], "length": 2}]
-        results = make_cycle_findings(entries, _noop_log)
+        results = make_cycle_issues(entries, _noop_log)
         assert "Import cycle (2 files)" in results[0]["summary"]
 
     def test_long_cycle_name_truncated(self):
         """Cycles >4 files have '+N' in the ID name."""
         files = [f"/proj/{chr(97 + i)}.py" for i in range(6)]
         entries = [{"files": files, "length": 6}]
-        results = make_cycle_findings(entries, _noop_log)
+        results = make_cycle_issues(entries, _noop_log)
         assert "+2" in results[0]["id"]
 
 
-# ── make_orphaned_findings ───────────────────────────────────
+# ── make_orphaned_issues ───────────────────────────────────
 
 
 class TestMakeOrphanedIssues:
     def test_produces_tier3_medium(self):
         """Orphaned files produce tier 3 / medium issues."""
         entries = [{"file": "/proj/orphan.py", "loc": 150}]
-        results = make_orphaned_findings(entries, _noop_log)
+        results = make_orphaned_issues(entries, _noop_log)
         assert len(results) == 1
         assert results[0]["tier"] == 3
         assert results[0]["confidence"] == "medium"
@@ -384,21 +384,21 @@ class TestMakeOrphanedIssues:
 
     def test_empty_entries(self):
         """Empty entries produce empty results."""
-        results = make_orphaned_findings([], _noop_log)
+        results = make_orphaned_issues([], _noop_log)
         assert results == []
 
 
-# ── make_single_use_findings ─────────────────────────────────
+# ── make_single_use_issues ─────────────────────────────────
 
 
 class TestMakeSingleUseIssues:
     def _make_entries(self, loc=300):
         return [{"file": "/proj/utils.py", "loc": loc, "sole_importer": "app/main.py"}]
 
-    def test_outside_loc_range_produces_finding(self):
+    def test_outside_loc_range_produces_issue(self):
         """Files outside the suppression LOC range produce issues."""
         entries = self._make_entries(loc=300)
-        results = make_single_use_findings(
+        results = make_single_use_issues(
             entries,
             get_area=None,
             loc_range=(50, 200),
@@ -411,7 +411,7 @@ class TestMakeSingleUseIssues:
     def test_within_loc_range_suppressed(self):
         """Files within the LOC range are suppressed (appropriate abstractions)."""
         entries = self._make_entries(loc=100)
-        results = make_single_use_findings(
+        results = make_single_use_issues(
             entries,
             get_area=None,
             loc_range=(50, 200),
@@ -427,7 +427,7 @@ class TestMakeSingleUseIssues:
         def same_area(path):
             return "shared"
 
-        results = make_single_use_findings(
+        results = make_single_use_issues(
             entries,
             get_area=same_area,
             loc_range=(50, 200),
@@ -444,7 +444,7 @@ class TestMakeSingleUseIssues:
         def get_area(path):
             return areas.get(path, "unknown")
 
-        results = make_single_use_findings(
+        results = make_single_use_issues(
             entries,
             get_area=get_area,
             loc_range=(50, 200),
@@ -458,7 +458,7 @@ class TestMakeSingleUseIssues:
         entries = [
             {"file": "/proj/commands/run.py", "loc": 300, "sole_importer": "main.py"}
         ]
-        results = make_single_use_findings(
+        results = make_single_use_issues(
             entries,
             get_area=None,
             loc_range=(50, 200),
@@ -470,7 +470,7 @@ class TestMakeSingleUseIssues:
 
     def test_empty_entries(self):
         """Empty entries produce empty results."""
-        results = make_single_use_findings(
+        results = make_single_use_issues(
             [],
             get_area=None,
             suppress_colocated=False,
@@ -479,11 +479,11 @@ class TestMakeSingleUseIssues:
         assert results == []
 
 
-# ── make_passthrough_findings ────────────────────────────────
+# ── make_passthrough_issues ────────────────────────────────
 
 
 class TestMakePassthroughIssues:
-    def test_produces_findings_with_correct_fields(self):
+    def test_produces_issues_with_correct_fields(self):
         """Passthrough entries produce props issues with correct structure."""
         entries = [
             {
@@ -497,7 +497,7 @@ class TestMakePassthroughIssues:
                 "line": 15,
             }
         ]
-        results = make_passthrough_findings(
+        results = make_passthrough_issues(
             entries,
             name_key="component",
             total_key="total_props",
@@ -511,7 +511,7 @@ class TestMakePassthroughIssues:
 
     def test_empty_entries(self):
         """Empty entries produce empty results."""
-        results = make_passthrough_findings(
+        results = make_passthrough_issues(
             [],
             name_key="component",
             total_key="total_props",
@@ -520,7 +520,7 @@ class TestMakePassthroughIssues:
         assert results == []
 
 
-# ── make_facade_findings ─────────────────────────────────────
+# ── make_facade_issues ─────────────────────────────────────
 
 
 class TestMakeFacadeIssues:
@@ -535,7 +535,7 @@ class TestMakeFacadeIssues:
                 "imports_from": ["./utils", "./helpers"],
             }
         ]
-        results = make_facade_findings(entries, _noop_log)
+        results = make_facade_issues(entries, _noop_log)
         assert len(results) == 1
         assert results[0]["tier"] == 2
         assert results[0]["confidence"] == "medium"  # importers > 0
@@ -553,7 +553,7 @@ class TestMakeFacadeIssues:
                 "file_count": 5,
             }
         ]
-        results = make_facade_findings(entries, _noop_log)
+        results = make_facade_issues(entries, _noop_log)
         assert len(results) == 1
         assert results[0]["confidence"] == "high"  # importers == 0
         assert "Facade directory" in results[0]["summary"]
@@ -570,12 +570,12 @@ class TestMakeFacadeIssues:
                 "imports_from": ["./a"],
             }
         ]
-        results = make_facade_findings(entries, _noop_log)
+        results = make_facade_issues(entries, _noop_log)
         assert results[0]["confidence"] == "high"
 
     def test_empty_entries(self):
         """Empty entries produce empty results."""
-        results = make_facade_findings([], _noop_log)
+        results = make_facade_issues([], _noop_log)
         assert results == []
 
 

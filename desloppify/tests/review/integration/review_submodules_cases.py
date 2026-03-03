@@ -1,4 +1,4 @@
-"""Direct tests for review/ submodules — selection, prepare, import_findings, remediation.
+"""Direct tests for review/ submodules — selection, prepare, import_issues, remediation.
 
 These tests import directly from the submodule files (not the __init__.py facade)
 so the test_coverage detector recognizes them as directly tested.
@@ -348,7 +348,7 @@ class TestPrepareHolisticReview:
         assert mock_build_batches.call_args.kwargs["repo_root"] == Path(".")
 
 
-# ── import_findings.py tests ──────────────────────────────────────
+# ── import_issues.py tests ──────────────────────────────────────
 
 
 class TestExtractIssuesAndAssessments:
@@ -369,7 +369,7 @@ class TestExtractIssuesAndAssessments:
         with pytest.raises(ValueError):
             parse_per_file_import_payload("bad")  # type: ignore[arg-type]
 
-    def test_non_object_finding_item_rejected(self):
+    def test_non_object_issue_item_rejected(self):
         with pytest.raises(ValueError, match="issues\\[0\\]"):
             parse_per_file_import_payload(
                 {
@@ -443,7 +443,7 @@ class TestStoreAssessments:
 
 
 class TestImportReviewIssues:
-    def test_valid_finding(self, empty_state):
+    def test_valid_issue(self, empty_state):
         data = [
             {
                 "file": "src/foo.ts",
@@ -495,7 +495,7 @@ class TestImportReviewIssues:
         assert len(review_issues) == 1
         assert review_issues[0]["confidence"] == "low"
 
-    def test_import_with_reviewed_files_and_no_findings_updates_cache(
+    def test_import_with_reviewed_files_and_no_issues_updates_cache(
         self, empty_state, tmp_path
     ):
         src = tmp_path / "src"
@@ -515,7 +515,7 @@ class TestImportReviewIssues:
         assert "src/reviewed.ts" in cache
         assert cache["src/reviewed.ts"]["issue_count"] == 0
 
-    def test_auto_resolves_missing_findings(self, empty_state):
+    def test_auto_resolves_missing_issues(self, empty_state):
         # Pre-existing review issue for src/foo.ts
         old = make_issue(
             detector="review",
@@ -636,11 +636,11 @@ class TestEmptyPlan:
 
 
 class TestGenerateRemediationPlan:
-    def test_empty_findings(self, empty_state):
+    def test_empty_issues(self, empty_state):
         result = generate_remediation_plan(empty_state, "typescript")
         assert "No open holistic issues" in result
 
-    def test_with_findings(self, empty_state):
+    def test_with_issues(self, empty_state):
         f = make_issue(
             detector="review",
             file="",

@@ -47,7 +47,7 @@ def test_cmd_exclude_marks_config_stale_without_state_changes(
     assert "Config changed — scores may be stale. Run: desloppify scan" in out
 
 
-def test_cmd_exclude_prunes_matching_findings_and_plan(
+def test_cmd_exclude_prunes_matching_issues_and_plan(
     monkeypatch,
     tmp_path,
     capsys,

@@ -208,11 +208,11 @@ class TestShowIgnoreSummary:
             ["smells::*", "logs::*"],
             {
                 "last_ignored": 12,
-                "last_raw_findings": 40,
+                "last_raw_issues": 40,
                 "last_suppressed_pct": 30.0,
                 "recent_scans": 3,
                 "recent_ignored": 20,
-                "recent_raw_findings": 100,
+                "recent_raw_issues": 100,
                 "recent_suppressed_pct": 20.0,
             },
         )
@@ -226,10 +226,10 @@ class TestShowIgnoreSummary:
             ["smells::*"],
             {
                 "last_ignored": 0,
-                "last_raw_findings": 0,
+                "last_raw_issues": 0,
                 "recent_scans": 1,
                 "recent_ignored": 0,
-                "recent_raw_findings": 0,
+                "recent_raw_issues": 0,
                 "recent_suppressed_pct": 0.0,
             },
         )

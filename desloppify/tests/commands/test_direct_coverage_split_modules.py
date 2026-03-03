@@ -8,7 +8,7 @@ import desloppify.engine._scoring.detection as scoring_detection
 import desloppify.engine._scoring.policy.core as scoring_policy
 import desloppify.engine._scoring.results.core as scoring_results
 import desloppify.engine._scoring.subjective.core as scoring_subjective
-import desloppify.engine._state.merge_issues as merge_findings
+import desloppify.engine._state.merge_issues as merge_issues
 import desloppify.engine._state.merge_history as merge_history
 import desloppify.engine._work_queue.helpers as work_queue_helpers
 import desloppify.engine._work_queue.ranking as work_queue_ranking
@@ -31,8 +31,8 @@ def test_split_module_direct_coverage_smoke_signals():
     assert callable(scoring_results.compute_score_bundle)
     assert callable(scoring_subjective.append_subjective_dimensions)
 
-    assert callable(merge_findings.upsert_issues)
-    assert callable(merge_findings.auto_resolve_disappeared)
+    assert callable(merge_issues.upsert_issues)
+    assert callable(merge_issues.auto_resolve_disappeared)
     assert callable(merge_history._append_scan_history)
     assert callable(merge_history._build_merge_diff)
 

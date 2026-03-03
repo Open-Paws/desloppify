@@ -13,7 +13,7 @@ from desloppify.engine._plan.stale_dimensions import TRIAGE_STAGE_IDS
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _state_with_review_findings(*ids: str) -> dict:
+def _state_with_review_issues(*ids: str) -> dict:
     issues = {}
     for fid in ids:
         issues[fid] = {
@@ -83,7 +83,7 @@ def _log_actions(plan: dict) -> list[str]:
 class TestObserveLogging:
     def test_observe_stage_logs_entry(self, monkeypatch, capsys):
         plan = _plan_with_stages()
-        state = _state_with_review_findings("r1", "r2")
+        state = _state_with_review_issues("r1", "r2")
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))
@@ -103,7 +103,7 @@ class TestObserveLogging:
 class TestConfirmObserveLogging:
     def test_confirm_observe_logs_entry(self, monkeypatch, capsys):
         plan = _plan_with_stages("observe")
-        state = _state_with_review_findings("r1", "r2")
+        state = _state_with_review_issues("r1", "r2")
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))
@@ -123,7 +123,7 @@ class TestConfirmObserveLogging:
 class TestReflectLogging:
     def test_reflect_stage_logs_entry(self, monkeypatch, capsys):
         plan = _plan_with_stages("observe", confirmed=True)
-        state = _state_with_review_findings("r1", "r2")
+        state = _state_with_review_issues("r1", "r2")
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))
@@ -149,7 +149,7 @@ class TestCompleteLogging:
             "issue_ids": ["r1"],
             "action_steps": ["step 1"],
         }
-        state = _state_with_review_findings("r1")
+        state = _state_with_review_issues("r1")
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))

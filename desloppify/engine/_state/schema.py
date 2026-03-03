@@ -41,9 +41,6 @@ __all__ = [
     "get_strict_score",
     "get_verified_strict_score",
     "migrate_state_keys",
-    # Deprecated aliases
-    "Finding",
-    "FindingStatus",
 ]
 
 IssueStatus = Literal["open", "fixed", "auto_resolved", "wontfix", "false_positive"]
@@ -114,7 +111,7 @@ class ScanHistoryEntry(TypedDict, total=False):
     diff_new: int
     diff_resolved: int
     ignored: int
-    raw_findings: int
+    raw_issues: int
     suppressed_pct: float
     ignore_patterns: int
     subjective_integrity: dict[str, Any] | None
@@ -182,7 +179,7 @@ class ScanDiff(TypedDict):
     resolved_out_of_scope: int
     ignored: int
     ignore_patterns: int
-    raw_findings: int
+    raw_issues: int
     suppressed_pct: float
     skipped: NotRequired[int]
     skipped_details: NotRequired[list[dict]]
@@ -243,16 +240,25 @@ def migrate_state_keys(state: dict) -> None:
     for ds in state.get("dimension_scores", {}).values():
         if isinstance(ds, dict) and "issues" in ds and "failing" not in ds:
             ds["failing"] = ds.pop("issues")
+        elif isinstance(ds, dict) and "issues" in ds:
+            ds.pop("issues", None)
 
     # Also migrate inside scan_history entries
     for entry in state.get("scan_history", []):
         if not isinstance(entry, dict):
             continue
+        # Legacy "raw_findings" → "raw_issues"
+        if "raw_findings" in entry and "raw_issues" not in entry:
+            entry["raw_issues"] = entry.pop("raw_findings")
+        elif "raw_findings" in entry:
+            entry.pop("raw_findings", None)
         dim_scores = entry.get("dimension_scores")
         if isinstance(dim_scores, dict):
             for ds in dim_scores.values():
                 if isinstance(ds, dict) and "issues" in ds and "failing" not in ds:
                     ds["failing"] = ds.pop("issues")
+                elif isinstance(ds, dict) and "issues" in ds:
+                    ds.pop("issues", None)
 
 
 def ensure_state_defaults(state: StateModel | dict) -> None:
@@ -347,8 +353,4 @@ def validate_state_invariants(state: StateModel) -> None:
                 f"issue {issue_id!r} has invalid reopen_count {reopen_count!r}"
             )
 
-
-# Deprecated aliases — kept for backwards compatibility
-Finding = Issue
-FindingStatus = IssueStatus
 

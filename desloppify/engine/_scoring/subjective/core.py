@@ -42,7 +42,7 @@ def _normalize_dimension_key(dim_name: object) -> str:
     return "_".join(dim_name.strip().lower().replace("-", "_").split())
 
 
-def _primary_lang_from_findings(issues: dict) -> str | None:
+def _primary_lang_from_issues(issues: dict) -> str | None:
     counts: dict[str, int] = {}
     for issue in issues.values():
         if not isinstance(issue, dict):
@@ -195,7 +195,7 @@ def append_subjective_dimensions(
             continue
         assessed[dim] = payload
     existing_lower = {k.lower() for k in results}
-    lang_name = _primary_lang_from_findings(issues)
+    lang_name = _primary_lang_from_issues(issues)
 
     all_dims = list(default_dimensions)
     for dim_name in assessed:

@@ -12,7 +12,7 @@ from desloppify.engine._plan.schema import empty_plan
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _state_with_findings(*ids: str) -> dict:
+def _state_with_issues(*ids: str) -> dict:
     issues = {}
     for fid in ids:
         issues[fid] = {
@@ -57,7 +57,7 @@ def _fake_args(**overrides) -> argparse.Namespace:
 class TestPatternHints:
     def test_cluster_add_no_match_shows_hints(self, monkeypatch, capsys):
         """When no issues match, pattern format hints are shown."""
-        state = _state_with_findings("review::test.py::foo::abc12345")
+        state = _state_with_issues("review::test.py::foo::abc12345")
         plan = empty_plan()
         plan["clusters"]["my-cluster"] = {
             "issue_ids": [],
@@ -78,7 +78,7 @@ class TestPatternHints:
 
     def test_cluster_remove_no_match_shows_hints(self, monkeypatch, capsys):
         """Remove also shows pattern hints on no match."""
-        state = _state_with_findings("review::test.py::foo::abc12345")
+        state = _state_with_issues("review::test.py::foo::abc12345")
         plan = empty_plan()
         plan["clusters"]["my-cluster"] = {
             "issue_ids": ["review::test.py::foo::abc12345"],
@@ -106,7 +106,7 @@ class TestOverlapWarning:
         """Adding issues that overlap >50% with another cluster shows warning."""
         fid1 = "review::test.py::f1"
         fid2 = "review::test.py::f2"
-        state = _state_with_findings(fid1, fid2)
+        state = _state_with_issues(fid1, fid2)
         plan = empty_plan()
         plan["clusters"]["cluster-a"] = {
             "issue_ids": [fid1, fid2],
@@ -132,7 +132,7 @@ class TestOverlapWarning:
     def test_cluster_add_no_overlap_warning_for_auto(self, monkeypatch, capsys):
         """Auto clusters are excluded from overlap checks."""
         fid1 = "review::test.py::f1"
-        state = _state_with_findings(fid1)
+        state = _state_with_issues(fid1)
         plan = empty_plan()
         plan["clusters"]["auto-cluster"] = {
             "issue_ids": [fid1],
@@ -227,8 +227,8 @@ class TestOverlapScoping:
     def test_no_false_overlap_from_existing_members(self, monkeypatch, capsys):
         """Adding a new issue to a cluster with pre-existing overlap doesn't re-warn."""
         fid_shared = "review::test.py::shared"
-        fid_new = "review::test.py::new_finding"
-        state = _state_with_findings(fid_shared, fid_new)
+        fid_new = "review::test.py::new_issue"
+        state = _state_with_issues(fid_shared, fid_new)
         plan = empty_plan()
         # cluster-a already has the shared issue
         plan["clusters"]["cluster-a"] = {

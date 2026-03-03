@@ -50,8 +50,8 @@ class TestBuildReviewContext:
         assert ctx.error_conventions.get("returns_null") == 1
         assert ctx.error_conventions.get("throws") == 1
 
-    def test_existing_findings_in_context(
-        self, mock_lang, state_with_findings, tmp_path
+    def test_existing_issues_in_context(
+        self, mock_lang, state_with_issues, tmp_path
     ):
         (tmp_path / "foo.ts").write_text("x")
         mock_lang.file_finder = MagicMock(return_value=[str(tmp_path / "foo.ts")])
@@ -63,12 +63,12 @@ class TestBuildReviewContext:
                 return text
 
             mock_rel.side_effect = _fake_rel
-            ctx = build_review_context(tmp_path, mock_lang, state_with_findings)
+            ctx = build_review_context(tmp_path, mock_lang, state_with_issues)
 
         assert "src/foo.ts" in ctx.existing_issues
 
-    def test_existing_findings_are_scoped_to_selected_files(
-        self, mock_lang, state_with_findings, tmp_path
+    def test_existing_issues_are_scoped_to_selected_files(
+        self, mock_lang, state_with_issues, tmp_path
     ):
         (tmp_path / "foo.ts").write_text("x")
         mock_lang.file_finder = MagicMock(return_value=[str(tmp_path / "foo.ts")])
@@ -80,7 +80,7 @@ class TestBuildReviewContext:
                 return text
 
             mock_rel.side_effect = _fake_rel
-            ctx = build_review_context(tmp_path, mock_lang, state_with_findings)
+            ctx = build_review_context(tmp_path, mock_lang, state_with_issues)
 
         assert "src/foo.ts" in ctx.existing_issues
         assert "src/utils.ts" not in ctx.existing_issues

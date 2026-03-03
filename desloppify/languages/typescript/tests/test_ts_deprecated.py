@@ -5,13 +5,13 @@ from pathlib import Path
 import pytest
 
 import desloppify.languages.typescript.detectors.deprecated as deprecated_detector_mod
-import desloppify.utils as utils_mod
+import desloppify.core.paths_api as paths_api_mod
 
 
 @pytest.fixture(autouse=True)
 def _root(tmp_path, set_project_root, monkeypatch):
     """Point PROJECT_ROOT at the tmp directory via RuntimeContext."""
-    monkeypatch.setattr(utils_mod, "SRC_PATH", tmp_path)
+    monkeypatch.setattr(paths_api_mod, "SRC_PATH", tmp_path)
 
 
 def _write(tmp_path: Path, name: str, content: str) -> Path:

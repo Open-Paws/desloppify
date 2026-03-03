@@ -54,7 +54,7 @@ import desloppify.languages.typescript.syntax.scanner as ts_scanner_mod
 
 def test_direct_coverage_priority_modules_smoke():
     assert callable(review_import_output_mod.print_import_load_errors)
-    assert callable(review_import_parse_mod.load_import_findings_data)
+    assert callable(review_import_parse_mod.load_import_issues_data)
     assert callable(review_import_policy_mod.apply_assessment_import_policy)
     assert callable(review_importing_modes_mod.apply_review_import_mode)
 

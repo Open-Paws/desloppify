@@ -9,9 +9,9 @@ from desloppify.core.output_api import colorize
 from desloppify.engine.plan import (
     append_log_entry,
     commit_tracking_summary,
-    filter_finding_ids_by_pattern,
+    filter_issue_ids_by_pattern,
     generate_pr_body,
-    get_uncommitted_findings,
+    get_uncommitted_issues,
     load_plan,
     record_commit,
     save_plan,
@@ -43,7 +43,7 @@ def _cmd_commit_log_status(plan: dict) -> None:
     if pr:
         print(f"  PR:      #{pr}")
 
-    uncommitted = get_uncommitted_findings(plan)
+    uncommitted = get_uncommitted_issues(plan)
     print(f"\n  Uncommitted:  {summary['uncommitted']} issue(s)")
     for fid in uncommitted[:10]:
         print(f"    {fid}")
@@ -79,13 +79,13 @@ def _cmd_commit_log_record(args: argparse.Namespace, plan: dict) -> None:
             return
 
     # Determine which issues to record
-    uncommitted = get_uncommitted_findings(plan)
+    uncommitted = get_uncommitted_issues(plan)
     if not uncommitted:
         print(colorize("  No uncommitted issues to record.", "yellow"))
         return
 
     if only_patterns:
-        issue_ids = filter_finding_ids_by_pattern(uncommitted, only_patterns)
+        issue_ids = filter_issue_ids_by_pattern(uncommitted, only_patterns)
         if not issue_ids:
             print(colorize("  No uncommitted issues match --only patterns.", "yellow"))
             return

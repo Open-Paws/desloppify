@@ -13,7 +13,7 @@ from desloppify.engine._plan.subjective_policy import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _finding(fid: str, detector: str = "unused", status: str = "open",
+def _issue(fid: str, detector: str = "unused", status: str = "open",
              suppressed: bool = False) -> dict:
     f: dict = {"id": fid, "detector": detector, "status": status}
     if suppressed:
@@ -21,7 +21,7 @@ def _finding(fid: str, detector: str = "unused", status: str = "open",
     return f
 
 
-def _state_with_findings(*issues: dict) -> dict:
+def _state_with_issues(*issues: dict) -> dict:
     return {
         "issues": {f["id"]: f for f in issues},
         "scan_count": 5,
@@ -102,40 +102,40 @@ def test_empty_state_has_no_backlog():
     assert policy.under_target_ids == frozenset()
 
 
-def test_objective_findings_counted():
-    state = _state_with_findings(
-        _finding("u1", "unused"),
-        _finding("u2", "unused"),
-        _finding("r1", "review"),  # non-objective
+def test_objective_issues_counted():
+    state = _state_with_issues(
+        _issue("u1", "unused"),
+        _issue("u2", "unused"),
+        _issue("r1", "review"),  # non-objective
     )
     policy = compute_subjective_visibility(state)
     assert policy.has_objective_backlog is True
     assert policy.objective_count == 2
 
 
-def test_suppressed_findings_excluded():
-    state = _state_with_findings(
-        _finding("u1", "unused", suppressed=True),
+def test_suppressed_issues_excluded():
+    state = _state_with_issues(
+        _issue("u1", "unused", suppressed=True),
     )
     policy = compute_subjective_visibility(state)
     assert policy.has_objective_backlog is False
     assert policy.objective_count == 0
 
 
-def test_closed_findings_excluded():
-    state = _state_with_findings(
-        _finding("u1", "unused", status="resolved"),
+def test_closed_issues_excluded():
+    state = _state_with_issues(
+        _issue("u1", "unused", status="resolved"),
     )
     policy = compute_subjective_visibility(state)
     assert policy.has_objective_backlog is False
 
 
 def test_non_objective_detectors_excluded():
-    state = _state_with_findings(
-        _finding("r1", "review"),
-        _finding("c1", "concerns"),
-        _finding("sr1", "subjective_review"),
-        _finding("sa1", "subjective_assessment"),
+    state = _state_with_issues(
+        _issue("r1", "review"),
+        _issue("c1", "concerns"),
+        _issue("sr1", "subjective_review"),
+        _issue("sa1", "subjective_assessment"),
     )
     policy = compute_subjective_visibility(state)
     assert policy.has_objective_backlog is False

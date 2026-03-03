@@ -49,7 +49,7 @@ def _make_issue(
     }
 
 
-def _state_with_findings(*issues: dict) -> dict:
+def _state_with_issues(*issues: dict) -> dict:
     return {"issues": {f["id"]: f for f in issues}}
 
 
@@ -64,7 +64,7 @@ class TestElevatedSignals:
             "smells", "app/big.py", "monster",
             detail={"smell_id": "monster_function", "function": "do_everything", "loc": 200},
         )
-        concerns = generate_concerns(_state_with_findings(f))
+        concerns = generate_concerns(_state_with_issues(f))
         assert len(concerns) == 1
         c = concerns[0]
         assert c.type == "structural_complexity"
@@ -77,7 +77,7 @@ class TestElevatedSignals:
             "structural", "app/service.py", "struct",
             detail={"signals": {"max_params": 12}},
         )
-        concerns = generate_concerns(_state_with_findings(f))
+        concerns = generate_concerns(_state_with_issues(f))
         assert len(concerns) == 1
         assert concerns[0].type == "interface_design"
         assert "12" in concerns[0].summary
@@ -87,7 +87,7 @@ class TestElevatedSignals:
             "structural", "app/nested.py", "struct",
             detail={"signals": {"max_nesting": 8}},
         )
-        concerns = generate_concerns(_state_with_findings(f))
+        concerns = generate_concerns(_state_with_issues(f))
         assert len(concerns) == 1
         assert concerns[0].type == "structural_complexity"
         assert "8" in concerns[0].summary
@@ -97,24 +97,24 @@ class TestElevatedSignals:
             "structural", "app/huge.py", "struct",
             detail={"signals": {"loc": 500}},
         )
-        concerns = generate_concerns(_state_with_findings(f))
+        concerns = generate_concerns(_state_with_issues(f))
         assert len(concerns) == 1
 
     def test_duplication_flags(self):
         f = _make_issue("dupes", "app/dup.py", "dup1")
-        concerns = generate_concerns(_state_with_findings(f))
+        concerns = generate_concerns(_state_with_issues(f))
         assert len(concerns) == 1
         assert concerns[0].type == "duplication_design"
 
     def test_coupling_flags(self):
         f = _make_issue("coupling", "app/coupled.py", "coupling1")
-        concerns = generate_concerns(_state_with_findings(f))
+        concerns = generate_concerns(_state_with_issues(f))
         assert len(concerns) == 1
         assert concerns[0].type == "coupling_design"
 
     def test_responsibility_cohesion_flags(self):
         f = _make_issue("responsibility_cohesion", "app/mixed.py", "resp1")
-        concerns = generate_concerns(_state_with_findings(f))
+        concerns = generate_concerns(_state_with_issues(f))
         assert len(concerns) == 1
         assert concerns[0].type == "mixed_responsibilities"
 
@@ -127,25 +127,25 @@ class TestNonElevatedSkipped:
 
     def test_single_naming_not_flagged(self):
         f = _make_issue("naming", "app/file.py", "name1")
-        assert generate_concerns(_state_with_findings(f)) == []
+        assert generate_concerns(_state_with_issues(f)) == []
 
     def test_single_patterns_not_flagged(self):
         f = _make_issue("patterns", "app/file.py", "pat1")
-        assert generate_concerns(_state_with_findings(f)) == []
+        assert generate_concerns(_state_with_issues(f)) == []
 
     def test_moderate_structural_not_flagged(self):
         f = _make_issue(
             "structural", "app/ok.py", "struct",
             detail={"signals": {"loc": 150, "max_params": 5, "max_nesting": 3}},
         )
-        assert generate_concerns(_state_with_findings(f)) == []
+        assert generate_concerns(_state_with_issues(f)) == []
 
     def test_non_monster_smell_not_flagged(self):
         f = _make_issue(
             "smells", "app/file.py", "smell",
             detail={"smell_id": "dead_useeffect"},
         )
-        assert generate_concerns(_state_with_findings(f)) == []
+        assert generate_concerns(_state_with_issues(f)) == []
 
 
 # ── Clear-cut detectors — never flagged alone ────────────────────────
@@ -156,15 +156,15 @@ class TestClearCutDetectorsSkipped:
 
     def test_unused_not_flagged(self):
         f = _make_issue("unused", "app/file.py", "unused1")
-        assert generate_concerns(_state_with_findings(f)) == []
+        assert generate_concerns(_state_with_issues(f)) == []
 
     def test_logs_not_flagged(self):
         f = _make_issue("logs", "app/file.py", "log1")
-        assert generate_concerns(_state_with_findings(f)) == []
+        assert generate_concerns(_state_with_issues(f)) == []
 
     def test_security_not_flagged(self):
         f = _make_issue("security", "app/file.py", "sec1")
-        assert generate_concerns(_state_with_findings(f)) == []
+        assert generate_concerns(_state_with_issues(f)) == []
 
     def test_two_clearcut_not_flagged(self):
         """Two clear-cut detectors on the same file: no concern."""
@@ -172,7 +172,7 @@ class TestClearCutDetectorsSkipped:
             _make_issue("unused", "app/file.py", "unused1"),
             _make_issue("logs", "app/file.py", "log1"),
         ]
-        assert generate_concerns(_state_with_findings(*issues)) == []
+        assert generate_concerns(_state_with_issues(*issues)) == []
 
 
 # ── Multi-detector files ─────────────────────────────────────────────
@@ -186,7 +186,7 @@ class TestMultiDetector:
             _make_issue("naming", "app/file.py", "name1"),
             _make_issue("patterns", "app/file.py", "pat1"),
         ]
-        concerns = generate_concerns(_state_with_findings(*issues))
+        concerns = generate_concerns(_state_with_issues(*issues))
         assert len(concerns) == 1
         assert concerns[0].file == "app/file.py"
 
@@ -196,7 +196,7 @@ class TestMultiDetector:
             _make_issue("naming", "app/god.py", "name1"),
             _make_issue("structural", "app/god.py", "struct1"),
         ]
-        concerns = generate_concerns(_state_with_findings(*issues))
+        concerns = generate_concerns(_state_with_issues(*issues))
         assert len(concerns) == 1
         assert concerns[0].type == "mixed_responsibilities"
         assert "3" in concerns[0].summary
@@ -207,7 +207,7 @@ class TestMultiDetector:
             _make_issue("naming", "app/file.py", "name1"),
             _make_issue("unused", "app/file.py", "unused1"),
         ]
-        assert generate_concerns(_state_with_findings(*issues)) == []
+        assert generate_concerns(_state_with_issues(*issues)) == []
 
 
 # ── Evidence and questions ───────────────────────────────────────────
@@ -216,12 +216,12 @@ class TestMultiDetector:
 class TestEvidenceAndQuestions:
     """Concerns bundle full context for the LLM."""
 
-    def test_evidence_includes_all_findings(self):
+    def test_evidence_includes_all_issues(self):
         issues = [
             _make_issue("smells", "app/f.py", "s1"),
             _make_issue("naming", "app/f.py", "n1"),
         ]
-        concerns = generate_concerns(_state_with_findings(*issues))
+        concerns = generate_concerns(_state_with_issues(*issues))
         assert len(concerns) == 1
         evidence = concerns[0].evidence
         # Should include detector list and individual issue summaries.
@@ -234,7 +234,7 @@ class TestEvidenceAndQuestions:
             "structural", "app/f.py", "struct",
             detail={"signals": {"max_params": 15, "max_nesting": 9, "loc": 400}},
         )
-        concerns = generate_concerns(_state_with_findings(f))
+        concerns = generate_concerns(_state_with_issues(f))
         evidence = concerns[0].evidence
         assert any("15" in e and "parameters" in e.lower() for e in evidence)
         assert any("9" in e and "nesting" in e.lower() for e in evidence)
@@ -245,7 +245,7 @@ class TestEvidenceAndQuestions:
             "smells", "app/f.py", "m",
             detail={"smell_id": "monster_function", "function": "big_func", "loc": 200},
         )
-        concerns = generate_concerns(_state_with_findings(f))
+        concerns = generate_concerns(_state_with_issues(f))
         assert "big_func" in concerns[0].question
 
     def test_question_mentions_params(self):
@@ -253,7 +253,7 @@ class TestEvidenceAndQuestions:
             "structural", "app/f.py", "s",
             detail={"signals": {"max_params": 10}},
         )
-        concerns = generate_concerns(_state_with_findings(f))
+        concerns = generate_concerns(_state_with_issues(f))
         assert "parameter" in concerns[0].question.lower()
 
     def test_question_mentions_nesting(self):
@@ -261,17 +261,17 @@ class TestEvidenceAndQuestions:
             "structural", "app/f.py", "s",
             detail={"signals": {"max_nesting": 7}},
         )
-        concerns = generate_concerns(_state_with_findings(f))
+        concerns = generate_concerns(_state_with_issues(f))
         assert "nesting" in concerns[0].question.lower()
 
     def test_question_mentions_duplication(self):
         f = _make_issue("dupes", "app/f.py", "d")
-        concerns = generate_concerns(_state_with_findings(f))
+        concerns = generate_concerns(_state_with_issues(f))
         assert "duplication" in concerns[0].question.lower()
 
     def test_question_mentions_coupling(self):
         f = _make_issue("coupling", "app/f.py", "c")
-        concerns = generate_concerns(_state_with_findings(f))
+        concerns = generate_concerns(_state_with_issues(f))
         assert "coupling" in concerns[0].question.lower()
 
     def test_question_mentions_orphaned(self):
@@ -279,7 +279,7 @@ class TestEvidenceAndQuestions:
             _make_issue("orphaned", "app/f.py", "o"),
             _make_issue("naming", "app/f.py", "n"),
         ]
-        concerns = generate_concerns(_state_with_findings(*issues))
+        concerns = generate_concerns(_state_with_issues(*issues))
         assert any("dead" in concerns[0].question.lower() or
                     "orphan" in concerns[0].question.lower()
                     for _ in [1])
@@ -296,7 +296,7 @@ class TestSystemicPatterns:
         for fname in ("a.py", "b.py", "c.py"):
             issues.append(_make_issue("smells", fname, "s"))
             issues.append(_make_issue("naming", fname, "n"))
-        concerns = generate_concerns(_state_with_findings(*issues))
+        concerns = generate_concerns(_state_with_issues(*issues))
         systemic = [c for c in concerns if c.type == "systemic_pattern"]
         assert len(systemic) == 1
         assert "3 files" in systemic[0].summary
@@ -306,7 +306,7 @@ class TestSystemicPatterns:
         for fname in ("a.py", "b.py"):
             issues.append(_make_issue("smells", fname, "s"))
             issues.append(_make_issue("naming", fname, "n"))
-        concerns = generate_concerns(_state_with_findings(*issues))
+        concerns = generate_concerns(_state_with_issues(*issues))
         systemic = [c for c in concerns if c.type == "systemic_pattern"]
         assert len(systemic) == 0
 
@@ -316,7 +316,7 @@ class TestSystemicPatterns:
         for fname in ("a.py", "b.py", "c.py"):
             issues.append(_make_issue("smells", fname, "s"))
             issues.append(_make_issue("naming", fname, "n"))
-        concerns = generate_concerns(_state_with_findings(*issues))
+        concerns = generate_concerns(_state_with_issues(*issues))
         # Should have per-file concerns AND a systemic pattern.
         per_file = [c for c in concerns if c.type != "systemic_pattern"]
         systemic = [c for c in concerns if c.type == "systemic_pattern"]
@@ -333,7 +333,7 @@ class TestDismissals:
             "smells", "app/big.py", "monster",
             detail={"smell_id": "monster_function", "function": "f", "loc": 200},
         )
-        state = _state_with_findings(f)
+        state = _state_with_issues(f)
         concerns = generate_concerns(state)
         assert len(concerns) == 1
         fp = concerns[0].fingerprint
@@ -342,18 +342,18 @@ class TestDismissals:
             fp: {
                 "dismissed_at": "2026-01-01T00:00:00+00:00",
                 "reasoning": "Single responsibility",
-                "source_finding_ids": [f["id"]],
+                "source_issue_ids": [f["id"]],
             }
         }
         assert generate_concerns(state) == []
 
     def test_dismissed_with_source_ids_suppresses(self):
-        """Dismissals with matching source_finding_ids suppress the concern."""
+        """Dismissals with matching source_issue_ids suppress the concern."""
         f = _make_issue(
             "smells", "app/big.py", "monster",
             detail={"smell_id": "monster_function", "function": "f", "loc": 200},
         )
-        state = _state_with_findings(f)
+        state = _state_with_issues(f)
         concerns = generate_concerns(state)
         assert len(concerns) == 1
         fp = concerns[0].fingerprint
@@ -363,7 +363,7 @@ class TestDismissals:
             fp: {
                 "dismissed_at": "2026-01-01T00:00:00+00:00",
                 "reasoning": "Acceptable complexity",
-                "source_finding_ids": [f["id"]],
+                "source_issue_ids": [f["id"]],
             }
         }
         assert generate_concerns(state) == []
@@ -374,7 +374,7 @@ class TestDismissals:
             "smells", "app/big.py", "monster",
             detail={"smell_id": "monster_function", "function": "f", "loc": 200},
         )
-        state = _state_with_findings(f)
+        state = _state_with_issues(f)
         concerns = generate_concerns(state)
         fp = concerns[0].fingerprint
 
@@ -383,12 +383,12 @@ class TestDismissals:
             "stale_fp_abc123": {
                 "dismissed_at": "2026-01-01T00:00:00+00:00",
                 "reasoning": "Old dismissal",
-                "source_finding_ids": ["gone::issue::1", "gone::issue::2"],
+                "source_issue_ids": ["gone::issue::1", "gone::issue::2"],
             },
             fp: {
                 "dismissed_at": "2026-01-01T00:00:00+00:00",
                 "reasoning": "Still valid",
-                "source_finding_ids": [f["id"]],
+                "source_issue_ids": [f["id"]],
             },
         }
         removed = cleanup_stale_dismissals(state)
@@ -398,12 +398,12 @@ class TestDismissals:
         assert fp in state["concern_dismissals"]
 
     def test_stale_dismissal_without_source_ids_not_cleaned(self):
-        """Dismissals without source_finding_ids are preserved (legacy)."""
+        """Dismissals without source_issue_ids are preserved (legacy)."""
         f = _make_issue(
             "smells", "app/big.py", "monster",
             detail={"smell_id": "monster_function", "function": "f", "loc": 200},
         )
-        state = _state_with_findings(f)
+        state = _state_with_issues(f)
         state["concern_dismissals"] = {
             "legacy_fp": {
                 "dismissed_at": "2026-01-01T00:00:00+00:00",
@@ -411,7 +411,7 @@ class TestDismissals:
             },
         }
         removed = cleanup_stale_dismissals(state)
-        # Legacy dismissal without source_finding_ids is NOT cleaned up.
+        # Legacy dismissal without source_issue_ids is NOT cleaned up.
         assert removed == 0
         assert "legacy_fp" in state["concern_dismissals"]
 
@@ -426,24 +426,24 @@ class TestDismissals:
             "smells", "app/big.py", "monster",
             detail={"smell_id": "monster_function", "function": "f", "loc": 200},
         )
-        state = _state_with_findings(f)
+        state = _state_with_issues(f)
         state["concern_dismissals"] = {
             "stale_fp": {
                 "dismissed_at": "2026-01-01T00:00:00+00:00",
                 "reasoning": "Old",
-                "source_finding_ids": ["gone::id"],
+                "source_issue_ids": ["gone::id"],
             },
         }
         generate_concerns(state)
         # generate_concerns must NOT remove stale dismissals.
         assert "stale_fp" in state["concern_dismissals"]
 
-    def test_dismissed_resurfaces_on_changed_findings(self):
+    def test_dismissed_resurfaces_on_changed_issues(self):
         f = _make_issue(
             "smells", "app/big.py", "monster",
             detail={"smell_id": "monster_function", "function": "f", "loc": 200},
         )
-        state = _state_with_findings(f)
+        state = _state_with_issues(f)
         concerns = generate_concerns(state)
         fp = concerns[0].fingerprint
 
@@ -451,7 +451,7 @@ class TestDismissals:
             fp: {
                 "dismissed_at": "2026-01-01T00:00:00+00:00",
                 "reasoning": "Was fine",
-                "source_finding_ids": ["other::issue::id"],
+                "source_issue_ids": ["other::issue::id"],
             }
         }
         assert len(generate_concerns(state)) == 1
@@ -471,7 +471,7 @@ class TestEdgeCases:
             detail={"smell_id": "monster_function", "function": "f", "loc": 200},
             status="fixed",
         )
-        assert generate_concerns(_state_with_findings(f)) == []
+        assert generate_concerns(_state_with_issues(f)) == []
 
     def test_holistic_file_ignored(self):
         """File '.' (holistic issues) should not generate concerns."""
@@ -481,7 +481,7 @@ class TestEdgeCases:
             _make_issue("structural", ".", "st"),
             _make_issue("patterns", ".", "p"),
         ]
-        assert generate_concerns(_state_with_findings(*issues)) == []
+        assert generate_concerns(_state_with_issues(*issues)) == []
 
     def test_results_sorted_by_type_then_file(self):
         issues = [
@@ -491,7 +491,7 @@ class TestEdgeCases:
                 detail={"smell_id": "monster_function", "function": "f", "loc": 150},
             ),
         ]
-        concerns = generate_concerns(_state_with_findings(*issues))
+        concerns = generate_concerns(_state_with_issues(*issues))
         assert len(concerns) == 2
         for a, b in zip(concerns, concerns[1:], strict=False):
             assert (a.type, a.file) <= (b.type, b.file)
@@ -501,7 +501,7 @@ class TestEdgeCases:
             _make_issue("smells", "a.py", "s"),
             _make_issue("naming", "a.py", "n"),
         ]
-        concerns = generate_concerns(_state_with_findings(*issues))
+        concerns = generate_concerns(_state_with_issues(*issues))
         fps = [c.fingerprint for c in concerns]
         assert len(fps) == len(set(fps))
 
@@ -552,7 +552,7 @@ class TestRegistryIntegration:
 class TestExtractSignals:
     """Boundary conditions for _extract_signals."""
 
-    def test_empty_findings(self):
+    def test_empty_issues(self):
         assert _extract_signals([]) == {}
 
     def test_structural_signals_extracted(self):
@@ -568,7 +568,7 @@ class TestExtractSignals:
         assert signals["loc"] == 200
         assert signals["function_count"] == 15
 
-    def test_structural_signals_take_max_across_findings(self):
+    def test_structural_signals_take_max_across_issues(self):
         issues = [
             _make_issue(
                 "structural", "f.py", "s1",
@@ -768,7 +768,7 @@ class TestHasElevatedSignals:
         issues = [_make_issue("responsibility_cohesion", "f.py", "rc")]
         assert _has_elevated_signals(issues) is True
 
-    def test_empty_findings_not_elevated(self):
+    def test_empty_issues_not_elevated(self):
         assert _has_elevated_signals([]) is False
 
     def test_naming_alone_not_elevated(self):
@@ -872,7 +872,7 @@ class TestBuildSummary:
 class TestBuildEvidence:
     """Evidence tuple construction."""
 
-    def test_empty_findings_minimal_evidence(self):
+    def test_empty_issues_minimal_evidence(self):
         evidence = _build_evidence([], {})
         assert len(evidence) >= 1
         assert "Flagged by:" in evidence[0]
@@ -890,7 +890,7 @@ class TestBuildEvidence:
         assert "f3" in monster_ev[0]
         assert "f4" not in monster_ev[0]
 
-    def test_finding_summaries_capped_at_10(self):
+    def test_issue_summaries_capped_at_10(self):
         issues = [
             _make_issue("smells", "f.py", f"s{i}") for i in range(15)
         ]
@@ -939,7 +939,7 @@ class TestGroupByFileAndOpenIssues:
     """Filtering and grouping helpers."""
 
     def test_open_issues_filters_non_open(self):
-        state = _state_with_findings(
+        state = _state_with_issues(
             _make_issue("smells", "a.py", "s1", status="open"),
             _make_issue("smells", "b.py", "s2", status="fixed"),
             _make_issue("smells", "c.py", "s3", status="wontfix"),
@@ -957,7 +957,7 @@ class TestGroupByFileAndOpenIssues:
         assert _open_issues(state) == []
 
     def test_group_by_file_excludes_dot_file(self):
-        state = _state_with_findings(
+        state = _state_with_issues(
             _make_issue("smells", ".", "holistic"),
             _make_issue("smells", "a.py", "s1"),
         )
@@ -973,7 +973,7 @@ class TestGroupByFileAndOpenIssues:
         assert "" not in grouped
 
     def test_group_by_file_groups_correctly(self):
-        state = _state_with_findings(
+        state = _state_with_issues(
             _make_issue("smells", "a.py", "s1"),
             _make_issue("naming", "a.py", "n1"),
             _make_issue("smells", "b.py", "s2"),
@@ -997,15 +997,15 @@ class TestIsDismissed:
         assert _is_dismissed({"fp123": None}, "fp123", ("id1",)) is False
 
     def test_dismissed_when_source_ids_match(self):
-        dismissals = {"fp123": {"source_finding_ids": ["id1", "id2"]}}
+        dismissals = {"fp123": {"source_issue_ids": ["id1", "id2"]}}
         assert _is_dismissed(dismissals, "fp123", ("id2", "id1")) is True
 
     def test_not_dismissed_when_source_ids_differ(self):
-        dismissals = {"fp123": {"source_finding_ids": ["id1"]}}
+        dismissals = {"fp123": {"source_issue_ids": ["id1"]}}
         assert _is_dismissed(dismissals, "fp123", ("id1", "id_new")) is False
 
     def test_dismissed_with_empty_sources_matches_empty(self):
-        dismissals = {"fp123": {"source_finding_ids": []}}
+        dismissals = {"fp123": {"source_issue_ids": []}}
         assert _is_dismissed(dismissals, "fp123", ()) is True
 
 
@@ -1017,13 +1017,13 @@ class TestFileConcernsGenerator:
 
     def test_single_judgment_below_threshold_no_concern(self):
         """One judgment detector, no elevated signals: skipped."""
-        state = _state_with_findings(
+        state = _state_with_issues(
             _make_issue("naming", "a.py", "n1"),
         )
         assert _file_concerns(state, {}) == []
 
     def test_two_judgment_detectors_generates_concern(self):
-        state = _state_with_findings(
+        state = _state_with_issues(
             _make_issue("naming", "a.py", "n1"),
             _make_issue("patterns", "a.py", "p1"),
         )
@@ -1031,10 +1031,10 @@ class TestFileConcernsGenerator:
         assert len(concerns) == 1
         assert concerns[0].file == "a.py"
 
-    def test_clearcut_findings_excluded_from_judgment_count(self):
+    def test_clearcut_issues_excluded_from_judgment_count(self):
         """Clear-cut detectors don't count toward the 2-detector threshold,
         but 1 judgment + 2 mechanical issues does trigger the lowered threshold."""
-        state = _state_with_findings(
+        state = _state_with_issues(
             _make_issue("naming", "a.py", "n1"),
             _make_issue("unused", "a.py", "u1"),
             _make_issue("logs", "a.py", "l1"),
@@ -1045,7 +1045,7 @@ class TestFileConcernsGenerator:
         assert concerns[0].file == "a.py"
 
     def test_dismissal_suppresses_file_concern(self):
-        state = _state_with_findings(
+        state = _state_with_issues(
             _make_issue("naming", "a.py", "n1"),
             _make_issue("patterns", "a.py", "p1"),
         )
@@ -1054,11 +1054,11 @@ class TestFileConcernsGenerator:
         fp = concerns[0].fingerprint
         src_ids = concerns[0].source_issues
 
-        dismissals = {fp: {"source_finding_ids": list(src_ids)}}
+        dismissals = {fp: {"source_issue_ids": list(src_ids)}}
         assert _file_concerns(state, dismissals) == []
 
     def test_multiple_files_each_get_concern(self):
-        state = _state_with_findings(
+        state = _state_with_issues(
             _make_issue("naming", "a.py", "n1"),
             _make_issue("patterns", "a.py", "p1"),
             _make_issue("naming", "b.py", "n2"),
@@ -1068,9 +1068,9 @@ class TestFileConcernsGenerator:
         files = {c.file for c in concerns}
         assert files == {"a.py", "b.py"}
 
-    def test_concern_bundles_all_judgment_findings(self):
+    def test_concern_bundles_all_judgment_issues(self):
         """The concern's source_issues includes ALL judgment issues for the file."""
-        state = _state_with_findings(
+        state = _state_with_issues(
             _make_issue("naming", "a.py", "n1"),
             _make_issue("patterns", "a.py", "p1"),
             _make_issue("smells", "a.py", "s1"),
@@ -1087,7 +1087,7 @@ class TestCrossFilePatternsGenerator:
     """Direct tests for the _cross_file_patterns generator."""
 
     def test_exactly_3_files_triggers_pattern(self):
-        state = _state_with_findings(
+        state = _state_with_issues(
             *[
                 f
                 for fname in ("a.py", "b.py", "c.py")
@@ -1103,7 +1103,7 @@ class TestCrossFilePatternsGenerator:
         assert "3 files" in patterns[0].summary
 
     def test_exactly_2_files_below_threshold(self):
-        state = _state_with_findings(
+        state = _state_with_issues(
             *[
                 f
                 for fname in ("a.py", "b.py")
@@ -1118,7 +1118,7 @@ class TestCrossFilePatternsGenerator:
 
     def test_single_detector_per_file_no_pattern(self):
         """Files need 2+ judgment detectors each for cross-file patterns."""
-        state = _state_with_findings(
+        state = _state_with_issues(
             *[_make_issue("naming", f"file{i}.py", "n") for i in range(5)]
         )
         patterns = _cross_file_patterns(state, {})
@@ -1126,7 +1126,7 @@ class TestCrossFilePatternsGenerator:
 
     def test_different_combos_no_pattern(self):
         """Files with different detector combos don't form a pattern."""
-        state = _state_with_findings(
+        state = _state_with_issues(
             _make_issue("smells", "a.py", "s"),
             _make_issue("naming", "a.py", "n"),
             _make_issue("coupling", "b.py", "c"),
@@ -1138,7 +1138,7 @@ class TestCrossFilePatternsGenerator:
         assert patterns == []
 
     def test_pattern_evidence_lists_files(self):
-        state = _state_with_findings(
+        state = _state_with_issues(
             *[
                 f
                 for fname in ("alpha.py", "beta.py", "gamma.py", "delta.py")
@@ -1155,7 +1155,7 @@ class TestCrossFilePatternsGenerator:
         assert any("alpha.py" in e for e in patterns[0].evidence)
 
     def test_pattern_dismissal_suppresses(self):
-        state = _state_with_findings(
+        state = _state_with_issues(
             *[
                 f
                 for fname in ("a.py", "b.py", "c.py")
@@ -1170,7 +1170,7 @@ class TestCrossFilePatternsGenerator:
         fp = patterns[0].fingerprint
         src_ids = patterns[0].source_issues
 
-        dismissals = {fp: {"source_finding_ids": list(src_ids)}}
+        dismissals = {fp: {"source_issue_ids": list(src_ids)}}
         assert _cross_file_patterns(state, dismissals) == []
 
     def test_multiple_distinct_patterns(self):
@@ -1182,7 +1182,7 @@ class TestCrossFilePatternsGenerator:
         for fname in ("x.py", "y.py", "z.py"):
             issues.append(_make_issue("coupling", fname, "c"))
             issues.append(_make_issue("structural", fname, "st"))
-        state = _state_with_findings(*issues)
+        state = _state_with_issues(*issues)
         patterns = _cross_file_patterns(state, {})
         assert len(patterns) == 2
         types = {p.type for p in patterns}
@@ -1194,7 +1194,7 @@ class TestCrossFilePatternsGenerator:
 
     def test_pattern_fingerprint_stable_across_file_order(self):
         """Fingerprint is the same regardless of issue insertion order."""
-        findings_a = [
+        issues_a = [
             _make_issue("smells", "c.py", "s"),
             _make_issue("naming", "c.py", "n"),
             _make_issue("smells", "a.py", "s"),
@@ -1202,7 +1202,7 @@ class TestCrossFilePatternsGenerator:
             _make_issue("smells", "b.py", "s"),
             _make_issue("naming", "b.py", "n"),
         ]
-        findings_b = [
+        issues_b = [
             _make_issue("smells", "b.py", "s"),
             _make_issue("naming", "b.py", "n"),
             _make_issue("smells", "a.py", "s"),
@@ -1210,7 +1210,7 @@ class TestCrossFilePatternsGenerator:
             _make_issue("smells", "c.py", "s"),
             _make_issue("naming", "c.py", "n"),
         ]
-        p1 = _cross_file_patterns(_state_with_findings(*findings_a), {})
-        p2 = _cross_file_patterns(_state_with_findings(*findings_b), {})
+        p1 = _cross_file_patterns(_state_with_issues(*issues_a), {})
+        p2 = _cross_file_patterns(_state_with_issues(*issues_b), {})
         assert len(p1) == 1 and len(p2) == 1
         assert p1[0].fingerprint == p2[0].fingerprint

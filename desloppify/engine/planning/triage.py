@@ -9,7 +9,7 @@ from desloppify.engine._plan.epic_triage import (
     detect_recurring_patterns,
     extract_issue_citations,
 )
-from desloppify.engine._plan.stale_dimensions import review_finding_snapshot_hash
+from desloppify.engine._plan.stale_dimensions import review_issue_snapshot_hash
 
 __all__ = [
     "TriageInput",
@@ -17,5 +17,5 @@ __all__ = [
     "collect_triage_input",
     "detect_recurring_patterns",
     "extract_issue_citations",
-    "review_finding_snapshot_hash",
+    "review_issue_snapshot_hash",
 ]

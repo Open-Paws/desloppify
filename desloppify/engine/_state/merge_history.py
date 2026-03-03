@@ -45,8 +45,8 @@ def _merge_scan_inputs(
         state.setdefault("codebase_metrics", {})[lang] = dict(codebase_metrics)
 
 
-def _compute_suppression(raw_findings: int, ignored_count: int) -> float:
-    return round(ignored_count / raw_findings * 100, 1) if raw_findings else 0.0
+def _compute_suppression(raw_issues: int, ignored_count: int) -> float:
+    return round(ignored_count / raw_issues * 100, 1) if raw_issues else 0.0
 
 
 def _subjective_integrity_snapshot(integrity: dict | None) -> dict[str, object] | None:
@@ -92,7 +92,7 @@ def _append_scan_history(
     new_count: int,
     auto_resolved: int,
     ignored_count: int,
-    raw_findings: int,
+    raw_issues: int,
     suppressed_pct: float,
     ignore_pattern_count: int,
 ) -> None:
@@ -109,7 +109,7 @@ def _append_scan_history(
             "diff_new": new_count,
             "diff_resolved": auto_resolved,
             "ignored": ignored_count,
-            "raw_findings": raw_findings,
+            "raw_issues": raw_issues,
             "suppressed_pct": suppressed_pct,
             "ignore_patterns": ignore_pattern_count,
             "subjective_integrity": _subjective_integrity_snapshot(
@@ -143,7 +143,7 @@ def _build_merge_diff(
     resolved_out_of_scope: int,
     ignored_count: int,
     ignore_pattern_count: int,
-    raw_findings: int,
+    raw_issues: int,
     suppressed_pct: float,
 ) -> ScanDiff:
     return {
@@ -157,7 +157,7 @@ def _build_merge_diff(
         "resolved_out_of_scope": resolved_out_of_scope,
         "ignored": ignored_count,
         "ignore_patterns": ignore_pattern_count,
-        "raw_findings": raw_findings,
+        "raw_issues": raw_issues,
         "suppressed_pct": suppressed_pct,
     }
 

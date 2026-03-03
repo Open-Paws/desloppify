@@ -236,12 +236,12 @@ def sync_plan_after_review_import(
     if needed. Returns None when there are no new issues to sync.
     """
     from desloppify.engine._plan.stale_dimensions import (
-        compute_new_finding_ids,
+        compute_new_issue_ids,
         sync_triage_needed,
     )
 
     ensure_plan_defaults(plan)
-    new_ids = compute_new_finding_ids(plan, state)
+    new_ids = compute_new_issue_ids(plan, state)
     if not new_ids:
         return None
 

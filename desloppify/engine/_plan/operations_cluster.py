@@ -131,7 +131,7 @@ def merge_clusters(
 ) -> tuple[int, list[str]]:
     """Move all source issues to target, copy missing metadata, delete source.
 
-    Returns ``(added_count, source_finding_ids)``.
+    Returns ``(added_count, source_issue_ids)``.
     """
     ensure_plan_defaults(plan)
     if source_name == target_name:

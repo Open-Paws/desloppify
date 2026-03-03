@@ -25,12 +25,12 @@ from desloppify.languages._framework.base.structural import (
     merge_structural_signals,
 )
 from desloppify.languages._framework.issue_factories import (
-    make_cycle_findings,
-    make_facade_findings,
-    make_orphaned_findings,
-    make_single_use_findings,
-    make_smell_findings,
-    make_unused_findings,
+    make_cycle_issues,
+    make_facade_issues,
+    make_orphaned_issues,
+    make_single_use_issues,
+    make_smell_issues,
+    make_unused_issues,
 )
 from desloppify.languages._framework.runtime import LangRun
 from desloppify.languages.typescript.detectors import concerns as concerns_detector_mod
@@ -163,7 +163,7 @@ def phase_logs(path: Path, lang: LangRun) -> tuple[list[Issue], dict[str, int]]:
 
 def phase_unused(path: Path, lang: LangRun) -> tuple[list[Issue], dict[str, int]]:
     entries, total_files = unused_detector_mod.detect_unused(path)
-    return make_unused_findings(entries, log), {
+    return make_unused_issues(entries, log), {
         "unused": adjust_potential(lang.zone_map, total_files),
     }
 
@@ -367,7 +367,7 @@ def phase_structural(
     return results, potentials
 
 
-def _make_boundary_findings(
+def _make_boundary_issues(
     single_entries: list[dict],
     path: Path,
     graph: dict,
@@ -433,7 +433,7 @@ def phase_coupling(path: Path, lang: LangRun) -> tuple[list[Issue], dict[str, in
     )
     single_entries = filter_entries(zm, single_entries, "single_use")
     results.extend(
-        make_single_use_findings(
+        make_single_use_issues(
             single_entries, lang.get_area, skip_dir_names={"commands"}, stderr_fn=log
         )
     )
@@ -462,10 +462,10 @@ def phase_coupling(path: Path, lang: LangRun) -> tuple[list[Issue], dict[str, in
         )
 
     # TS-specific: boundary candidates (deduplicated against single-use)
-    boundary_findings, _ = _make_boundary_findings(
+    boundary_issues, _ = _make_boundary_issues(
         single_entries, path, graph, lang, shared_prefix, tools_prefix
     )
-    results.extend(boundary_findings)
+    results.extend(boundary_issues)
 
     # TS-specific: cross-tool imports
     cross_tool, cross_edge_counts = coupling_detector_mod.detect_cross_tool_imports(
@@ -495,7 +495,7 @@ def phase_coupling(path: Path, lang: LangRun) -> tuple[list[Issue], dict[str, in
     # Cycles + orphaned (shared helpers)
     cycle_entries, _ = graph_detector_mod.detect_cycles(graph)
     cycle_entries = filter_entries(zm, cycle_entries, "cycles", file_key="files")
-    results.extend(make_cycle_findings(cycle_entries, log))
+    results.extend(make_cycle_issues(cycle_entries, log))
     orphan_entries, total_graph_files = orphaned_detector_mod.detect_orphaned_files(
         path,
         graph,
@@ -508,12 +508,12 @@ def phase_coupling(path: Path, lang: LangRun) -> tuple[list[Issue], dict[str, in
         ),
     )
     orphan_entries = filter_entries(zm, orphan_entries, "orphaned")
-    results.extend(make_orphaned_findings(orphan_entries, log))
+    results.extend(make_orphaned_issues(orphan_entries, log))
 
     # Re-export facades (shared detector)
     facade_entries, _ = facade_detector_mod.detect_reexport_facades(graph)
     facade_entries = filter_entries(zm, facade_entries, "facade")
-    results.extend(make_facade_findings(facade_entries, log))
+    results.extend(make_facade_issues(facade_entries, log))
 
     # TS-specific: pattern consistency
     pattern_result = patterns_detector_mod.detect_pattern_anomalies_result(path)
@@ -580,7 +580,7 @@ def phase_coupling(path: Path, lang: LangRun) -> tuple[list[Issue], dict[str, in
 
 def phase_smells(path: Path, lang: LangRun) -> tuple[list[Issue], dict[str, int]]:
     smell_entries, total_smell_files = smells_detector_mod.detect_smells(path)
-    results = make_smell_findings(smell_entries, log)
+    results = make_smell_issues(smell_entries, log)
 
     # TS-specific: React state sync anti-patterns
     react_entries, total_effects = react_detector_mod.detect_state_sync(path)

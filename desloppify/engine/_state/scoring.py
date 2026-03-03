@@ -36,7 +36,7 @@ def _resolve_lang_from_state(state: StateModel) -> str | None:
     return None
 
 
-def _count_findings(issues: dict) -> tuple[dict[str, int], dict[int, dict[str, int]]]:
+def _count_issues(issues: dict) -> tuple[dict[str, int], dict[int, dict[str, int]]]:
     """Tally per-status counters and per-tier breakdowns."""
     counters = dict.fromkeys(_EMPTY_COUNTERS, 0)
     tier_stats: dict[int, dict[str, int]] = {}
@@ -400,7 +400,7 @@ def _recompute_stats(
     """Recompute stats and canonical health scores from issues."""
     ensure_state_defaults(state)
     issues = path_scoped_issues(state["issues"], scan_path)
-    counters, tier_stats = _count_findings(issues)
+    counters, tier_stats = _count_issues(issues)
     state["stats"] = {
         "total": sum(counters.values()),
         **counters,
@@ -418,12 +418,12 @@ def _recompute_stats(
 def _empty_suppression_metrics() -> dict[str, int | float]:
     return {
         "last_ignored": 0,
-        "last_raw_findings": 0,
+        "last_raw_issues": 0,
         "last_suppressed_pct": 0.0,
         "last_ignore_patterns": 0,
         "recent_scans": 0,
         "recent_ignored": 0,
-        "recent_raw_findings": 0,
+        "recent_raw_issues": 0,
         "recent_suppressed_pct": 0.0,
     }
 
@@ -440,7 +440,7 @@ def suppression_metrics(state: StateModel, *, window: int = 5) -> dict[str, int 
         if isinstance(entry, dict)
         and (
             "ignored" in entry
-            or "raw_findings" in entry
+            or "raw_issues" in entry
             or "suppressed_pct" in entry
             or "ignore_patterns" in entry
         )
@@ -452,11 +452,11 @@ def suppression_metrics(state: StateModel, *, window: int = 5) -> dict[str, int 
     last = recent[-1]
 
     recent_ignored = sum(int(entry.get("ignored", 0) or 0) for entry in recent)
-    recent_raw = sum(int(entry.get("raw_findings", 0) or 0) for entry in recent)
+    recent_raw = sum(int(entry.get("raw_issues", 0) or 0) for entry in recent)
     recent_pct = round(recent_ignored / recent_raw * 100, 1) if recent_raw else 0.0
 
     last_ignored = int(last.get("ignored", 0) or 0)
-    last_raw = int(last.get("raw_findings", 0) or 0)
+    last_raw = int(last.get("raw_issues", 0) or 0)
     if "suppressed_pct" in last:
         last_pct = round(float(last.get("suppressed_pct") or 0.0), 1)
     else:
@@ -464,11 +464,11 @@ def suppression_metrics(state: StateModel, *, window: int = 5) -> dict[str, int 
 
     return {
         "last_ignored": last_ignored,
-        "last_raw_findings": last_raw,
+        "last_raw_issues": last_raw,
         "last_suppressed_pct": last_pct,
         "last_ignore_patterns": int(last.get("ignore_patterns", 0) or 0),
         "recent_scans": len(recent),
         "recent_ignored": recent_ignored,
-        "recent_raw_findings": recent_raw,
+        "recent_raw_issues": recent_raw,
         "recent_suppressed_pct": recent_pct,
     }

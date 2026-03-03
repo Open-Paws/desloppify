@@ -47,7 +47,7 @@ class TestTriageCoverage:
         assert total == 2  # only review issues
         assert organized == 1
 
-    def test_coverage_counts_review_findings_only(self):
+    def test_coverage_counts_review_issues_only(self):
         """Review and concerns issues are correctly counted."""
         plan = _plan_with_queue(
             "review::a.py::issue1",

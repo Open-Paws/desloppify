@@ -19,7 +19,7 @@ from desloppify.intelligence.narrative import NarrativeContext, compute_narrativ
 
 from .concerns_view import _show_concerns
 from .dimension_views import (
-    _load_dimension_findings,
+    _load_dimension_issues,
     _render_clean_mechanical_dimension,
     _render_no_matches,
     _render_subjective_dimension,
@@ -27,7 +27,7 @@ from .dimension_views import (
 )
 from .payload import ShowPayloadMeta, build_show_payload
 from .render import (
-    render_findings,
+    render_issues,
     show_agent_plan,
     show_subjective_followup,
     write_show_output_file,
@@ -78,7 +78,7 @@ def cmd_show(args: argparse.Namespace) -> None:
         return
 
     if entity.kind == "dimension" and not entity.is_subjective:
-        matches = _load_dimension_findings(state, entity, status_filter)
+        matches = _load_dimension_issues(state, entity, status_filter)
         if not matches:
             _render_clean_mechanical_dimension(state, entity)
             return
@@ -126,7 +126,7 @@ def cmd_show(args: argparse.Namespace) -> None:
         raise SystemExit(1)
 
     top = getattr(args, "top", 20) or 20
-    render_findings(
+    render_issues(
         surfaced_matches,
         pattern=pattern,
         status_filter=status_filter,

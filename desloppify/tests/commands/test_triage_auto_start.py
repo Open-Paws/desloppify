@@ -13,7 +13,7 @@ from desloppify.engine._plan.stale_dimensions import TRIAGE_IDS, TRIAGE_STAGE_ID
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _state_with_findings(*ids: str, dimension: str = "naming") -> dict:
+def _state_with_issues(*ids: str, dimension: str = "naming") -> dict:
     issues = {}
     for fid in ids:
         issues[fid] = {
@@ -63,7 +63,7 @@ class TestAutoStartTriage:
         # No triage stage IDs in queue_order
         assert not any(sid in plan.get("queue_order", []) for sid in TRIAGE_IDS)
 
-        state = _state_with_findings("r1", "r2", "r3", "r4", "r5")
+        state = _state_with_issues("r1", "r2", "r3", "r4", "r5")
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))
         monkeypatch.setattr(triage_mod, "require_completed_scan", lambda s: True)
@@ -86,7 +86,7 @@ class TestAutoStartTriage:
     def test_observe_auto_start_prints_note(self, monkeypatch, capsys):
         """Auto-start prints a note about injecting triage::pending."""
         plan = empty_plan()
-        state = _state_with_findings("r1", "r2", "r3", "r4", "r5")
+        state = _state_with_issues("r1", "r2", "r3", "r4", "r5")
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))
         monkeypatch.setattr(triage_mod, "require_completed_scan", lambda s: True)
@@ -108,7 +108,7 @@ class TestAutoStartTriage:
         plan = empty_plan()
         plan["queue_order"] = list(TRIAGE_STAGE_IDS)
 
-        state = _state_with_findings("r1", "r2", "r3", "r4", "r5")
+        state = _state_with_issues("r1", "r2", "r3", "r4", "r5")
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))
         monkeypatch.setattr(triage_mod, "require_completed_scan", lambda s: True)

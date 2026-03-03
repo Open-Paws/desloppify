@@ -269,7 +269,7 @@ def test_empty_file_list(tmp_path):
     assert entries == []
 
 
-def test_no_signals_no_findings(tmp_path):
+def test_no_signals_no_issues(tmp_path):
     """No signals means no file can be flagged."""
     lines = ["x = 1\n"] * 60
     fp = _write_file(tmp_path, "plain.py", "".join(lines))

@@ -559,7 +559,7 @@ class TestDetectTestCoverage:
         assert entries[0]["detail"]["kind"] == "untested_module"
         assert "loc_weight" in entries[0]["detail"]
 
-    def test_typescript_dynamic_import_smoke_produces_placeholder_findings(
+    def test_typescript_dynamic_import_smoke_produces_placeholder_issues(
         self, tmp_path
     ):
         prod_a = _write_file(tmp_path, "src/a.ts", ("export function a(v: number) {\n  return v + 1;\n}\n" * 4))
@@ -626,7 +626,7 @@ class TestDetectTestCoverage:
         ]
         assert untested == []
 
-    def test_transitive_only_finding(self, tmp_path):
+    def test_transitive_only_issue(self, tmp_path):
         """Production file covered only transitively → transitive_only issue."""
         prod_a = _write_file(
             tmp_path, "a.py", "import b\ndef run():\n    pass\n" + "# code\n" * 13
@@ -758,7 +758,7 @@ class TestDetectTestCoverage:
         assert potential == 0
         assert entries == []
 
-    def test_quality_finding_assertion_free(self, tmp_path):
+    def test_quality_issue_assertion_free(self, tmp_path):
         """Directly tested file with assertion-free test → quality issue."""
         prod_f = _write_file(tmp_path, "utils.py", "def foo():\n    return 1\n" * 10)
         test_f = _write_file(
@@ -780,7 +780,7 @@ class TestDetectTestCoverage:
         assert len(qual_entries) == 1
         assert qual_entries[0]["file"] == prod_f
 
-    def test_quality_finding_placeholder_test(self, tmp_path):
+    def test_quality_issue_placeholder_test(self, tmp_path):
         """Placeholder coverage smoke tests should be flagged explicitly."""
         prod_f = _write_file(tmp_path, "utils.ts", "export const foo = 1;\n" * 12)
         test_f = _write_file(
@@ -1667,7 +1667,7 @@ class TestHasTestableLogic:
 
     # ── Integration: non-testable files excluded from scorable set ──
 
-    def test_type_only_ts_excluded_from_findings(self, tmp_path):
+    def test_type_only_ts_excluded_from_issues(self, tmp_path):
         """Type-only TS file produces no test_coverage issues."""
         type_file = _write_file(
             tmp_path,
@@ -1683,7 +1683,7 @@ class TestHasTestableLogic:
         assert entries == []
         assert potential == 0
 
-    def test_barrel_ts_excluded_from_findings(self, tmp_path):
+    def test_barrel_ts_excluded_from_issues(self, tmp_path):
         """Barrel TS file produces no test_coverage issues."""
         barrel = _write_file(
             tmp_path,
@@ -1699,7 +1699,7 @@ class TestHasTestableLogic:
         assert entries == []
         assert potential == 0
 
-    def test_py_constants_excluded_from_findings(self, tmp_path):
+    def test_py_constants_excluded_from_issues(self, tmp_path):
         """Python constants-only file produces no test_coverage issues."""
         const_file = _write_file(
             tmp_path,
@@ -1714,7 +1714,7 @@ class TestHasTestableLogic:
         assert entries == []
         assert potential == 0
 
-    def test_runtime_file_still_produces_findings(self, tmp_path):
+    def test_runtime_file_still_produces_issues(self, tmp_path):
         """File with runtime logic still produces issues (not excluded)."""
         prod = _write_file(
             tmp_path,

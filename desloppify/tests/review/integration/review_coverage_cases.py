@@ -220,7 +220,7 @@ class TestReviewCoverageZoneFiltering:
 class TestReviewCoverageFreshCache:
     """Fresh cache → zero issues."""
 
-    def test_fresh_no_findings(self, tmp_path):
+    def test_fresh_no_issues(self, tmp_path):
         f = _make_file(str(tmp_path), "module.py")
         rpath = os.path.basename(f)  # relative path key
         content_hash = _hash_content(f)
@@ -417,7 +417,7 @@ class TestIDCollision:
         assert len(ids) == 2
         assert ids[0] != ids[1]
 
-    def test_same_finding_same_id(self):
+    def test_same_issue_same_id(self):
         """Same evidence lines → same ID (stable across re-imports)."""
         issues_data = [
             {

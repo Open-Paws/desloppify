@@ -278,7 +278,7 @@ class TestBanditAdapter:
         assert result.status.state == "timeout"
         assert result.status.coverage() is not None
 
-    def test_returns_empty_on_no_findings(self):
+    def test_returns_empty_on_no_issues(self):
         result = self._run_detect(stdout=self._bandit_result([]))
         assert result.status.state == "ok"
         assert result.entries == []
@@ -298,7 +298,7 @@ class TestBanditAdapter:
         assert result.entries == []
         assert result.status.coverage() is not None
 
-    def test_parses_high_severity_finding(self):
+    def test_parses_high_severity_issue(self):
         raw = [
             {
                 "filename": "/project/app.py",
@@ -322,7 +322,7 @@ class TestBanditAdapter:
         assert e["detail"]["kind"] == "B102"
         assert e["detail"]["source"] == "bandit"
 
-    def test_parses_medium_severity_finding(self):
+    def test_parses_medium_severity_issue(self):
         raw = [
             {
                 "filename": "/project/api.py",
@@ -377,7 +377,7 @@ class TestBanditAdapter:
         result = self._run_detect(stdout=self._bandit_result(raw))
         assert result.entries == []
 
-    def test_finding_name_is_stable_and_unique(self):
+    def test_issue_name_is_stable_and_unique(self):
         raw = [
             {
                 "filename": "/project/app.py",

@@ -64,16 +64,16 @@ def print_review_quality(quality: object, *, colorize_fn) -> None:
         high_missing_issue_note = quality.get(
             LEGACY_REVIEW_QUALITY_HIGH_SCORE_MISSING_ISSUES_KEY
         )
-    finding_pressure = quality.get("finding_pressure")
-    dims_with_findings = quality.get("dimensions_with_findings")
+    issue_pressure = quality.get("issue_pressure")
+    dims_with_issues = quality.get("dimensions_with_issues")
     if not isinstance(coverage, int | float) or not isinstance(density, int | float):
         return
 
     pressure_segment = ""
-    if isinstance(finding_pressure, int | float) and isinstance(dims_with_findings, int):
+    if isinstance(issue_pressure, int | float) and isinstance(dims_with_issues, int):
         pressure_segment = (
-            f", issue-pressure {float(finding_pressure):.2f} "
-            f"across {dims_with_findings} dims"
+            f", issue-pressure {float(issue_pressure):.2f} "
+            f"across {dims_with_issues} dims"
         )
     print(
         colorize_fn(

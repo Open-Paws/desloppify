@@ -61,14 +61,14 @@ def _fingerprint(concern_type: str, file: str, key_signals: tuple[str, ...]) -> 
 
 
 def _is_dismissed(
-    dismissals: dict, fingerprint: str, source_finding_ids: tuple[str, ...]
+    dismissals: dict, fingerprint: str, source_issue_ids: tuple[str, ...]
 ) -> bool:
     """Check if a concern was previously dismissed and source issues unchanged."""
     entry = dismissals.get(fingerprint)
     if not isinstance(entry, dict):
         return False
-    prev_sources = set(entry.get("source_finding_ids", []))
-    return prev_sources == set(source_finding_ids)
+    prev_sources = set(entry.get("source_issue_ids", []))
+    return prev_sources == set(source_issue_ids)
 
 
 def _open_issues(state: dict[str, Any]) -> list[dict[str, Any]]:
@@ -519,7 +519,7 @@ def cleanup_stale_dismissals(state: dict[str, Any]) -> int:
     """Remove dismissals whose source issues all disappeared.
 
     Returns the number of stale entries removed.  Dismissals without
-    ``source_finding_ids`` (legacy) are left untouched.
+    ``source_issue_ids`` (legacy) are left untouched.
     """
     dismissals = state.get("concern_dismissals", {})
     if not dismissals:
@@ -528,8 +528,8 @@ def cleanup_stale_dismissals(state: dict[str, Any]) -> int:
     stale_fps = [
         fp
         for fp, entry in dismissals.items()
-        if entry.get("source_finding_ids")
-        and not any(sid in open_ids for sid in entry["source_finding_ids"])
+        if entry.get("source_issue_ids")
+        and not any(sid in open_ids for sid in entry["source_issue_ids"])
     ]
     for fp in stale_fps:
         del dismissals[fp]

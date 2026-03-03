@@ -17,7 +17,7 @@ from desloppify.core.output_api import colorize
 
 _logger = logging.getLogger(__name__)
 from desloppify.engine.plan import (
-    add_uncommitted_findings,
+    add_uncommitted_issues,
     append_log_entry,
     has_living_plan,
     load_plan,
@@ -109,7 +109,7 @@ def cmd_resolve(args: argparse.Namespace) -> None:
             )
             # Commit tracking: add to uncommitted on fix, remove on reopen
             if args.status == "fixed":
-                add_uncommitted_findings(plan, all_resolved)
+                add_uncommitted_issues(plan, all_resolved)
             elif args.status == "open":
                 purge_uncommitted_ids(plan, all_resolved)
             if purged:

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from desloppify import state as state_mod
 from desloppify.core import config as config_mod
 from desloppify.core.exception_sets import CommandError
 
 
-def _save_state_or_exit(state: dict, state_file: str) -> None:
+def _save_state_or_exit(state: dict, state_file: Path | None) -> None:
     """Persist state with a consistent CLI error boundary."""
     try:
         state_mod.save_state(state, state_file)

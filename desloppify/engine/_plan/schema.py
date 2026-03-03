@@ -104,7 +104,7 @@ class PlanModel(TypedDict, total=False):
     execution_log: list[ExecutionLogEntry]
     epic_triage_meta: dict  # triage engine metadata
     commit_log: list[CommitRecord]
-    uncommitted_findings: list[str]
+    uncommitted_issues: list[str]
     commit_tracking_branch: str | None
 
 
@@ -127,7 +127,7 @@ def empty_plan() -> PlanModel:
         "execution_log": [],
         "epic_triage_meta": {},
         "commit_log": [],
-        "uncommitted_findings": [],
+        "uncommitted_issues": [],
         "commit_tracking_branch": None,
     }
 

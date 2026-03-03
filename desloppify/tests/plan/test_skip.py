@@ -30,7 +30,7 @@ def _plan_with_queue(*ids: str) -> dict:
     return plan
 
 
-def _state_with_findings(*ids: str, status: str = "open") -> dict:
+def _state_with_issues(*ids: str, status: str = "open") -> dict:
     issues = {}
     for fid in ids:
         issues[fid] = {
@@ -257,7 +257,7 @@ def test_reconcile_supersedes_skipped_items():
     plan = _plan_with_queue()
     skip_items(plan, ["gone"], kind="temporary")
     # State where "gone" no longer exists
-    state = _state_with_findings("alive")
+    state = _state_with_issues("alive")
 
     result = reconcile_plan_after_scan(plan, state)
     assert "gone" in result.superseded
@@ -268,7 +268,7 @@ def test_reconcile_supersedes_skipped_items():
 def test_reconcile_resurfaced():
     plan = _plan_with_queue()
     skip_items(plan, ["a"], kind="temporary", review_after=2, scan_count=3)
-    state = _state_with_findings("a")
+    state = _state_with_issues("a")
     state["scan_count"] = 5  # 3+2 = 5, should resurface
 
     result = reconcile_plan_after_scan(plan, state)

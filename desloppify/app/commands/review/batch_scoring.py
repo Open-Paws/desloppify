@@ -33,7 +33,7 @@ _MAX_ISSUE_PENALTY = 24.0
 _PRESSURE_PENALTY_MULTIPLIER = 2.2
 
 # Extra penalty per additional issue beyond the first.
-_EXTRA_FINDING_PENALTY = 0.8
+_EXTRA_ISSUE_PENALTY = 0.8
 
 # Issues-based score cap parameters.
 _CAP_FLOOR = 60.0
@@ -47,7 +47,7 @@ class ScoreInputs:
 
     weighted_mean: float
     floor: float
-    finding_pressure: float
+    issue_pressure: float
     issue_count: int
 
 
@@ -118,16 +118,16 @@ class DimensionMergeScorer:
         )
         issue_penalty = min(
             _MAX_ISSUE_PENALTY,
-            (inputs.finding_pressure * _PRESSURE_PENALTY_MULTIPLIER)
-            + (max(inputs.issue_count - 1, 0) * _EXTRA_FINDING_PENALTY),
+            (inputs.issue_pressure * _PRESSURE_PENALTY_MULTIPLIER)
+            + (max(inputs.issue_count - 1, 0) * _EXTRA_ISSUE_PENALTY),
         )
         issue_adjusted = floor_aware - issue_penalty
 
         issue_cap: float | None = None
         if inputs.issue_count > 0:
             cap_penalty = (
-                (inputs.finding_pressure * _CAP_PRESSURE_MULTIPLIER)
-                + (max(inputs.issue_count - 1, 0) * _EXTRA_FINDING_PENALTY)
+                (inputs.issue_pressure * _CAP_PRESSURE_MULTIPLIER)
+                + (max(inputs.issue_count - 1, 0) * _EXTRA_ISSUE_PENALTY)
             )
             issue_cap = max(
                 _CAP_FLOOR,
@@ -149,8 +149,8 @@ class DimensionMergeScorer:
         self,
         score_buckets: dict[str, list[tuple[float, float]]],
         score_raw_by_dim: dict[str, list[float]],
-        finding_pressure_by_dim: dict[str, float],
-        finding_count_by_dim: dict[str, int],
+        issue_pressure_by_dim: dict[str, float],
+        issue_count_by_dim: dict[str, int],
     ) -> dict[str, float]:
         """Compute pressure-adjusted weighted mean for each dimension."""
         merged: dict[str, float] = {}
@@ -165,8 +165,8 @@ class DimensionMergeScorer:
                 ScoreInputs(
                     weighted_mean=weighted_mean,
                     floor=floor,
-                    finding_pressure=finding_pressure_by_dim.get(key, 0.0),
-                    issue_count=finding_count_by_dim.get(key, 0),
+                    issue_pressure=issue_pressure_by_dim.get(key, 0.0),
+                    issue_count=issue_count_by_dim.get(key, 0),
                 )
             )
             merged[key] = breakdown.final_score

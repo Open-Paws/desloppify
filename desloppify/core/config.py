@@ -75,12 +75,12 @@ CONFIG_SCHEMA: dict[str, ConfigKey] = {
         0,
         "Override prop count threshold for bloated interface detection (0 = default 14)",
     ),
-    "finding_noise_budget": ConfigKey(
+    "issue_noise_budget": ConfigKey(
         int,
         10,
         "Max issues surfaced per detector in show/scan summaries (0 = unlimited)",
     ),
-    "finding_noise_global_budget": ConfigKey(
+    "issue_noise_global_budget": ConfigKey(
         int,
         0,
         "Global cap for surfaced issues after per-detector budget (0 = unlimited)",
@@ -143,6 +143,19 @@ def load_config(path: Path | None = None) -> dict[str, Any]:
         config = _migrate_from_state_files(p)
 
     changed = False
+
+    # Migrate legacy config key names (finding → issue)
+    _CONFIG_KEY_RENAMES = {
+        "finding_noise_budget": "issue_noise_budget",
+        "finding_noise_global_budget": "issue_noise_global_budget",
+    }
+    for old_key, new_key in _CONFIG_KEY_RENAMES.items():
+        if old_key in config and new_key not in config:
+            config[new_key] = config.pop(old_key)
+            changed = True
+        elif old_key in config:
+            config.pop(old_key)
+            changed = True
 
     # Fill missing keys with defaults
     for key, schema in CONFIG_SCHEMA.items():

@@ -26,14 +26,14 @@ def test_import_split_extract_helpers_require_object_payloads():
     with pytest.raises(ValueError, match="issues\\[0\\]"):
         parse_per_file_import_payload({"issues": ["x"]})  # type: ignore[list-item]
 
-    findings2, assessments2, reviewed_files = parse_holistic_import_payload(
+    issues2, assessments2, reviewed_files = parse_holistic_import_payload(
         {
             "issues": [{"summary": "y"}],
             "assessments": {"naming_quality": 88},
             "reviewed_files": ["a.py"],
         }
     )
-    assert findings2 == [{"summary": "y"}]
+    assert issues2 == [{"summary": "y"}]
     assert assessments2 == {"naming_quality": 88}
     assert reviewed_files == ["a.py"]
 

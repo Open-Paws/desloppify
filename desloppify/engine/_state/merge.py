@@ -85,7 +85,7 @@ def _mark_stale_on_mechanical_change(
         if payload.get("needs_review_refresh"):
             continue
         payload["needs_review_refresh"] = True
-        payload["refresh_reason"] = "mechanical_findings_changed"
+        payload["refresh_reason"] = "mechanical_issues_changed"
         payload["stale_since"] = now
 
 
@@ -107,7 +107,7 @@ class MergeScanOptions:
 
 def merge_scan(
     state: StateModel,
-    current_findings: list[dict],
+    current_issues: list[dict],
     options: MergeScanOptions | None = None,
 ) -> ScanDiff:
     """Merge a fresh scan into existing state and return a diff summary."""
@@ -139,15 +139,15 @@ def merge_scan(
     current_ids, new_count, reopened_count, current_by_detector, ignored_count, upsert_changed = (
         upsert_issues(
             existing,
-            current_findings,
+            current_issues,
             ignore_patterns,
             now,
             lang=resolved_options.lang,
         )
     )
 
-    raw_findings = len(current_findings)
-    suppressed_pct = _compute_suppression(raw_findings, ignored_count)
+    raw_issues = len(current_issues)
+    suppressed_pct = _compute_suppression(raw_issues, ignored_count)
 
     ran_detectors = (
         set(resolved_options.potentials.keys())
@@ -189,7 +189,7 @@ def merge_scan(
         new_count=new_count,
         auto_resolved=auto_resolved,
         ignored_count=ignored_count,
-        raw_findings=raw_findings,
+        raw_issues=raw_issues,
         suppressed_pct=suppressed_pct,
         ignore_pattern_count=len(ignore_patterns),
     )
@@ -212,6 +212,6 @@ def merge_scan(
         resolved_out_of_scope=resolved_out_of_scope,
         ignored_count=ignored_count,
         ignore_pattern_count=len(ignore_patterns),
-        raw_findings=raw_findings,
+        raw_issues=raw_issues,
         suppressed_pct=suppressed_pct,
     )

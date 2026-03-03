@@ -21,7 +21,7 @@ from desloppify.engine._plan.schema import (
 from desloppify.engine._plan.stale_dimensions import (
     TRIAGE_STAGE_IDS,
     is_triage_stale,
-    review_finding_snapshot_hash,
+    review_issue_snapshot_hash,
     sync_triage_needed,
 )
 from desloppify.engine._work_queue.synthetic import build_triage_stage_items
@@ -31,7 +31,7 @@ from desloppify.engine._work_queue.synthetic import build_triage_stage_items
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _state_with_review_findings(*ids: str) -> dict:
+def _state_with_review_issues(*ids: str) -> dict:
     """Build minimal state with open review issues."""
     issues = {}
     for fid in ids:
@@ -90,20 +90,20 @@ class TestSchemaDefaults:
 
 class TestSnapshotHash:
     def test_empty_state_returns_empty_hash(self):
-        assert review_finding_snapshot_hash(_state_empty()) == ""
+        assert review_issue_snapshot_hash(_state_empty()) == ""
 
-    def test_hash_changes_with_findings(self):
-        s1 = _state_with_review_findings("a", "b")
-        h1 = review_finding_snapshot_hash(s1)
+    def test_hash_changes_with_issues(self):
+        s1 = _state_with_review_issues("a", "b")
+        h1 = review_issue_snapshot_hash(s1)
         assert h1 != ""
 
-        s2 = _state_with_review_findings("a", "b", "c")
-        h2 = review_finding_snapshot_hash(s2)
+        s2 = _state_with_review_issues("a", "b", "c")
+        h2 = review_issue_snapshot_hash(s2)
         assert h2 != h1
 
-    def test_hash_stable_for_same_findings(self):
-        s = _state_with_review_findings("x", "y")
-        assert review_finding_snapshot_hash(s) == review_finding_snapshot_hash(s)
+    def test_hash_stable_for_same_issues(self):
+        s = _state_with_review_issues("x", "y")
+        assert review_issue_snapshot_hash(s) == review_issue_snapshot_hash(s)
 
     def test_hash_ignores_non_review(self):
         state = {
@@ -112,11 +112,11 @@ class TestSnapshotHash:
                 "review::b": {"status": "open", "detector": "review"},
             }
         }
-        h = review_finding_snapshot_hash(state)
+        h = review_issue_snapshot_hash(state)
         assert h != ""
         # Should only include review::b
-        state2 = _state_with_review_findings("review::b")
-        assert review_finding_snapshot_hash(state2) == h
+        state2 = _state_with_review_issues("review::b")
+        assert review_issue_snapshot_hash(state2) == h
 
     def test_hash_ignores_closed(self):
         state = {
@@ -124,7 +124,7 @@ class TestSnapshotHash:
                 "review::a": {"status": "fixed", "detector": "review"},
             }
         }
-        assert review_finding_snapshot_hash(state) == ""
+        assert review_issue_snapshot_hash(state) == ""
 
 
 # ---------------------------------------------------------------------------
@@ -132,9 +132,9 @@ class TestSnapshotHash:
 # ---------------------------------------------------------------------------
 
 class TestSyncTriageNeeded:
-    def test_injects_on_new_findings(self):
+    def test_injects_on_new_issues(self):
         plan = empty_plan()
-        state = _state_with_review_findings("r1", "r2")
+        state = _state_with_review_issues("r1", "r2")
         result = sync_triage_needed(plan, state)
         assert result.injected
         # All 4 stage IDs injected
@@ -142,17 +142,17 @@ class TestSyncTriageNeeded:
 
     def test_no_injection_when_hash_up_to_date(self):
         """No injection when snapshot hash matches (review issues unchanged)."""
-        state = _state_with_review_findings("r1")
-        h = review_finding_snapshot_hash(state)
+        state = _state_with_review_issues("r1")
+        h = review_issue_snapshot_hash(state)
         plan = empty_plan()
         plan["queue_order"] = list(TRIAGE_STAGE_IDS)
-        plan["epic_triage_meta"] = {"finding_snapshot_hash": h}
+        plan["epic_triage_meta"] = {"issue_snapshot_hash": h}
         result = sync_triage_needed(plan, state)
         assert not result.pruned
         # Stage IDs remain untouched
         assert all(sid in plan["queue_order"] for sid in TRIAGE_STAGE_IDS)
 
-    def test_stages_preserved_when_no_review_findings(self):
+    def test_stages_preserved_when_no_review_issues(self):
         """Triage stages preserved even if review issues vanish."""
         plan = empty_plan()
         plan["queue_order"] = list(TRIAGE_STAGE_IDS)
@@ -165,16 +165,16 @@ class TestSyncTriageNeeded:
     def test_no_changes_when_already_injected(self):
         plan = empty_plan()
         plan["queue_order"] = list(TRIAGE_STAGE_IDS)
-        state = _state_with_review_findings("r1")
+        state = _state_with_review_issues("r1")
         result = sync_triage_needed(plan, state)
         assert not result.injected  # Already present
         assert not result.pruned
 
-    def test_re_triggers_on_resolved_finding(self):
-        state = _state_with_review_findings("r1", "r2")
-        h = review_finding_snapshot_hash(state)
+    def test_re_triggers_on_resolved_issue(self):
+        state = _state_with_review_issues("r1", "r2")
+        h = review_issue_snapshot_hash(state)
         plan = empty_plan()
-        plan["epic_triage_meta"] = {"finding_snapshot_hash": h}
+        plan["epic_triage_meta"] = {"issue_snapshot_hash": h}
         # Resolve r2
         state["issues"]["r2"]["status"] = "fixed"
         result = sync_triage_needed(plan, state)
@@ -183,7 +183,7 @@ class TestSyncTriageNeeded:
     def test_injects_at_front(self):
         plan = empty_plan()
         plan["queue_order"] = ["existing_item"]
-        state = _state_with_review_findings("r1")
+        state = _state_with_review_issues("r1")
         sync_triage_needed(plan, state)
         assert plan["queue_order"][0] == "triage::observe"
         assert plan["queue_order"][-1] == "existing_item"
@@ -194,14 +194,14 @@ class TestSyncTriageNeeded:
         plan["epic_triage_meta"] = {
             "triage_stages": {"observe": {"report": "analysis..."}},
         }
-        state = _state_with_review_findings("r1")
+        state = _state_with_review_issues("r1")
         sync_triage_needed(plan, state)
         assert "triage::observe" not in plan["queue_order"]
         assert "triage::reflect" in plan["queue_order"]
         assert "triage::organize" in plan["queue_order"]
         assert "triage::commit" in plan["queue_order"]
 
-    def test_preserves_when_stages_in_progress_no_findings(self):
+    def test_preserves_when_stages_in_progress_no_issues(self):
         """Triage stages preserved even if all review issues vanish mid-triage."""
         plan = empty_plan()
         plan["queue_order"] = list(TRIAGE_STAGE_IDS)
@@ -214,14 +214,14 @@ class TestSyncTriageNeeded:
         # All IDs remain (sync never prunes)
         assert all(sid in plan["queue_order"] for sid in TRIAGE_STAGE_IDS)
 
-    def test_no_auto_prune_when_new_findings_remain(self):
+    def test_no_auto_prune_when_new_issues_remain(self):
         """Stages not pruned when genuinely new issues still exist."""
-        state = _state_with_review_findings("r1")
-        h = review_finding_snapshot_hash(state)
+        state = _state_with_review_issues("r1")
+        h = review_issue_snapshot_hash(state)
         plan = empty_plan()
         plan["queue_order"] = list(TRIAGE_STAGE_IDS)
         plan["epic_triage_meta"] = {
-            "finding_snapshot_hash": h,
+            "issue_snapshot_hash": h,
             "triaged_ids": [],  # r1 not triaged
             "triage_stages": {},
         }
@@ -229,16 +229,16 @@ class TestSyncTriageNeeded:
         assert not result.pruned
         assert all(sid in plan["queue_order"] for sid in TRIAGE_STAGE_IDS)
 
-    def test_auto_prune_when_new_findings_resolved(self):
+    def test_auto_prune_when_new_issues_resolved(self):
         """Stages auto-pruned when all new issues that triggered injection
         have been resolved and triage was completed before (hash exists)."""
         # Start: r1 was triaged, then r2 appeared (triggering injection),
         # then r2 was resolved. Stages should be pruned.
-        state = _state_with_review_findings("r1")
+        state = _state_with_review_issues("r1")
         plan = empty_plan()
         plan["queue_order"] = list(TRIAGE_STAGE_IDS) + ["item1"]
         plan["epic_triage_meta"] = {
-            "finding_snapshot_hash": "stale_hash",
+            "issue_snapshot_hash": "stale_hash",
             "triaged_ids": ["r1"],  # r1 was triaged, r2 was new
             "triage_stages": {},  # no in-progress triage work
         }
@@ -251,7 +251,7 @@ class TestSyncTriageNeeded:
         """Stages NOT pruned during initial triage (no prior hash)."""
         plan = empty_plan()
         plan["queue_order"] = list(TRIAGE_STAGE_IDS)
-        # No finding_snapshot_hash — this is the initial triage
+        # No issue_snapshot_hash — this is the initial triage
         state = _state_empty()
         result = sync_triage_needed(plan, state)
         assert not result.pruned
@@ -259,11 +259,11 @@ class TestSyncTriageNeeded:
 
     def test_no_prune_when_triage_in_progress(self):
         """Stages NOT pruned when user has started triage work."""
-        state = _state_with_review_findings("r1")
+        state = _state_with_review_issues("r1")
         plan = empty_plan()
         plan["queue_order"] = list(TRIAGE_STAGE_IDS)
         plan["epic_triage_meta"] = {
-            "finding_snapshot_hash": "prev_hash",
+            "issue_snapshot_hash": "prev_hash",
             "triaged_ids": ["r1"],
             "triage_stages": {"observe": {"report": "analysis..."}},
         }
@@ -277,28 +277,28 @@ class TestSyncTriageNeeded:
 # ---------------------------------------------------------------------------
 
 class TestIsTriageStale:
-    def test_not_stale_when_no_findings_and_no_stages(self):
+    def test_not_stale_when_no_issues_and_no_stages(self):
         plan = empty_plan()
         state = _state_empty()
         assert not is_triage_stale(plan, state)
 
-    def test_stale_when_new_findings_exist(self):
-        state = _state_with_review_findings("r1")
+    def test_stale_when_new_issues_exist(self):
+        state = _state_with_review_issues("r1")
         plan = empty_plan()
         plan["epic_triage_meta"] = {
-            "finding_snapshot_hash": "prev_hash",
+            "issue_snapshot_hash": "prev_hash",
             "triaged_ids": [],
         }
         assert is_triage_stale(plan, state)
 
-    def test_not_stale_when_stages_present_but_no_new_findings(self):
+    def test_not_stale_when_stages_present_but_no_new_issues(self):
         """Stages in queue alone should NOT make triage stale if all
         new issues that triggered injection have been resolved."""
-        state = _state_with_review_findings("r1")
+        state = _state_with_review_issues("r1")
         plan = empty_plan()
         plan["queue_order"] = list(TRIAGE_STAGE_IDS)
         plan["epic_triage_meta"] = {
-            "finding_snapshot_hash": "prev_hash",
+            "issue_snapshot_hash": "prev_hash",
             "triaged_ids": ["r1"],
             "triage_stages": {},
         }
@@ -306,7 +306,7 @@ class TestIsTriageStale:
 
     def test_stale_when_stages_present_with_in_progress_work(self):
         """Stages in queue ARE stale when user has started triage work."""
-        state = _state_with_review_findings("r1")
+        state = _state_with_review_issues("r1")
         plan = empty_plan()
         plan["queue_order"] = list(TRIAGE_STAGE_IDS)
         plan["epic_triage_meta"] = {
@@ -317,12 +317,12 @@ class TestIsTriageStale:
 
     def test_not_stale_when_only_resolutions(self):
         """Resolving triaged issues should not trigger staleness."""
-        state = _state_with_review_findings("r1")
-        h = review_finding_snapshot_hash(state)
+        state = _state_with_review_issues("r1")
+        h = review_issue_snapshot_hash(state)
         # Add r2 to triaged_ids but r2 has been resolved (not in current state)
         plan = empty_plan()
         plan["epic_triage_meta"] = {
-            "finding_snapshot_hash": "different_hash",
+            "issue_snapshot_hash": "different_hash",
             "triaged_ids": ["r1", "r2"],
         }
         assert not is_triage_stale(plan, state)
@@ -335,13 +335,13 @@ class TestIsTriageStale:
 class TestBuildTriageStageItems:
     def test_returns_empty_when_not_in_queue(self):
         plan = empty_plan()
-        state = _state_with_review_findings("r1")
+        state = _state_with_review_issues("r1")
         assert build_triage_stage_items(plan, state) == []
 
     def test_returns_items_for_each_stage(self):
         plan = empty_plan()
         plan["queue_order"] = list(TRIAGE_STAGE_IDS)
-        state = _state_with_review_findings("r1", "r2")
+        state = _state_with_review_issues("r1", "r2")
         items = build_triage_stage_items(plan, state)
         assert len(items) == 4
         assert all(it["tier"] == 1 for it in items)
@@ -349,17 +349,17 @@ class TestBuildTriageStageItems:
         assert items[0]["id"] == "triage::observe"
         assert items[0]["primary_command"] == "desloppify plan triage --stage observe"
 
-    def test_counts_findings(self):
+    def test_counts_issues(self):
         plan = empty_plan()
         plan["queue_order"] = list(TRIAGE_STAGE_IDS)
-        state = _state_with_review_findings("r1", "r2", "r3")
+        state = _state_with_review_issues("r1", "r2", "r3")
         items = build_triage_stage_items(plan, state)
-        assert items[0]["detail"]["total_review_findings"] == 3
+        assert items[0]["detail"]["total_review_issues"] == 3
 
     def test_blocked_by_chain(self):
         plan = empty_plan()
         plan["queue_order"] = list(TRIAGE_STAGE_IDS)
-        state = _state_with_review_findings("r1")
+        state = _state_with_review_issues("r1")
         items = build_triage_stage_items(plan, state)
         # observe has no dependencies
         assert items[0]["blocked_by"] == []
@@ -374,7 +374,7 @@ class TestBuildTriageStageItems:
         plan["epic_triage_meta"] = {
             "triage_stages": {"observe": {"report": "done"}},
         }
-        state = _state_with_review_findings("r1")
+        state = _state_with_review_issues("r1")
         items = build_triage_stage_items(plan, state)
         ids = [it["id"] for it in items]
         assert "triage::observe" not in ids
@@ -386,9 +386,9 @@ class TestBuildTriageStageItems:
 # ---------------------------------------------------------------------------
 
 class TestCollectTriageInput:
-    def test_collects_open_review_findings(self):
+    def test_collects_open_review_issues(self):
         plan = empty_plan()
-        state = _state_with_review_findings("r1", "r2")
+        state = _state_with_review_issues("r1", "r2")
         state["issues"]["u1"] = {"status": "open", "detector": "unused"}
         si = collect_triage_input(plan, state)
         assert len(si.open_issues) == 2
@@ -402,14 +402,14 @@ class TestCollectTriageInput:
             "name": "epic/test", "thesis": "test", "direction": "delete",
             "issue_ids": [], "auto": True, "cluster_key": "epic::epic/test",
         }
-        state = _state_with_review_findings("r1")
+        state = _state_with_review_issues("r1")
         si = collect_triage_input(plan, state)
         assert "epic/test" in si.existing_epics
 
     def test_tracks_new_since_last(self):
         plan = empty_plan()
         plan["epic_triage_meta"] = {"triaged_ids": ["r1"]}
-        state = _state_with_review_findings("r1", "r2")
+        state = _state_with_review_issues("r1", "r2")
         si = collect_triage_input(plan, state)
         assert si.new_since_last == {"r2"}
         assert si.resolved_since_last == set()
@@ -449,7 +449,7 @@ class TestParseTriageResult:
         assert result.epics[0]["issue_ids"] == ["r1", "r2"]
         assert len(result.dismissed_issues) == 1
 
-    def test_rejects_invalid_finding_ids(self):
+    def test_rejects_invalid_issue_ids(self):
         valid_ids = {"r1"}
         raw = {
             "epics": [
@@ -478,7 +478,7 @@ class TestParseTriageResult:
         result = parse_triage_result(raw, set())
         assert result.epics[0]["direction"] == "simplify"  # fallback
 
-    def test_dismissed_finding_requires_valid_id(self):
+    def test_dismissed_issue_requires_valid_id(self):
         raw = {
             "dismissed_issues": [
                 {"issue_id": "valid", "reason": "x"},
@@ -496,7 +496,7 @@ class TestParseTriageResult:
 class TestApplyTriageToPlan:
     def test_creates_epics(self):
         plan = empty_plan()
-        state = _state_with_review_findings("r1", "r2")
+        state = _state_with_review_issues("r1", "r2")
         triage_result = TriageResult(
             strategy_summary="Test strategy",
             epics=[
@@ -532,7 +532,7 @@ class TestApplyTriageToPlan:
             "auto": True,
             "cluster_key": "epic::epic/test",
         }
-        state = _state_with_review_findings("r1", "r2")
+        state = _state_with_review_issues("r1", "r2")
         triage_result = TriageResult(
             strategy_summary="Updated",
             epics=[
@@ -563,7 +563,7 @@ class TestApplyTriageToPlan:
             "auto": True,
             "cluster_key": "epic::epic/active",
         }
-        state = _state_with_review_findings("r1")
+        state = _state_with_review_issues("r1")
         triage_result = TriageResult(
             strategy_summary="x",
             epics=[
@@ -580,10 +580,10 @@ class TestApplyTriageToPlan:
         apply_triage_to_plan(plan, state, triage_result)
         assert plan["clusters"]["epic/active"]["status"] == "in_progress"
 
-    def test_dismisses_findings(self):
+    def test_dismisses_issues(self):
         plan = empty_plan()
         plan["queue_order"] = ["r1", "r2", "r3"]
-        state = _state_with_review_findings("r1", "r2", "r3")
+        state = _state_with_review_issues("r1", "r2", "r3")
         triage_result = TriageResult(
             strategy_summary="x",
             epics=[],
@@ -592,25 +592,25 @@ class TestApplyTriageToPlan:
             ],
         )
         result = apply_triage_to_plan(plan, state, triage_result)
-        assert result.findings_dismissed == 1
+        assert result.issues_dismissed == 1
         assert "r3" in plan["skipped"]
         assert plan["skipped"]["r3"]["kind"] == "triaged_out"
         assert "r3" not in plan["queue_order"]
 
     def test_updates_snapshot_hash(self):
         plan = empty_plan()
-        state = _state_with_review_findings("r1")
+        state = _state_with_review_issues("r1")
         triage_result = TriageResult(strategy_summary="x", epics=[])
         apply_triage_to_plan(plan, state, triage_result)
         meta = plan["epic_triage_meta"]
-        assert meta["finding_snapshot_hash"] == review_finding_snapshot_hash(state)
+        assert meta["issue_snapshot_hash"] == review_issue_snapshot_hash(state)
         assert meta["strategy_summary"] == "x"
         assert meta["version"] == 1
 
     def test_reorders_queue_by_dependency(self):
         plan = empty_plan()
         plan["queue_order"] = ["r1", "r2", "r3", "other"]
-        state = _state_with_review_findings("r1", "r2", "r3")
+        state = _state_with_review_issues("r1", "r2", "r3")
         triage_result = TriageResult(
             strategy_summary="x",
             epics=[
@@ -642,7 +642,7 @@ class TestApplyTriageToPlan:
 # ---------------------------------------------------------------------------
 
 class TestReconcileWithEpics:
-    def test_removes_dead_findings_from_epics(self):
+    def test_removes_dead_issues_from_epics(self):
         plan = empty_plan()
         plan["clusters"]["epic/test"] = {
             "name": "epic/test",
@@ -655,7 +655,7 @@ class TestReconcileWithEpics:
             "cluster_key": "epic::epic/test",
         }
         # r1 still alive, r2 gone
-        state = _state_with_review_findings("r1")
+        state = _state_with_review_issues("r1")
         result = reconcile_plan_after_scan(plan, state)
         assert plan["clusters"]["epic/test"]["issue_ids"] == ["r1"]
         assert result.changes > 0
@@ -736,7 +736,7 @@ class TestOperationsCompat:
 class TestIdempotency:
     def test_reapply_same_triage(self):
         plan = empty_plan()
-        state = _state_with_review_findings("r1", "r2")
+        state = _state_with_review_issues("r1", "r2")
         triage_result = TriageResult(
             strategy_summary="test",
             epics=[

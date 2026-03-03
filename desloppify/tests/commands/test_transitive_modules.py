@@ -145,7 +145,7 @@ class TestPrintScoreMovement:
     @patch("desloppify.app.commands.resolve.render_support.state_mod")
     @patch("desloppify.app.commands.resolve.render_support.colorize", side_effect=lambda t, _c: t)
     @patch("desloppify.app.commands.resolve.render.colorize", side_effect=lambda t, _c: t)
-    def test_review_findings_unchanged_hint(self, _mock_colorize, _mock_colorize2, mock_state, capsys):
+    def test_review_issues_unchanged_hint(self, _mock_colorize, _mock_colorize2, mock_state, capsys):
         from desloppify.state import ScoreSnapshot
         mock_state.score_snapshot.return_value = ScoreSnapshot(
             overall=50.0, objective=60.0, strict=40.0, verified=30.0
@@ -217,7 +217,7 @@ class TestPrintNextCommand:
 
 class TestPrintSubjectiveResetHint:
     @patch("desloppify.app.commands.resolve.render.colorize", side_effect=lambda t, _c: t)
-    def test_no_hint_when_no_review_findings(self, _mock_colorize, capsys):
+    def test_no_hint_when_no_review_issues(self, _mock_colorize, capsys):
         state = {
             "issues": {"f1": {"detector": "smells", "status": "open"}},
             "subjective_assessments": {"Code quality": 5.0},
@@ -229,7 +229,7 @@ class TestPrintSubjectiveResetHint:
         assert capsys.readouterr().out == ""
 
     @patch("desloppify.app.commands.resolve.render.colorize", side_effect=lambda t, _c: t)
-    def test_hint_shown_for_resolved_review_findings(self, _mock_colorize, capsys):
+    def test_hint_shown_for_resolved_review_issues(self, _mock_colorize, capsys):
         state = {
             "issues": {
                 "f1": {
@@ -714,7 +714,7 @@ class TestReplaceSection:
         assert "new section" in result
 
     def test_replaces_between_markers(self):
-        from desloppify.utils import SKILL_BEGIN, SKILL_END
+        from desloppify.core.skill_docs import SKILL_BEGIN, SKILL_END
         content = f"before\n{SKILL_BEGIN}\nold content\n{SKILL_END}\nafter"
         result = _replace_section(content, "new section")
         assert "old content" not in result
@@ -723,14 +723,14 @@ class TestReplaceSection:
         assert "after" in result
 
     def test_handles_empty_before(self):
-        from desloppify.utils import SKILL_BEGIN, SKILL_END
+        from desloppify.core.skill_docs import SKILL_BEGIN, SKILL_END
         content = f"{SKILL_BEGIN}\nold\n{SKILL_END}\nafter"
         result = _replace_section(content, "new")
         assert "new" in result
         assert "after" in result
 
     def test_handles_empty_after(self):
-        from desloppify.utils import SKILL_BEGIN, SKILL_END
+        from desloppify.core.skill_docs import SKILL_BEGIN, SKILL_END
         content = f"before\n{SKILL_BEGIN}\nold\n{SKILL_END}"
         result = _replace_section(content, "new")
         assert "new" in result
@@ -750,7 +750,7 @@ class TestResolveInterface:
             assert resolve_interface(None) is None
 
     def test_from_install_overlay(self):
-        from desloppify.utils import SkillInstall
+        from desloppify.core.skill_docs import SkillInstall
         install = SkillInstall(
             rel_path=".claude/skills/desloppify/SKILL.md",
             version=1,
@@ -761,7 +761,7 @@ class TestResolveInterface:
         assert result == "claude"
 
     def test_from_install_path_match(self):
-        from desloppify.utils import SkillInstall
+        from desloppify.core.skill_docs import SkillInstall
         install = SkillInstall(
             rel_path=".claude/skills/desloppify/SKILL.md",
             version=1,
@@ -772,7 +772,7 @@ class TestResolveInterface:
         assert result == "claude"
 
     def test_from_install_path_match_opencode(self):
-        from desloppify.utils import SkillInstall
+        from desloppify.core.skill_docs import SkillInstall
 
         install = SkillInstall(
             rel_path=".opencode/skills/desloppify/SKILL.md",
@@ -784,7 +784,7 @@ class TestResolveInterface:
         assert result == "opencode"
 
     def test_from_install_no_match(self):
-        from desloppify.utils import SkillInstall
+        from desloppify.core.skill_docs import SkillInstall
         install = SkillInstall(
             rel_path="unknown/path.md",
             version=1,

@@ -79,12 +79,4 @@ __all__ = [
     "canonical_issue_status",
     "issue_status_tokens",
     "resolved_statuses",
-    # Deprecated aliases
-    "canonical_finding_status",
-    "finding_status_tokens",
 ]
-
-
-# Deprecated aliases
-canonical_finding_status = canonical_issue_status
-finding_status_tokens = issue_status_tokens

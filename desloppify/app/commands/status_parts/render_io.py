@@ -112,7 +112,7 @@ def show_ignore_summary(ignores: list[str], suppression: dict) -> None:
         print(colorize(f"    {pattern}", "dim"))
 
     last_ignored = int(suppression.get("last_ignored", 0) or 0)
-    last_raw = int(suppression.get("last_raw_findings", 0) or 0)
+    last_raw = int(suppression.get("last_raw_issues", 0) or 0)
     last_pct = float(suppression.get("last_suppressed_pct", 0.0) or 0.0)
 
     if last_raw > 0:
@@ -127,7 +127,7 @@ def show_ignore_summary(ignores: list[str], suppression: dict) -> None:
         print(colorize("  Ignore suppression (last scan): 0 issues hidden", "dim"))
 
     recent_scans = int(suppression.get("recent_scans", 0) or 0)
-    recent_raw = int(suppression.get("recent_raw_findings", 0) or 0)
+    recent_raw = int(suppression.get("recent_raw_issues", 0) or 0)
     if recent_scans > 1 and recent_raw > 0:
         recent_ignored = int(suppression.get("recent_ignored", 0) or 0)
         recent_pct = float(suppression.get("recent_suppressed_pct", 0.0) or 0.0)

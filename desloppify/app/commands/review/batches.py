@@ -483,7 +483,7 @@ def do_run_batches(
     merged_assessment_dims = normalize_dimension_list(
         list((merged.get("assessments") or {}).keys())
     )
-    merged_finding_dims = normalize_dimension_list(
+    merged_issue_dims = normalize_dimension_list(
         [
             issue.get("dimension")
             for issue in (merged.get("issues") or [])
@@ -491,7 +491,7 @@ def do_run_batches(
         ]
     )
     merged_imported_dims = normalize_dimension_list(
-        merged_assessment_dims + merged_finding_dims
+        merged_assessment_dims + merged_issue_dims
     )
     review_scope["imported_dimensions"] = merged_imported_dims
     missing_after_import = print_import_dimension_coverage_notice(
@@ -506,7 +506,7 @@ def do_run_batches(
         "imported_dimensions": merged_assessment_dims,
         "missing_dimensions": missing_after_import,
     }
-    merged_path = run_dir / "holistic_findings_merged.json"
+    merged_path = run_dir / "holistic_issues_merged.json"
     safe_write_text_fn(merged_path, json.dumps(merged, indent=2) + "\n")
     print(colorize_fn(f"\n  Merged outputs: {merged_path}", "bold"))
     print_review_quality(merged.get("review_quality", {}), colorize_fn=colorize_fn)

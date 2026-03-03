@@ -314,7 +314,7 @@ def do_import(
         raise CommandError(str(exc), exit_code=1) from exc
 
     try:
-        issues_data = import_helpers_mod.load_import_findings_data(
+        issues_data = import_helpers_mod.load_import_issues_data(
             import_file,
             lang_name=lang.name,
             allow_partial=allow_partial,
@@ -526,7 +526,7 @@ def do_validate_import(
         raise CommandError(str(exc), exit_code=1) from exc
 
     try:
-        issues_data = import_helpers_mod.load_import_findings_data(
+        issues_data = import_helpers_mod.load_import_issues_data(
             import_file,
             lang_name=lang.name,
             allow_partial=allow_partial,
@@ -556,9 +556,9 @@ def do_validate_import(
         colorize_fn=colorize,
     )
 
-    findings_count = len(issues_data["issues"])
+    issues_count = len(issues_data["issues"])
     print(colorize("\n  Import payload validation passed.", "bold"))
-    print(colorize(f"  Issues parsed: {findings_count}", "dim"))
+    print(colorize(f"  Issues parsed: {issues_count}", "dim"))
     if assessment_policy.assessments_present:
         count = int(assessment_policy.assessment_count)
         print(colorize(f"  Assessment entries in payload: {count}", "dim"))

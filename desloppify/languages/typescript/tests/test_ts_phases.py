@@ -116,7 +116,7 @@ def test_phase_coupling_passes_orphaned_options(monkeypatch, tmp_path: Path):
         ),
     )
     monkeypatch.setattr(
-        "desloppify.languages.typescript.phases._make_boundary_findings",
+        "desloppify.languages.typescript.phases._make_boundary_issues",
         lambda single_entries, path, graph, lang, shared_prefix, tools_prefix: ([], 0),
     )
     monkeypatch.setattr(

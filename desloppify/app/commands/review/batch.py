@@ -368,7 +368,7 @@ def do_import_run(
     )
 
     # -- write merged output --
-    merged_path = run_dir / "holistic_findings_merged.json"
+    merged_path = run_dir / "holistic_issues_merged.json"
     safe_write_text(merged_path, json.dumps(merged, indent=2) + "\n")
     print(colorize(f"  Merged output: {merged_path}", "bold"))
 

@@ -246,7 +246,7 @@ def _get_items(args, state: dict, config: dict) -> None:
         return
 
     dim_scores = state.get("dimension_scores", {})
-    findings_scoped = state_mod.path_scoped_issues(
+    issues_scoped = state_mod.path_scoped_issues(
         state.get("issues", {}),
         state.get("scan_path"),
     )
@@ -272,7 +272,7 @@ def _get_items(args, state: dict, config: dict) -> None:
     raw_potentials = state.get("potentials", {})
     potentials = _merge_potentials_safe(raw_potentials)
     next_render_mod.render_terminal_items(
-        items, dim_scores, findings_scoped, group=group, explain=explain,
+        items, dim_scores, issues_scoped, group=group, explain=explain,
         potentials=potentials, plan=plan_data,
         cluster_filter=effective_cluster,
     )
@@ -281,7 +281,7 @@ def _get_items(args, state: dict, config: dict) -> None:
     next_nudges_mod.render_followup_nudges(
         state,
         dim_scores,
-        findings_scoped,
+        issues_scoped,
         strict_score=strict_score,
         target_strict_score=target_strict,
         queue_total=queue_total,

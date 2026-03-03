@@ -41,16 +41,16 @@ def build_area_rows(
 ) -> list[list[str]]:
     """Build table rows from sorted area issues."""
     rows: list[list[str]] = []
-    for area, area_findings in sorted_areas[:max_areas]:
-        t3 = sum(1 for issue in area_findings if issue["tier"] == 3)
-        t4 = sum(1 for issue in area_findings if issue["tier"] == 4)
-        open_count = sum(1 for issue in area_findings if issue["status"] == "open")
-        debt_count = sum(1 for issue in area_findings if issue["status"] == "wontfix")
-        weight = sum(issue["tier"] for issue in area_findings)
+    for area, area_issues in sorted_areas[:max_areas]:
+        t3 = sum(1 for issue in area_issues if issue["tier"] == 3)
+        t4 = sum(1 for issue in area_issues if issue["tier"] == 4)
+        open_count = sum(1 for issue in area_issues if issue["status"] == "open")
+        debt_count = sum(1 for issue in area_issues if issue["status"] == "wontfix")
+        weight = sum(issue["tier"] for issue in area_issues)
         rows.append(
             [
                 area,
-                str(len(area_findings)),
+                str(len(area_issues)),
                 f"T3:{t3} T4:{t4}",
                 str(open_count),
                 str(debt_count),

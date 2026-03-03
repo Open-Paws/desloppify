@@ -35,8 +35,8 @@
              word-break: break-all; margin-bottom: 4px; }
   .tt-stats { color: #8b949e; }
   .tt-stats strong { color: #c9d1d9; }
-  .tt-findings { margin-top: 6px; border-top: 1px solid #30363d; padding-top: 6px; }
-  .tt-finding { color: #f0883e; font-size: 11px; }
+  .tt-issues { margin-top: 6px; border-top: 1px solid #30363d; padding-top: 6px; }
+  .tt-issue { color: #f0883e; font-size: 11px; }
 </style>
 </head>
 <body>
@@ -44,12 +44,12 @@
   <h1>Desloppify Treemap</h1>
   <span class="stat">Files: <strong>__TOTAL_FILES__</strong></span>
   <span class="stat">LOC: <strong>__TOTAL_LOC__</strong></span>
-  <span class="stat">Findings: <strong>__OPEN_FINDINGS__</strong> open / __TOTAL_FINDINGS__ total</span>
+  <span class="stat">Issues: <strong>__OPEN_ISSUES__</strong> open / __TOTAL_ISSUES__ total</span>
   <span class="stat score">Scores: <strong>overall __OVERALL_SCORE__ · objective __OBJECTIVE_SCORE__ · strict __STRICT_SCORE__</strong></span>
   <div id="controls">
     <label>Color by:</label>
     <select id="colorMode">
-      <option value="findings">Cruft (findings)</option>
+      <option value="issues">Cruft (issues)</option>
       <option value="coupling">Coupling (fan-in + fan-out)</option>
       <option value="loc">File size (LOC)</option>
     </select>
@@ -73,12 +73,12 @@ const cruftScale = d3.scaleSequential(d3.interpolateRdYlGn).domain([10, 0]);
 const couplingScale = d3.scaleSequential(d3.interpolateYlOrRd).domain([0, 40]);
 const locScale = d3.scaleSequential(d3.interpolateBlues).domain([0, 800]);
 
-let colorMode = 'findings';
+let colorMode = 'issues';
 
 function getColor(d) {
   if (!d.data.loc) return '#21262d';
   const dd = d.data;
-  if (colorMode === 'findings') return cruftScale(Math.min(dd.findings_open || 0, 10));
+  if (colorMode === 'issues') return cruftScale(Math.min(dd.issues_open || 0, 10));
   if (colorMode === 'coupling') return couplingScale(Math.min((dd.fan_in||0) + (dd.fan_out||0), 40));
   if (colorMode === 'loc') return locScale(Math.min(dd.loc||0, 800));
   return '#21262d';
@@ -213,14 +213,14 @@ function showFileTooltip(event, d) {
   let html = `<div class="tt-path">${esc(dd.path || dd.name)}</div><div class="tt-stats">`;
   html += `<strong>${(dd.loc||0).toLocaleString()}</strong> LOC`;
   html += ` · Fan-in: <strong>${dd.fan_in||0}</strong> · Fan-out: <strong>${dd.fan_out||0}</strong>`;
-  if (dd.findings_open > 0)
-    html += ` · <strong style="color:#f0883e">${dd.findings_open} findings</strong>`;
+  if (dd.issues_open > 0)
+    html += ` · <strong style="color:#f0883e">${dd.issues_open} issues</strong>`;
   html += `</div>`;
-  if (dd.finding_summaries && dd.finding_summaries.length) {
-    html += `<div class="tt-findings">`;
-    dd.finding_summaries.slice(0,5).forEach(s => { html += `<div class="tt-finding">• ${esc(s)}</div>`; });
-    if (dd.finding_summaries.length > 5)
-      html += `<div class="tt-finding">… +${dd.finding_summaries.length-5} more</div>`;
+  if (dd.issue_summaries && dd.issue_summaries.length) {
+    html += `<div class="tt-issues">`;
+    dd.issue_summaries.slice(0,5).forEach(s => { html += `<div class="tt-issue">• ${esc(s)}</div>`; });
+    if (dd.issue_summaries.length > 5)
+      html += `<div class="tt-issue">… +${dd.issue_summaries.length-5} more</div>`;
     html += `</div>`;
   }
   tooltip.innerHTML = html;
@@ -231,11 +231,11 @@ function showFileTooltip(event, d) {
 function showDirTooltip(event, d) {
   const leaves = d.leaves();
   const loc = d3.sum(leaves, l => l.data.loc || 0);
-  const findings = d3.sum(leaves, l => l.data.findings_open || 0);
+  const issues = d3.sum(leaves, l => l.data.issues_open || 0);
   const path = d.ancestors().reverse().map(a => a.data.name).join('/');
   let html = `<div class="tt-path">${esc(path)}/</div><div class="tt-stats">`;
   html += `<strong>${leaves.length}</strong> files · <strong>${loc.toLocaleString()}</strong> LOC`;
-  if (findings > 0) html += ` · <strong style="color:#f0883e">${findings} findings</strong>`;
+  if (issues > 0) html += ` · <strong style="color:#f0883e">${issues} issues</strong>`;
   html += `</div>`;
   tooltip.innerHTML = html;
   tooltip.style.display = 'block';

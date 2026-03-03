@@ -29,7 +29,7 @@ _RANK_INITIAL_REVIEW = -3  # Unassessed subjective dimensions
 _RANK_TRIAGE_STAGE = -2    # Epic triage workflow stages
 _RANK_WORKFLOW = -1         # Score checkpoints, create-plan
 _RANK_CLUSTER = 0           # Auto-clustered issues
-_RANK_FINDING = 1           # Individual issues + assessed subjective
+_RANK_ISSUE = 1           # Individual issues + assessed subjective
 
 
 def enrich_with_impact(items: list[dict], dimension_scores: dict) -> None:
@@ -128,8 +128,8 @@ def build_issue_items(
         meta = DETECTORS.get(detector)
         if meta and meta.standalone_threshold:
             threshold_rank = CONFIDENCE_ORDER.get(meta.standalone_threshold, 9)
-            finding_rank = CONFIDENCE_ORDER.get(issue.get("confidence", "low"), 9)
-            if finding_rank > threshold_rank:
+            issue_rank = CONFIDENCE_ORDER.get(issue.get("confidence", "low"), 9)
+            if issue_rank > threshold_rank:
                 continue
 
         item = dict(issue)
@@ -196,7 +196,7 @@ def _natural_sort_key(item: dict) -> tuple:
 
     if kind == "subjective_dimension" or item.get("is_subjective"):
         return (
-            _RANK_FINDING,
+            _RANK_ISSUE,
             -impact,
             subjective_score_value(item),
             item.get("id", ""),
@@ -205,7 +205,7 @@ def _natural_sort_key(item: dict) -> tuple:
     detail = detail_dict(item)
     review_weight = float(item.get("review_weight", 0.0) or 0.0)
     return (
-        _RANK_FINDING,
+        _RANK_ISSUE,
         -impact,
         CONFIDENCE_ORDER.get(item.get("confidence", "low"), 9),
         -review_weight,

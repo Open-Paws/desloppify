@@ -41,7 +41,6 @@ from desloppify.engine._state.schema import (
     STATE_FILE,
     ConcernDismissal,
     DimensionScore,
-    Finding,
     Issue,
     StateModel,
     StateStats,
@@ -131,35 +130,4 @@ __all__ = [
     "utc_now",
     "validate_state_invariants",
     "migrate_state_keys",
-    # Deprecated aliases
-    "Finding",
-    "make_finding",
-    "match_findings",
-    "resolve_findings",
-    "path_scoped_findings",
-    "upsert_findings",
-    "remove_ignored_findings",
-    "finding_in_scan_scope",
-    "apply_finding_noise_budget",
-    "resolve_finding_noise_budget",
-    "resolve_finding_noise_global_budget",
-    "resolve_finding_noise_settings",
-    "DEFAULT_FINDING_NOISE_BUDGET",
-    "DEFAULT_FINDING_NOISE_GLOBAL_BUDGET",
 ]
-
-
-# Deprecated aliases — kept for backwards compatibility
-make_finding = make_issue
-match_findings = match_issues
-resolve_findings = resolve_issues
-path_scoped_findings = path_scoped_issues
-upsert_findings = upsert_issues
-remove_ignored_findings = remove_ignored_issues
-finding_in_scan_scope = issue_in_scan_scope
-apply_finding_noise_budget = apply_issue_noise_budget
-resolve_finding_noise_budget = resolve_issue_noise_budget
-resolve_finding_noise_global_budget = resolve_issue_noise_global_budget
-resolve_finding_noise_settings = resolve_issue_noise_settings
-DEFAULT_FINDING_NOISE_BUDGET = DEFAULT_ISSUE_NOISE_BUDGET
-DEFAULT_FINDING_NOISE_GLOBAL_BUDGET = DEFAULT_ISSUE_NOISE_GLOBAL_BUDGET

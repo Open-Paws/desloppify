@@ -17,7 +17,7 @@ from desloppify.intelligence.review.prepare import (
 from desloppify.state import empty_state
 
 
-def _review_finding(
+def _review_issue(
     *,
     issue_id: str,
     dimension: str,
@@ -54,20 +54,20 @@ def _review_finding(
 
 def test_issue_history_returns_flat_recent_issues():
     state = empty_state()
-    f_open = _review_finding(
+    f_open = _review_issue(
         issue_id="review::.::holistic::abstraction_fitness::task_param_bag::11111111",
         dimension="abstraction_fitness",
         status="open",
         summary="Task builders rely on oversized parameter bags.",
     )
-    f_fixed = _review_finding(
+    f_fixed = _review_issue(
         issue_id="review::.::holistic::abstraction_fitness::task_param_bag::22222222",
         dimension="abstraction_fitness",
         status="fixed",
         summary="Task builders rely on oversized parameter bags.",
         resolved_at="2026-02-24T11:00:00+00:00",
     )
-    f_wontfix = _review_finding(
+    f_wontfix = _review_issue(
         issue_id="review::.::holistic::high_level_elegance::legacy_surface::33333333",
         dimension="high_level_elegance",
         status="wontfix",
@@ -87,8 +87,8 @@ def test_issue_history_returns_flat_recent_issues():
     )
 
     summary = history["summary"]
-    assert summary["total_review_findings"] == 3
-    assert summary["open_review_findings"] == 1
+    assert summary["total_review_issues"] == 3
+    assert summary["open_review_issues"] == 1
     assert summary["status_counts"]["open"] == 1
     assert summary["status_counts"]["fixed"] == 1
     assert summary["status_counts"]["wontfix"] == 1
@@ -114,7 +114,7 @@ def test_issue_history_returns_flat_recent_issues():
 def test_issue_history_strips_auto_resolve_notes():
     """Auto-resolve boilerplate notes should be stripped to empty string."""
     state = empty_state()
-    f = _review_finding(
+    f = _review_issue(
         issue_id="review::.::holistic::abstraction_fitness::test::11111111",
         dimension="abstraction_fitness",
         status="auto_resolved",
@@ -132,7 +132,7 @@ def test_issue_history_respects_max_issues():
     state = empty_state()
     state["issues"] = {}
     for idx in range(10):
-        f = _review_finding(
+        f = _review_issue(
             issue_id=f"review::.::holistic::abstraction_fitness::issue_{idx}::{idx:08x}",
             dimension="abstraction_fitness",
             status="open",
@@ -149,14 +149,14 @@ def test_issue_history_respects_max_issues():
 
 def test_issue_history_sorted_by_last_seen():
     state = empty_state()
-    f_old = _review_finding(
+    f_old = _review_issue(
         issue_id="review::.::holistic::abstraction_fitness::old::11111111",
         dimension="abstraction_fitness",
         status="open",
         summary="Old issue.",
         last_seen="2026-02-01T10:00:00+00:00",
     )
-    f_new = _review_finding(
+    f_new = _review_issue(
         issue_id="review::.::holistic::abstraction_fitness::new::22222222",
         dimension="abstraction_fitness",
         status="open",
@@ -175,14 +175,14 @@ def test_issue_history_sorted_by_last_seen():
 def test_issue_history_empty_state():
     state = empty_state()
     history = build_issue_history_context(state)
-    assert history["summary"]["total_review_findings"] == 0
+    assert history["summary"]["total_review_issues"] == 0
     assert history["recent_issues"] == []
 
 
 def test_prepare_holistic_review_optional_issue_history_payload():
     state = empty_state()
     state["issues"] = {
-        "review::.::holistic::error_consistency::mixed_error_channels_console_vs_pipeline::9a9a9a9a": _review_finding(
+        "review::.::holistic::error_consistency::mixed_error_channels_console_vs_pipeline::9a9a9a9a": _review_issue(
             issue_id="review::.::holistic::error_consistency::mixed_error_channels_console_vs_pipeline::9a9a9a9a",
             dimension="error_consistency",
             status="open",
@@ -216,7 +216,7 @@ def test_prepare_holistic_review_optional_issue_history_payload():
     )
 
     assert "historical_review_issues" in with_history
-    assert with_history["historical_review_issues"]["summary"]["total_review_findings"] == 1
+    assert with_history["historical_review_issues"]["summary"]["total_review_issues"] == 1
     assert "historical_review_issues" not in without_history
 
 

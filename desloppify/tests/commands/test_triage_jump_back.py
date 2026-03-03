@@ -13,7 +13,7 @@ from desloppify.engine._plan.stale_dimensions import TRIAGE_STAGE_IDS
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _state_with_findings(*ids: str, dimension: str = "naming") -> dict:
+def _state_with_issues(*ids: str, dimension: str = "naming") -> dict:
     issues = {}
     for fid in ids:
         issues[fid] = {
@@ -105,7 +105,7 @@ class TestJumpBackReflect:
         plan = _plan_with_enriched_clusters(
             ["observe", "reflect", "organize"], confirmed=True,
         )
-        state = _state_with_findings("r1", "r2", "r3", "r4", "r5")
+        state = _state_with_issues("r1", "r2", "r3", "r4", "r5")
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))
@@ -132,7 +132,7 @@ class TestJumpBackReflect:
         """Re-running reflect without --report reuses existing report."""
         plan = _plan_with_stages("observe", "reflect", confirmed=True)
         original_report = plan["epic_triage_meta"]["triage_stages"]["reflect"]["report"]
-        state = _state_with_findings("r1", "r2", "r3", "r4", "r5")
+        state = _state_with_issues("r1", "r2", "r3", "r4", "r5")
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))
@@ -152,7 +152,7 @@ class TestJumpBackReflect:
         """Reuse mode preserves reflect's own confirmed_at (data unchanged)."""
         plan = _plan_with_stages("observe", "reflect", confirmed=True)
         original_confirmed = plan["epic_triage_meta"]["triage_stages"]["reflect"]["confirmed_at"]
-        state = _state_with_findings("r1", "r2", "r3", "r4", "r5")
+        state = _state_with_issues("r1", "r2", "r3", "r4", "r5")
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))
@@ -176,7 +176,7 @@ class TestJumpBackObserve:
         plan = _plan_with_enriched_clusters(
             ["observe", "reflect", "organize"], confirmed=True,
         )
-        state = _state_with_findings("r1", "r2", "r3", "r4", "r5")
+        state = _state_with_issues("r1", "r2", "r3", "r4", "r5")
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))
@@ -209,7 +209,7 @@ class TestJumpBackThenFoldConfirm:
         plan = _plan_with_enriched_clusters(
             ["observe", "reflect", "organize"], confirmed=True,
         )
-        state = _state_with_findings("r1", "r2", "r3", "r4", "r5")
+        state = _state_with_issues("r1", "r2", "r3", "r4", "r5")
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))
@@ -258,7 +258,7 @@ class TestCompleteJumpBackGuidance:
         plan = _plan_with_enriched_clusters(
             ["observe", "reflect", "organize"], confirmed=True,
         )
-        state = _state_with_findings("r1", "r2", "r3", "r4", "r5")
+        state = _state_with_issues("r1", "r2", "r3", "r4", "r5")
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))
@@ -289,7 +289,7 @@ class TestRerunWithoutPriorData:
         """When stage has no existing data and no --report, error as before."""
         plan = _plan_with_stages("observe", confirmed=True)
         # No reflect stage data exists
-        state = _state_with_findings("r1", "r2", "r3")
+        state = _state_with_issues("r1", "r2", "r3")
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))
@@ -316,7 +316,7 @@ class TestStageProgressShowsNeedsConfirm:
         plan = _plan_with_enriched_clusters(
             ["observe", "reflect", "organize"], confirmed=True,
         )
-        state = _state_with_findings("r1", "r2", "r3", "r4", "r5")
+        state = _state_with_issues("r1", "r2", "r3", "r4", "r5")
 
         monkeypatch.setattr(triage_mod, "load_plan", lambda *a, **kw: plan)
         monkeypatch.setattr(triage_mod, "command_runtime", lambda args: _fake_runtime(state))

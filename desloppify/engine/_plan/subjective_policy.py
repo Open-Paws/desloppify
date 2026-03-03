@@ -70,8 +70,8 @@ def _is_evidence_only(issue: dict) -> bool:
     meta = DETECTORS.get(detector)
     if meta and meta.standalone_threshold:
         threshold_rank = CONFIDENCE_ORDER.get(meta.standalone_threshold, 9)
-        finding_rank = CONFIDENCE_ORDER.get(issue.get("confidence", "low"), 9)
-        if finding_rank > threshold_rank:
+        issue_rank = CONFIDENCE_ORDER.get(issue.get("confidence", "low"), 9)
+        if issue_rank > threshold_rank:
             return True
     return False
 

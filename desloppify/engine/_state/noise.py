@@ -34,7 +34,7 @@ def resolve_issue_noise_budget(
     if not config:
         return default
     budget, _valid = _resolve_non_negative_int(
-        config.get("finding_noise_budget", default), default
+        config.get("issue_noise_budget", default), default
     )
     return budget
 
@@ -46,7 +46,7 @@ def resolve_issue_noise_global_budget(
     if not config:
         return default
     budget, _valid = _resolve_non_negative_int(
-        config.get("finding_noise_global_budget", default),
+        config.get("issue_noise_global_budget", default),
         default,
     )
     return budget
@@ -62,8 +62,8 @@ def resolve_issue_noise_settings(
     if not config:
         return per_default, global_default, None
 
-    per_value = config.get("finding_noise_budget", per_default)
-    global_value = config.get("finding_noise_global_budget", global_default)
+    per_value = config.get("issue_noise_budget", per_default)
+    global_value = config.get("issue_noise_global_budget", global_default)
     per_budget, per_valid = _resolve_non_negative_int(per_value, per_default)
     global_budget, global_valid = _resolve_non_negative_int(
         global_value, global_default
@@ -72,17 +72,17 @@ def resolve_issue_noise_settings(
     warning_parts: list[str] = []
     if not per_valid:
         warning_parts.append(
-            f"Invalid config `finding_noise_budget={per_value!r}`; using {per_budget}"
+            f"Invalid config `issue_noise_budget={per_value!r}`; using {per_budget}"
         )
     if not global_valid:
         warning_parts.append(
-            f"Invalid config `finding_noise_global_budget={global_value!r}`; using {global_budget}"
+            f"Invalid config `issue_noise_global_budget={global_value!r}`; using {global_budget}"
         )
     warning = " | ".join(warning_parts) if warning_parts else None
     return per_budget, global_budget, warning
 
 
-def _finding_priority_key(issue: dict) -> tuple[int, int, str]:
+def _issue_priority_key(issue: dict) -> tuple[int, int, str]:
     """Sort by actionable priority (tier/confidence/id)."""
     return (
         issue.get("tier", 3),
@@ -91,7 +91,7 @@ def _finding_priority_key(issue: dict) -> tuple[int, int, str]:
     )
 
 
-def _finding_display_key(issue: dict) -> tuple[str, int, int, str]:
+def _issue_display_key(issue: dict) -> tuple[str, int, int, str]:
     """Sort by file/tier/confidence/id for deterministic display order."""
     return (
         issue.get("file", ""),
@@ -101,7 +101,7 @@ def _finding_display_key(issue: dict) -> tuple[str, int, int, str]:
     )
 
 
-def _group_findings_by_detector(issues: list[dict]) -> dict[str, list[dict]]:
+def _group_issues_by_detector(issues: list[dict]) -> dict[str, list[dict]]:
     grouped: dict[str, list[dict]] = {}
     for issue in issues:
         detector = issue.get("detector", "unknown")
@@ -115,11 +115,11 @@ def _cap_detector_groups(
     capped_by_detector: dict[str, list[dict]] = {}
     hidden_by_detector: dict[str, int] = {}
 
-    for detector, detector_findings in grouped.items():
-        detector_findings.sort(key=_finding_priority_key)
-        capped = detector_findings if budget <= 0 else detector_findings[:budget]
+    for detector, detector_issues in grouped.items():
+        detector_issues.sort(key=_issue_priority_key)
+        capped = detector_issues if budget <= 0 else detector_issues[:budget]
         capped_by_detector[detector] = list(capped)
-        hidden_count = max(0, len(detector_findings) - len(capped))
+        hidden_count = max(0, len(detector_issues) - len(capped))
         if hidden_count:
             hidden_by_detector[detector] = hidden_count
 
@@ -135,7 +135,7 @@ def _round_robin_global_budget(
     detector_order = sorted(
         capped_by_detector.keys(),
         key=lambda detector: (
-            _finding_priority_key(capped_by_detector[detector][0])
+            _issue_priority_key(capped_by_detector[detector][0])
             if capped_by_detector[detector]
             else (9, 9, ""),
             detector,
@@ -181,7 +181,7 @@ def apply_issue_noise_budget(
     if budget <= 0 and global_budget <= 0:
         return list(issues), {}
 
-    grouped = _group_findings_by_detector(issues)
+    grouped = _group_issues_by_detector(issues)
     capped_by_detector, hidden_by_detector = _cap_detector_groups(grouped, budget)
 
     if global_budget > 0:
@@ -194,5 +194,5 @@ def apply_issue_noise_budget(
     else:
         surfaced = [item for items in capped_by_detector.values() for item in items]
 
-    surfaced.sort(key=_finding_display_key)
+    surfaced.sort(key=_issue_display_key)
     return surfaced, _sort_hidden_counts(hidden_by_detector)

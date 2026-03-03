@@ -162,8 +162,8 @@ def _build_tree(files: list[dict], dep_graph: dict, issues_by_file: dict) -> dic
         filename = parts[-1]
         resolved = f["abs_path"]
         dep_entry = dep_graph.get(resolved, {"import_count": 0, "importer_count": 0})
-        file_findings = issues_by_file.get(f["path"], [])
-        open_issues = [ff for ff in file_findings if ff.get("status") == "open"]
+        file_issues = issues_by_file.get(f["path"], [])
+        open_issues = [ff for ff in file_issues if ff.get("status") == "open"]
 
         node["children"][filename] = {
             "name": filename,
@@ -171,9 +171,9 @@ def _build_tree(files: list[dict], dep_graph: dict, issues_by_file: dict) -> dic
             "loc": max(f["loc"], 1),  # D3 needs >0 values
             "fan_in": dep_entry.get("importer_count", 0),
             "fan_out": dep_entry.get("import_count", 0),
-            "findings_total": len(file_findings),
-            "findings_open": len(open_issues),
-            "finding_summaries": [ff.get("summary", "") for ff in open_issues[:20]],
+            "issues_total": len(file_issues),
+            "issues_open": len(open_issues),
+            "issue_summaries": [ff.get("summary", "") for ff in open_issues[:20]],
         }
 
     # Convert children dicts to arrays (D3 format)
@@ -252,7 +252,7 @@ def generate_visualization(
         # Stats for header
         total_files = len(files)
         total_loc = sum(f["loc"] for f in files)
-        total_findings = sum(len(v) for v in issues_by_file.values())
+        total_issues = sum(len(v) for v in issues_by_file.values())
         open_issues = sum(
             1 for fs in issues_by_file.values() for f in fs if f.get("status") == "open"
         )
@@ -271,8 +271,8 @@ def generate_visualization(
             "__TREE_DATA__": tree_json,
             "__TOTAL_FILES__": str(total_files),
             "__TOTAL_LOC__": f"{total_loc:,}",
-            "__TOTAL_FINDINGS__": str(total_findings),
-            "__OPEN_FINDINGS__": str(open_issues),
+            "__TOTAL_ISSUES__": str(total_issues),
+            "__OPEN_ISSUES__": str(open_issues),
             "__OVERALL_SCORE__": fmt_score(overall_score),
             "__OBJECTIVE_SCORE__": fmt_score(objective_score),
             "__STRICT_SCORE__": fmt_score(strict_score),

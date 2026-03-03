@@ -10,7 +10,7 @@ from desloppify.core.discovery_api import rel
 from desloppify.state import Issue, make_issue
 
 
-def make_unused_findings(entries: list[dict], stderr_fn) -> list[Issue]:
+def make_unused_issues(entries: list[dict], stderr_fn) -> list[Issue]:
     """Transform raw unused-detector entries into normalized issues.
 
     Shared by both Python and TypeScript unused phases.
@@ -33,7 +33,7 @@ def make_unused_findings(entries: list[dict], stderr_fn) -> list[Issue]:
     return results
 
 
-def make_dupe_findings(entries: list[dict], stderr_fn) -> list[Issue]:
+def make_dupe_issues(entries: list[dict], stderr_fn) -> list[Issue]:
     """Transform clustered duplicate entries into normalized issues.
 
     Each entry represents a cluster of similar functions. One issue per cluster.
@@ -87,7 +87,7 @@ def make_dupe_findings(entries: list[dict], stderr_fn) -> list[Issue]:
     return results
 
 
-def make_single_use_findings(
+def make_single_use_issues(
     entries: list[dict],
     get_area,
     *,
@@ -139,7 +139,7 @@ def make_single_use_findings(
     return results
 
 
-def make_cycle_findings(entries: list[dict], stderr_fn) -> list[Issue]:
+def make_cycle_issues(entries: list[dict], stderr_fn) -> list[Issue]:
     """Normalize import cycles into issues."""
     results = []
     for cy in entries:
@@ -166,7 +166,7 @@ def make_cycle_findings(entries: list[dict], stderr_fn) -> list[Issue]:
     return results
 
 
-def make_orphaned_findings(entries: list[dict], stderr_fn) -> list[Issue]:
+def make_orphaned_issues(entries: list[dict], stderr_fn) -> list[Issue]:
     """Normalize orphaned file entries into issues."""
     results = []
     for e in entries:
@@ -189,7 +189,7 @@ def make_orphaned_findings(entries: list[dict], stderr_fn) -> list[Issue]:
 SMELL_TIER_MAP = {"high": Tier.QUICK_FIX, "medium": Tier.JUDGMENT, "low": Tier.JUDGMENT}
 
 
-def make_smell_findings(entries: list[dict], stderr_fn) -> list[Issue]:
+def make_smell_issues(entries: list[dict], stderr_fn) -> list[Issue]:
     """Group smell entries by file and assign tiers from severity.
 
     Input: list of smell dicts from detect_smells, each with id/label/severity/matches.
@@ -223,7 +223,7 @@ def make_smell_findings(entries: list[dict], stderr_fn) -> list[Issue]:
     return results
 
 
-def make_passthrough_findings(
+def make_passthrough_issues(
     entries: list[dict],
     name_key: str,
     total_key: str,
@@ -250,7 +250,7 @@ def make_passthrough_findings(
     return results
 
 
-def make_facade_findings(entries: list[dict], stderr_fn) -> list[Issue]:
+def make_facade_issues(entries: list[dict], stderr_fn) -> list[Issue]:
     """Normalize re-export facade entries into issues."""
     results = []
     for e in entries:

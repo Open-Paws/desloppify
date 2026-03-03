@@ -240,14 +240,14 @@ class TestParseEslint:
 
 
 class TestMakeToolPhase:
-    def test_missing_tool_returns_no_findings(self):
+    def test_missing_tool_returns_no_issues(self):
         phase = make_tool_phase("test", "nonexistent_tool_xyz_123", "gnu", "test_id", 2)
         with patch("subprocess.run", side_effect=FileNotFoundError):
             issues, signals = phase.run(Path("."), None)
         assert issues == []
         assert signals == {}
 
-    def test_timeout_returns_no_findings(self):
+    def test_timeout_returns_no_issues(self):
         phase = make_tool_phase("test", "sleep 999", "gnu", "test_id", 2)
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 120)):
             issues, signals = phase.run(Path("."), None)
@@ -264,7 +264,7 @@ class TestMakeToolPhase:
         assert lang.detector_coverage["test_id"]["status"] == "reduced"
         assert lang.detector_coverage["test_id"]["reason"] == "tool_not_found"
 
-    def test_gnu_output_produces_findings(self):
+    def test_gnu_output_produces_issues(self):
         phase = make_tool_phase("test", "fake", "gnu", "test_lint", 2)
         mock_result = subprocess.CompletedProcess(
             args="fake",
@@ -610,7 +610,7 @@ class TestDynamicRegistration:
 
 @pytest.mark.usefixtures("_cleanup_registry")
 class TestScoringIntegration:
-    def test_generic_findings_contribute_to_code_quality_dimension(self):
+    def test_generic_issues_contribute_to_code_quality_dimension(self):
         from desloppify.scoring import DIMENSIONS
 
         generic_lang(
@@ -621,7 +621,7 @@ class TestScoringIntegration:
         cq = next(d for d in DIMENSIONS if d.name == "Code quality")
         assert "test_score_det_1" in cq.detectors
 
-    def test_generic_findings_score_with_correct_tier(self):
+    def test_generic_issues_score_with_correct_tier(self):
         from desloppify.scoring import DETECTOR_SCORING_POLICIES
 
         generic_lang(

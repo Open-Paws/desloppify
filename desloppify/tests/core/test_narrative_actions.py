@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from desloppify.intelligence.narrative.action_engine import (
-    _fixer_has_applicable_findings,
+    _fixer_has_applicable_issues,
 )
 from desloppify.intelligence.narrative.action_engine import (
     compute_actions as _compute_actions,
@@ -119,7 +119,7 @@ class TestComputeActions:
         if sr_actions:
             assert sr_actions[0]["command"] == "desloppify review --prepare"
 
-    def test_review_findings_action(self, empty_state):
+    def test_review_issues_action(self, empty_state):
         result = _compute_actions(
             ActionContext(
                 by_detector={"review": 3},
@@ -135,13 +135,13 @@ class TestComputeActions:
 
 
 class TestFixerHasApplicableIssues:
-    """Unit tests for _fixer_has_applicable_findings."""
+    """Unit tests for _fixer_has_applicable_issues."""
 
     def test_non_smells_detector_always_applicable(self):
-        assert _fixer_has_applicable_findings({}, "unused", "unused-imports") is True
-        assert _fixer_has_applicable_findings({}, "logs", "debug-logs") is True
+        assert _fixer_has_applicable_issues({}, "unused", "unused-imports") is True
+        assert _fixer_has_applicable_issues({}, "logs", "debug-logs") is True
 
-    def test_smells_with_matching_finding_is_applicable(self):
+    def test_smells_with_matching_issue_is_applicable(self):
         state = {
             "issues": {
                 "smells::server.ts::dead_useeffect": {
@@ -151,9 +151,9 @@ class TestFixerHasApplicableIssues:
                 }
             }
         }
-        assert _fixer_has_applicable_findings(state, "smells", "dead-useeffect") is True
+        assert _fixer_has_applicable_issues(state, "smells", "dead-useeffect") is True
 
-    def test_smells_with_no_matching_finding_is_not_applicable(self):
+    def test_smells_with_no_matching_issue_is_not_applicable(self):
         state = {
             "issues": {
                 "smells::server.ts::debug_tag": {
@@ -163,9 +163,9 @@ class TestFixerHasApplicableIssues:
                 }
             }
         }
-        assert _fixer_has_applicable_findings(state, "smells", "dead-useeffect") is False
+        assert _fixer_has_applicable_issues(state, "smells", "dead-useeffect") is False
 
-    def test_smells_resolved_finding_not_counted(self):
+    def test_smells_resolved_issue_not_counted(self):
         state = {
             "issues": {
                 "smells::server.ts::dead_useeffect": {
@@ -175,17 +175,17 @@ class TestFixerHasApplicableIssues:
                 }
             }
         }
-        assert _fixer_has_applicable_findings(state, "smells", "dead-useeffect") is False
+        assert _fixer_has_applicable_issues(state, "smells", "dead-useeffect") is False
 
-    def test_smells_empty_findings_not_applicable(self, empty_state):
-        assert _fixer_has_applicable_findings(empty_state, "smells", "dead-useeffect") is False
-        assert _fixer_has_applicable_findings(empty_state, "smells", "empty-if-chain") is False
+    def test_smells_empty_issues_not_applicable(self, empty_state):
+        assert _fixer_has_applicable_issues(empty_state, "smells", "dead-useeffect") is False
+        assert _fixer_has_applicable_issues(empty_state, "smells", "empty-if-chain") is False
 
 
 class TestSmellsActionWithNoReact:
     """Regression tests for issue #127 — dead-useeffect suggested on non-React projects."""
 
-    def test_smells_with_no_useeffect_findings_gets_manual_fix(self, empty_state):
+    def test_smells_with_no_useeffect_issues_gets_manual_fix(self, empty_state):
         """When smells issues exist but none are dead_useeffect, no auto-fix for it."""
         # State has a non-useeffect smell but by_detector still shows smells count
         state = dict(empty_state)
@@ -211,7 +211,7 @@ class TestSmellsActionWithNoReact:
         # Should NOT suggest dead-useeffect since there are no dead_useeffect issues
         assert all("dead-useeffect" not in a.get("command", "") for a in smells_actions)
 
-    def test_smells_with_dead_useeffect_finding_gets_auto_fix(self, empty_state):
+    def test_smells_with_dead_useeffect_issue_gets_auto_fix(self, empty_state):
         """When a dead_useeffect issue exists, dead-useeffect fixer is suggested."""
         state = dict(empty_state)
         state["issues"] = {
@@ -235,7 +235,7 @@ class TestSmellsActionWithNoReact:
         assert smells_actions
         assert any("dead-useeffect" in a.get("command", "") for a in smells_actions)
 
-    def test_smells_with_empty_if_chain_finding_gets_correct_fixer(self, empty_state):
+    def test_smells_with_empty_if_chain_issue_gets_correct_fixer(self, empty_state):
         """When only empty_if_chain issues exist, empty-if-chain fixer is suggested."""
         state = dict(empty_state)
         state["issues"] = {

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, NotRequired, Required, TypedDict
 
-REVIEW_FINDING_REQUIRED_FIELDS = (
+REVIEW_ISSUE_REQUIRED_FIELDS = (
     "dimension",
     "identifier",
     "summary",
@@ -54,7 +54,7 @@ def _normalized_non_empty_text_list(value: object) -> list[str] | None:
     return cleaned if cleaned else None
 
 
-def validate_review_finding_payload(
+def validate_review_issue_payload(
     issue: object,
     *,
     label: str,
@@ -94,7 +94,7 @@ def validate_review_finding_payload(
         return normalized, []
 
     errors: list[str] = []
-    missing = [field for field in REVIEW_FINDING_REQUIRED_FIELDS if field not in issue]
+    missing = [field for field in REVIEW_ISSUE_REQUIRED_FIELDS if field not in issue]
     if missing:
         errors.append(f"{label} missing required fields: {', '.join(missing)}")
         return None, errors
@@ -307,11 +307,11 @@ __all__ = [
     "AssessmentProvenanceModel",
     "AssessmentImportPolicy",
     "AssessmentProvenanceStatus",
-    "REVIEW_FINDING_REQUIRED_FIELDS",
+    "REVIEW_ISSUE_REQUIRED_FIELDS",
     "VALID_REVIEW_CONFIDENCE",
     "ReviewIssuePayload",
     "ReviewImportPayload",
     "ReviewProvenancePayload",
     "ReviewScopePayload",
-    "validate_review_finding_payload",
+    "validate_review_issue_payload",
 ]
