@@ -48,19 +48,8 @@ def _infer_lang_name(test_files: set[str], production_files: set[str]) -> str | 
     return None
 
 
-def import_based_mapping(
-    graph: dict,
-    test_files: set[str],
-    production_files: set[str],
-    lang_name: str | None = None,
-) -> set[str]:
-    """Map test files to production files via import edges."""
-    lang_name = lang_name or _infer_lang_name(test_files, production_files)
-    mod = _load_lang_test_coverage_module(lang_name)
-
-    tested = set()
-
-    # Build module-name->path index for resolving test imports.
+def _build_prod_module_index(production_files: set[str]) -> dict[str, str]:
+    """Build a mapping from module basename/dotted-path to full file path."""
     prod_by_module: dict[str, str] = {}
     root_str = str(get_project_root()) + os.sep
     for pf in production_files:
@@ -77,10 +66,21 @@ def import_based_mapping(
         parts = module_name.split(".")
         if parts:
             prod_by_module[parts[-1]] = pf
+    return prod_by_module
 
+
+def _graph_tested_imports(
+    graph: dict,
+    test_files: set[str],
+    production_files: set[str],
+    prod_by_module: dict[str, str],
+    lang_name: str | None,
+) -> set[str]:
+    """Follow import graph edges from test files to find directly-tested production files."""
+    tested: set[str] = set()
     for tf in test_files:
         entry = graph.get(tf)
-        graph_mapped = set()
+        graph_mapped: set[str] = set()
         if entry is not None:
             for imp in entry.get("imports", set()):
                 if imp in production_files:
@@ -94,35 +94,88 @@ def import_based_mapping(
             tested |= _parse_test_imports(
                 tf, production_files, prod_by_module, lang_name
             )
+    return tested
+
+
+def _expand_barrel_targets(
+    *,
+    tested: set[str],
+    barrel_basenames: set[str],
+    production_files: set[str],
+    lang_name: str | None,
+) -> set[str]:
+    """Expand barrel/index file imports to the actual modules they re-export."""
+    extra: set[str] = set()
+    barrel_files = [f for f in tested if os.path.basename(f) in barrel_basenames]
+    for bf in barrel_files:
+        extra |= _resolve_barrel_reexports(bf, production_files, lang_name)
+    return extra
+
+
+def _expand_facade_targets(
+    *,
+    tested: set[str],
+    graph: dict,
+    production_files: set[str],
+    has_logic,
+) -> set[str]:
+    """Expand facade imports to their underlying implementation files.
+
+    If a directly-tested file has no testable logic (pure re-export facade),
+    promote its imports to directly tested.  This prevents false
+    "transitive_only" issues for internal modules behind facades like
+    scoring.py -> _scoring/policy/core.py.
+    """
+    facade_targets: set[str] = set()
+    for f in list(tested):
+        entry = graph.get(f)
+        if entry is None:
+            continue
+        read_result = read_coverage_file(
+            f, context="coverage_import_mapping_facade_logic"
+        )
+        if not read_result.ok:
+            continue
+        content = read_result.content
+        if not has_logic(f, content):
+            for imp in entry.get("imports", set()):
+                if imp in production_files:
+                    facade_targets.add(imp)
+    return facade_targets
+
+
+def import_based_mapping(
+    graph: dict,
+    test_files: set[str],
+    production_files: set[str],
+    lang_name: str | None = None,
+) -> set[str]:
+    """Map test files to production files via import edges."""
+    lang_name = lang_name or _infer_lang_name(test_files, production_files)
+    mod = _load_lang_test_coverage_module(lang_name)
+
+    prod_by_module = _build_prod_module_index(production_files)
+    tested = _graph_tested_imports(
+        graph, test_files, production_files, prod_by_module, lang_name
+    )
 
     barrel_basenames = getattr(mod, "BARREL_BASENAMES", set())
     if barrel_basenames:
-        barrel_files = [f for f in tested if os.path.basename(f) in barrel_basenames]
-        for bf in barrel_files:
-            tested |= _resolve_barrel_reexports(bf, production_files, lang_name)
+        tested |= _expand_barrel_targets(
+            tested=tested,
+            barrel_basenames=barrel_basenames,
+            production_files=production_files,
+            lang_name=lang_name,
+        )
 
-    # Facade expansion: if a directly-tested file has no testable logic (pure
-    # re-export facade), promote its imports to directly tested.  This prevents
-    # false "transitive_only" issues for internal modules behind facades like
-    # scoring.py -> _scoring/policy/core.py.
     has_logic = getattr(mod, "has_testable_logic", None)
     if callable(has_logic):
-        facade_targets: set[str] = set()
-        for f in list(tested):
-            entry = graph.get(f)
-            if entry is None:
-                continue
-            read_result = read_coverage_file(
-                f, context="coverage_import_mapping_facade_logic"
-            )
-            if not read_result.ok:
-                continue
-            content = read_result.content
-            if not has_logic(f, content):
-                for imp in entry.get("imports", set()):
-                    if imp in production_files:
-                        facade_targets.add(imp)
-        tested |= facade_targets
+        tested |= _expand_facade_targets(
+            tested=tested,
+            graph=graph,
+            production_files=production_files,
+            has_logic=has_logic,
+        )
 
     return tested
 

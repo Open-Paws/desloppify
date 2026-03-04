@@ -23,6 +23,51 @@ def _active_scan_coverage(state: StateModel) -> ScanCoverageRecord:
     return {}
 
 
+def _full_score_confidence_payload() -> dict[str, object]:
+    """Return a score_confidence dict indicating full (unreduced) coverage."""
+    return {
+        "status": "full",
+        "confidence": 1.0,
+        "detectors": [],
+        "dimensions": [],
+    }
+
+
+def _collect_reduced_detectors(
+    detectors_payload: dict,
+) -> dict[str, dict[str, object]]:
+    """Filter detectors_payload to those with reduced status or sub-1.0 confidence."""
+    reduced: dict[str, dict[str, object]] = {}
+    for detector, raw in detectors_payload.items():
+        if not isinstance(raw, dict):
+            continue
+        status = str(raw.get("status", "full")).lower()
+        confidence = coerce_confidence(raw.get("confidence"), default=1.0)
+        if status != "reduced" and confidence >= 1.0:
+            continue
+        reduced[str(detector)] = dict(raw)
+    return reduced
+
+
+def _score_confidence_detector_entry(
+    detector: str, payload: dict[str, object]
+) -> dict[str, object]:
+    """Build a single score_confidence detector entry from a reduced-detector payload."""
+    return {
+        "detector": detector,
+        "status": str(payload.get("status", "reduced")),
+        "confidence": round(
+            coerce_confidence(payload.get("confidence"), default=1.0),
+            2,
+        ),
+        "summary": str(payload.get("summary", "") or ""),
+        "impact": str(payload.get("impact", "") or ""),
+        "remediation": str(payload.get("remediation", "") or ""),
+        "tool": str(payload.get("tool", "") or ""),
+        "reason": str(payload.get("reason", "") or ""),
+    }
+
+
 def apply_scan_coverage_to_dimension_scores(
     state: StateModel,
     *,
@@ -31,43 +76,17 @@ def apply_scan_coverage_to_dimension_scores(
     coverage_payload = _active_scan_coverage(state)
     detectors_payload = coverage_payload.get("detectors", {})
     if not isinstance(detectors_payload, dict):
-        state["score_confidence"] = {
-            "status": "full",
-            "confidence": 1.0,
-            "detectors": [],
-            "dimensions": [],
-        }
+        state["score_confidence"] = _full_score_confidence_payload()
         return
 
-    reduced_detectors: dict[str, dict[str, object]] = {}
-    for detector, raw in detectors_payload.items():
-        if not isinstance(raw, dict):
-            continue
-        status = str(raw.get("status", "full")).lower()
-        confidence = coerce_confidence(raw.get("confidence"), default=1.0)
-        if status != "reduced" and confidence >= 1.0:
-            continue
-        reduced_detectors[str(detector)] = dict(raw)
+    reduced_detectors = _collect_reduced_detectors(detectors_payload)
+
+    score_confidence_detectors = [
+        _score_confidence_detector_entry(det, payload)
+        for det, payload in reduced_detectors.items()
+    ]
 
     reduced_dimensions: list[str] = []
-    score_confidence_detectors: list[dict[str, object]] = []
-    for detector, payload in reduced_detectors.items():
-        score_confidence_detectors.append(
-            {
-                "detector": detector,
-                "status": str(payload.get("status", "reduced")),
-                "confidence": round(
-                    coerce_confidence(payload.get("confidence"), default=1.0),
-                    2,
-                ),
-                "summary": str(payload.get("summary", "") or ""),
-                "impact": str(payload.get("impact", "") or ""),
-                "remediation": str(payload.get("remediation", "") or ""),
-                "tool": str(payload.get("tool", "") or ""),
-                "reason": str(payload.get("reason", "") or ""),
-            }
-        )
-
     for dim_name, dim_data in dimension_scores.items():
         if not isinstance(dim_data, dict):
             continue
@@ -118,12 +137,7 @@ def apply_scan_coverage_to_dimension_scores(
         dim_data["coverage_impacts"] = impacts
 
     if not score_confidence_detectors:
-        state["score_confidence"] = {
-            "status": "full",
-            "confidence": 1.0,
-            "detectors": [],
-            "dimensions": [],
-        }
+        state["score_confidence"] = _full_score_confidence_payload()
         return
 
     state["score_confidence"] = {

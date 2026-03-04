@@ -33,6 +33,107 @@ _UNDER_TARGET_NAME = "auto/under-target-review"
 _MIN_UNSCORED_CLUSTER_SIZE = 1
 
 
+def _manual_member_ids(clusters: dict) -> set[str]:
+    """Collect all issue IDs belonging to manual (non-auto) clusters."""
+    ids: set[str] = set()
+    for cluster in clusters.values():
+        if not cluster.get("auto"):
+            ids.update(cluster.get("issue_ids", []))
+    return ids
+
+
+def _group_clusterable_issues(
+    issues: dict,
+    *,
+    manual_member_ids: set[str],
+) -> tuple[dict[str, list[str]], dict[str, dict]]:
+    """Group open, non-suppressed, non-manual issues by detector/subtype key.
+
+    Returns (groups_by_key, issue_data) where groups_by_key maps grouping keys
+    to lists of issue IDs, filtered to clusters >= _MIN_CLUSTER_SIZE.
+    """
+    groups: dict[str, list[str]] = defaultdict(list)
+    issue_data: dict[str, dict] = {}
+    for fid, issue in issues.items():
+        if issue.get("status") != "open":
+            continue
+        if issue.get("suppressed"):
+            continue
+        if fid in manual_member_ids:
+            continue
+
+        detector = issue.get("detector", "")
+        meta = DETECTORS.get(detector)
+        key = _grouping_key(issue, meta)
+        if key is None:
+            continue
+
+        groups[key].append(fid)
+        issue_data[fid] = issue
+
+    groups = {k: v for k, v in groups.items() if len(v) >= _MIN_CLUSTER_SIZE}
+    return groups, issue_data
+
+
+def _sync_user_modified_cluster_members(
+    plan: dict,
+    *,
+    clusters: dict,
+    existing_name: str,
+    member_ids: list[str],
+    now: str,
+) -> int:
+    """Sync member IDs for a user-modified cluster, returns count of changes."""
+    cluster = clusters[existing_name]
+    changes = 0
+    existing_ids = set(cluster.get("issue_ids", []))
+    new_ids = [fid for fid in member_ids if fid not in existing_ids]
+    if new_ids:
+        cluster["issue_ids"].extend(new_ids)
+        cluster["updated_at"] = now
+        changes = 1
+    overrides = plan.get("overrides", {})
+    for fid in member_ids:
+        if fid not in overrides:
+            overrides[fid] = {"issue_id": fid, "created_at": now}
+        overrides[fid]["cluster"] = existing_name
+        overrides[fid]["updated_at"] = now
+    return changes
+
+
+def _subjective_state_sets(
+    state: StateModel,
+    *,
+    policy: SubjectiveVisibility | None,
+    target_strict: float,
+) -> tuple[set, set, set]:
+    """Return (stale_ids, under_target_ids, unscored_ids) for subjective cluster logic."""
+    if policy is not None:
+        unscored_ids = policy.unscored_ids
+        stale_ids = policy.stale_ids
+        under_target_ids = policy.under_target_ids
+    else:
+        unscored_ids = current_unscored_ids(state)
+        stale_ids = _current_stale_ids(state)
+        under_target_ids = current_under_target_ids(state, target_strict=target_strict)
+    return stale_ids, under_target_ids, unscored_ids
+
+
+def _has_objective_backlog(
+    issues: dict,
+    policy: SubjectiveVisibility | None,
+) -> bool:
+    """Check if objective backlog exists (open non-subjective issues)."""
+    if policy is not None:
+        return policy.has_objective_backlog
+    return any(
+        f.get("status") == "open"
+        and f.get("detector") not in NON_OBJECTIVE_DETECTORS
+        and not f.get("suppressed")
+        for f in issues.values()
+    )
+
+
 def _sync_auto_cluster(
     plan: dict,
     clusters: dict,
@@ -103,31 +204,9 @@ def sync_issue_clusters(
     """Group open issues by detector/subtype and sync auto-clusters."""
     changes = 0
 
-    manual_member_ids: set[str] = set()
-    for cluster in clusters.values():
-        if not cluster.get("auto"):
-            manual_member_ids.update(cluster.get("issue_ids", []))
-
-    groups: dict[str, list[str]] = defaultdict(list)
-    issue_data: dict[str, dict] = {}
-    for fid, issue in issues.items():
-        if issue.get("status") != "open":
-            continue
-        if issue.get("suppressed"):
-            continue
-        if fid in manual_member_ids:
-            continue
-
-        detector = issue.get("detector", "")
-        meta = DETECTORS.get(detector)
-        key = _grouping_key(issue, meta)
-        if key is None:
-            continue
-
-        groups[key].append(fid)
-        issue_data[fid] = issue
-
-    groups = {k: v for k, v in groups.items() if len(v) >= _MIN_CLUSTER_SIZE}
+    groups, issue_data = _group_clusterable_issues(
+        issues, manual_member_ids=_manual_member_ids(clusters)
+    )
 
     for key, member_ids in groups.items():
         active_auto_keys.add(key)
@@ -148,18 +227,13 @@ def sync_issue_clusters(
         if existing_name and existing_name in clusters:
             cluster = clusters[existing_name]
             if cluster.get("user_modified"):
-                existing_ids = set(cluster.get("issue_ids", []))
-                new_ids = [fid for fid in member_ids if fid not in existing_ids]
-                if new_ids:
-                    cluster["issue_ids"].extend(new_ids)
-                    cluster["updated_at"] = now
-                    changes += 1
-                overrides = plan.get("overrides", {})
-                for fid in member_ids:
-                    if fid not in overrides:
-                        overrides[fid] = {"issue_id": fid, "created_at": now}
-                    overrides[fid]["cluster"] = existing_name
-                    overrides[fid]["updated_at"] = now
+                changes += _sync_user_modified_cluster_members(
+                    plan,
+                    clusters=clusters,
+                    existing_name=existing_name,
+                    member_ids=member_ids,
+                    now=now,
+                )
                 continue
 
         if cluster_name in clusters and clusters[cluster_name].get("cluster_key") != key:
@@ -201,12 +275,9 @@ def sync_subjective_clusters(
         if fid.startswith(SUBJECTIVE_PREFIX)
     )
 
-    if policy is not None:
-        unscored_state_ids = policy.unscored_ids
-        stale_state_ids = policy.stale_ids
-    else:
-        unscored_state_ids = current_unscored_ids(state)
-        stale_state_ids = _current_stale_ids(state)
+    stale_state_ids, under_target_ids, unscored_state_ids = _subjective_state_sets(
+        state, policy=policy, target_strict=target_strict
+    )
 
     unscored_queue_ids = sorted(
         fid for fid in all_subjective_ids if fid in unscored_state_ids
@@ -252,10 +323,6 @@ def sync_subjective_clusters(
             now=now,
         )
 
-    if policy is not None:
-        under_target_ids = policy.under_target_ids
-    else:
-        under_target_ids = current_under_target_ids(state, target_strict=target_strict)
     under_target_queue_ids = sorted(under_target_ids)
 
     prev_ut_cluster = clusters.get(_UNDER_TARGET_NAME, {})
@@ -272,15 +339,7 @@ def sync_subjective_clusters(
         order.remove(fid)
         changes += 1
 
-    if policy is not None:
-        has_objective_items = policy.has_objective_backlog
-    else:
-        has_objective_items = any(
-            f.get("status") == "open"
-            and f.get("detector") not in NON_OBJECTIVE_DETECTORS
-            and not f.get("suppressed")
-            for f in issues.values()
-        )
+    has_objective_items = _has_objective_backlog(issues, policy)
 
     if not has_objective_items and len(under_target_queue_ids) >= _MIN_CLUSTER_SIZE:
         active_auto_keys.add(_UNDER_TARGET_KEY)

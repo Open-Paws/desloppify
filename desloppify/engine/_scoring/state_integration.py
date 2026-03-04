@@ -148,64 +148,49 @@ def _aggregate_scores(dim_scores: dict) -> dict[str, float]:
     }
 
 
-def _update_objective_health(
+def _normalize_integrity_target(
+    subjective_integrity_target: float | None,
+) -> float | None:
+    """Normalize and clamp a subjective integrity target to [0, 100]."""
+    if isinstance(subjective_integrity_target, int | float):
+        return max(0.0, min(100.0, float(subjective_integrity_target)))
+    return None
+
+
+def _set_perfect_scores(state: StateModel) -> None:
+    """Set all score fields to 100 when there are no active checks."""
+    state["dimension_scores"] = {}
+    state["overall_score"] = 100.0
+    state["objective_score"] = 100.0
+    state["strict_score"] = 100.0
+    state["verified_strict_score"] = 100.0
+
+
+def _resolve_allowed_subjective_dimensions(
     state: StateModel,
-    issues: dict,
-    *,
-    subjective_integrity_target: float | None = None,
-) -> None:
-    """Compute canonical score tuple from current detector issues/potentials."""
-    pots = state.get("potentials", {})
-    if not pots:
-        return
-
-    merged = merge_potentials(pots)
-    if not merged:
-        return
-
-    subjective_assessments = state.get("subjective_assessments") or None
-    integrity_target = (
-        max(0.0, min(100.0, float(subjective_integrity_target)))
-        if isinstance(subjective_integrity_target, int | float)
-        else None
-    )
-    integrity_meta = _subjective_integrity_baseline(integrity_target)
-    if subjective_assessments and integrity_target is not None:
-        subjective_assessments, integrity_meta = _apply_subjective_integrity_policy(
-            subjective_assessments,
-            target=integrity_target,
-        )
-    state["subjective_integrity"] = integrity_meta
-
-    has_active_checks = any((count or 0) > 0 for count in merged.values())
-    if not has_active_checks and not subjective_assessments:
-        state["dimension_scores"] = {}
-        state["overall_score"] = 100.0
-        state["objective_score"] = 100.0
-        state["strict_score"] = 100.0
-        state["verified_strict_score"] = 100.0
-        return
-
-    allowed_subjective: set[str] | None = None
+) -> set[str] | None:
+    """Resolve allowed subjective dimensions from the language config."""
     lang_name = _resolve_lang_from_state(state)
-    if lang_name:
-        try:
-            from desloppify.intelligence.review.dimensions.data import (
-                load_dimensions_for_lang,
-            )
+    if not lang_name:
+        return None
+    try:
+        from desloppify.intelligence.review.dimensions.data import (
+            load_dimensions_for_lang,
+        )
 
-            dims, _, _ = load_dimensions_for_lang(lang_name)
-            if dims:
-                allowed_subjective = set(dims)
-        except (ImportError, AttributeError) as exc:
-            _ = exc
+        dims, _, _ = load_dimensions_for_lang(lang_name)
+        if dims:
+            return set(dims)
+    except (ImportError, AttributeError) as exc:
+        _ = exc
+    return None
 
-    bundle = compute_score_bundle(
-        issues,
-        merged,
-        subjective_assessments=subjective_assessments,
-        allowed_subjective_dimensions=allowed_subjective,
-    )
+
+def _materialize_dimension_scores(
+    state: StateModel,
+    bundle: object,
+) -> None:
+    """Write dimension scores from a score bundle into state, carrying forward old dims."""
     lenient_scores = bundle.dimension_scores
     strict_scores = bundle.strict_dimension_scores
     verified_strict_scores = bundle.verified_strict_dimension_scores
@@ -255,6 +240,47 @@ def _update_objective_health(
         dimension_scores=state["dimension_scores"],
     )
     state.update(_aggregate_scores(state["dimension_scores"]))
+
+
+def _update_objective_health(
+    state: StateModel,
+    issues: dict,
+    *,
+    subjective_integrity_target: float | None = None,
+) -> None:
+    """Compute canonical score tuple from current detector issues/potentials."""
+    pots = state.get("potentials", {})
+    if not pots:
+        return
+
+    merged = merge_potentials(pots)
+    if not merged:
+        return
+
+    subjective_assessments = state.get("subjective_assessments") or None
+    integrity_target = _normalize_integrity_target(subjective_integrity_target)
+    integrity_meta = _subjective_integrity_baseline(integrity_target)
+    if subjective_assessments and integrity_target is not None:
+        subjective_assessments, integrity_meta = _apply_subjective_integrity_policy(
+            subjective_assessments,
+            target=integrity_target,
+        )
+    state["subjective_integrity"] = integrity_meta
+
+    has_active_checks = any((count or 0) > 0 for count in merged.values())
+    if not has_active_checks and not subjective_assessments:
+        _set_perfect_scores(state)
+        return
+
+    allowed_subjective = _resolve_allowed_subjective_dimensions(state)
+
+    bundle = compute_score_bundle(
+        issues,
+        merged,
+        subjective_assessments=subjective_assessments,
+        allowed_subjective_dimensions=allowed_subjective,
+    )
+    _materialize_dimension_scores(state, bundle)
 
 
 def recompute_stats(

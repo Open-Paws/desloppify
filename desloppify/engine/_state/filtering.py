@@ -179,6 +179,33 @@ def make_issue(
 _HEX8_RE = re.compile(r'^[0-9a-f]{8}$')
 
 
+def _matches_issue_path(issue: dict[str, str], pattern: str) -> bool:
+    """Match against the issue's detector name or file path."""
+    return (
+        issue.get("detector") == pattern
+        or issue["file"] == pattern
+        or issue["file"].startswith(pattern.rstrip("/") + "/")
+    )
+
+
+def _matches_issue_name_segment(issue_id: str, pattern: str) -> bool:
+    """Match against the name segment of the issue ID.
+
+    For hashed IDs (detector::path::name::hex8), also match the descriptive
+    name (second-to-last segment).  Returns False for IDs without :: or
+    patterns containing ::.
+    """
+    if "::" in pattern or "::" not in issue_id:
+        return False
+    segments = issue_id.split("::")
+    name_segment = segments[-1]
+    if name_segment == pattern:
+        return True
+    if len(segments) < 3 or not _HEX8_RE.match(name_segment):
+        return False
+    return segments[-2] == pattern
+
+
 def _matches_pattern(issue_id: str, issue: dict[str, str], pattern: str) -> bool:
     """Check if a issue matches by ID, glob, prefix, detector, suffix, or path."""
     if issue_id == pattern:
@@ -189,21 +216,9 @@ def _matches_pattern(issue_id: str, issue: dict[str, str], pattern: str) -> bool
         return True
     if _HEX8_RE.match(pattern) and issue_id.endswith("::" + pattern):
         return True
-    if (
-        issue.get("detector") == pattern
-        or issue["file"] == pattern
-        or issue["file"].startswith(pattern.rstrip("/") + "/")
-    ):
+    if _matches_issue_path(issue, pattern):
         return True
-
-    # Name-segment fallback: bare name matches the last ::segment of the ID
-    if "::" not in pattern and "::" in issue_id:
-        segments = issue_id.split("::")
-        name_segment = segments[-1]
-        if name_segment == pattern:
-            return True
-        # For hashed IDs, also match the descriptive name (second-to-last segment)
-        if len(segments) >= 3 and _HEX8_RE.match(name_segment) and segments[-2] == pattern:
-            return True
+    if _matches_issue_name_segment(issue_id, pattern):
+        return True
 
     return False

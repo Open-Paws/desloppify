@@ -969,7 +969,7 @@ class TestSubjectiveScoring:
 
         import desloppify.engine._scoring.state_integration as state_scoring_mod
 
-        src = inspect.getsource(state_scoring_mod._update_objective_health)
+        src = inspect.getsource(state_scoring_mod._resolve_allowed_subjective_dimensions)
         assert "load_dimensions_for_lang" in src
         assert "HOLISTIC_DIMENSIONS_BY_LANG" not in src
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -146,6 +147,184 @@ def filter_batches_to_file_scope(
     return scoped_batches
 
 
+# ---------------------------------------------------------------------------
+# Internal helpers decomposed from prepare_holistic_review_payload
+# ---------------------------------------------------------------------------
+
+
+def _resolve_review_files(
+    path: Path,
+    lang: object,
+    options: object,
+) -> tuple[list[str], set[str]]:
+    """Resolve the full file list and the allowed-review-file set."""
+    all_files = (
+        options.files
+        if options.files is not None
+        else (lang.file_finder(path) if lang.file_finder else [])
+    )
+    allowed = collect_allowed_review_files(all_files, lang, base_path=path)
+    return all_files, allowed
+
+
+def _build_review_contexts(
+    path: Path,
+    lang: object,
+    state: dict,
+    all_files: list[str],
+    *,
+    is_file_cache_enabled_fn,
+    enable_file_cache_fn,
+    disable_file_cache_fn,
+    build_holistic_context_fn,
+    build_review_context_fn,
+) -> tuple[HolisticContext, object]:
+    """Build holistic and review contexts, managing the file cache lifecycle."""
+    already_cached = is_file_cache_enabled_fn()
+    if not already_cached:
+        enable_file_cache_fn()
+    try:
+        context = HolisticContext.from_raw(
+            build_holistic_context_fn(path, lang, state, files=all_files)
+        )
+        review_ctx = build_review_context_fn(path, lang, state, files=all_files)
+    finally:
+        if not already_cached:
+            disable_file_cache_fn()
+    return context, review_ctx
+
+
+@dataclass
+class _DimensionContext:
+    """Resolved dimension configuration for holistic review."""
+
+    dims: list[str]
+    holistic_prompts: dict[str, Any]
+    per_file_prompts: dict[str, Any]
+    system_prompt: str
+    lang_guide: str
+    invalid_requested: list[str]
+    invalid_default: list[str]
+
+
+def _resolve_dimension_context(
+    lang_name: str,
+    options: object,
+    *,
+    load_dimensions_for_lang_fn,
+    resolve_dimensions_fn,
+    get_lang_guidance_fn,
+) -> _DimensionContext:
+    """Load, resolve, and validate dimensions for the review."""
+    default_dims, holistic_prompts, system_prompt = load_dimensions_for_lang_fn(lang_name)
+    _, per_file_prompts, _ = load_dimensions_for_lang_fn(lang_name)
+    dims = resolve_dimensions_fn(
+        cli_dimensions=options.dimensions,
+        default_dimensions=default_dims,
+    )
+    lang_guide = get_lang_guidance_fn(lang_name)
+    valid_dims = set(holistic_prompts) | set(per_file_prompts)
+    invalid_requested = [
+        dim for dim in (options.dimensions or []) if dim not in valid_dims
+    ]
+    invalid_default = [dim for dim in default_dims if dim not in valid_dims]
+    return _DimensionContext(
+        dims=dims,
+        holistic_prompts=holistic_prompts,
+        per_file_prompts=per_file_prompts,
+        system_prompt=system_prompt,
+        lang_guide=lang_guide,
+        invalid_requested=invalid_requested,
+        invalid_default=invalid_default,
+    )
+
+
+def _append_concerns_batch(
+    batches: list[dict[str, Any]],
+    state: dict,
+    dims: list[str],
+    allowed_review_files: set[str],
+    max_files_per_batch: int,
+    *,
+    batch_concerns_fn,
+    log_best_effort_failure_fn,
+    log: object,
+) -> None:
+    """Generate concern signals and append as a batch (best-effort)."""
+    try:
+        from desloppify.engine.concerns import generate_concerns
+
+        concerns = generate_concerns(state)
+        concerns = [
+            concern
+            for concern in concerns
+            if file_in_allowed_scope(getattr(concern, "file", ""), allowed_review_files)
+        ]
+        concerns_batch = batch_concerns_fn(
+            concerns,
+            max_files=max_files_per_batch,
+            active_dimensions=dims,
+        )
+        if concerns_batch:
+            batches.append(concerns_batch)
+    except (ImportError, AttributeError, TypeError, ValueError) as exc:
+        log_best_effort_failure_fn(log, "generate review concern batch", exc)
+
+
+def _build_selected_prompts(
+    dims: list[str],
+    holistic_prompts: dict[str, Any],
+    per_file_prompts: dict[str, Any],
+) -> dict[str, dict[str, object]]:
+    """Build the dimension-to-prompt mapping, preferring holistic prompts."""
+    selected: dict[str, dict[str, object]] = {}
+    for dim in dims:
+        prompt = holistic_prompts.get(dim)
+        if prompt is None:
+            prompt = per_file_prompts.get(dim)
+        if prompt is None:
+            continue
+        selected[dim] = prompt
+    return selected
+
+
+def _attach_issue_history_context(
+    payload: dict[str, Any],
+    batches: list[dict[str, Any]],
+    state: dict,
+    options: object,
+    allowed_review_files: set[str],
+) -> list[dict[str, Any]]:
+    """Attach issue history to payload and per-batch focus; re-scope batches."""
+    if not options.include_issue_history:
+        return batches
+    history_payload = build_issue_history_context(
+        state,
+        options=ReviewHistoryOptions(
+            max_issues=options.issue_history_max_issues,
+        ),
+    )
+    payload["historical_review_issues"] = history_payload
+    for batch in batches:
+        if not isinstance(batch, dict):
+            continue
+        batch_dims = batch.get("dimensions", [])
+        batch["historical_issue_focus"] = build_batch_issue_focus(
+            history_payload,
+            dimensions=batch_dims,
+            max_items=options.issue_history_max_batch_items,
+        )
+    return filter_batches_to_file_scope(
+        batches,
+        allowed_files=allowed_review_files,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Main orchestrator
+# ---------------------------------------------------------------------------
+
+
 def prepare_holistic_review_payload(
     path: Path,
     lang: object,
@@ -169,136 +348,86 @@ def prepare_holistic_review_payload(
     logger,
 ) -> dict[str, object]:
     """Prepare holistic review payload with injected dependencies for patchability."""
-    resolved_options = options
-    all_files = (
-        resolved_options.files
-        if resolved_options.files is not None
-        else (lang.file_finder(path) if lang.file_finder else [])
-    )
-    allowed_review_files = collect_allowed_review_files(
-        all_files,
-        lang,
-        base_path=path,
+    all_files, allowed_review_files = _resolve_review_files(path, lang, options)
+
+    context, review_ctx = _build_review_contexts(
+        path, lang, state, all_files,
+        is_file_cache_enabled_fn=is_file_cache_enabled_fn,
+        enable_file_cache_fn=enable_file_cache_fn,
+        disable_file_cache_fn=disable_file_cache_fn,
+        build_holistic_context_fn=build_holistic_context_fn,
+        build_review_context_fn=build_review_context_fn,
     )
 
-    already_cached = is_file_cache_enabled_fn()
-    if not already_cached:
-        enable_file_cache_fn()
-    try:
-        context = HolisticContext.from_raw(
-            build_holistic_context_fn(path, lang, state, files=all_files)
-        )
-        review_ctx = build_review_context_fn(path, lang, state, files=all_files)
-    finally:
-        if not already_cached:
-            disable_file_cache_fn()
-
-    default_dims, holistic_prompts, system_prompt = load_dimensions_for_lang_fn(lang.name)
-    _, per_file_prompts, _ = load_dimensions_for_lang_fn(lang.name)
-    dims = resolve_dimensions_fn(
-        cli_dimensions=resolved_options.dimensions,
-        default_dimensions=default_dims,
+    dim_ctx = _resolve_dimension_context(
+        lang.name, options,
+        load_dimensions_for_lang_fn=load_dimensions_for_lang_fn,
+        resolve_dimensions_fn=resolve_dimensions_fn,
+        get_lang_guidance_fn=get_lang_guidance_fn,
     )
-    lang_guide = get_lang_guidance_fn(lang.name)
-    valid_dims = set(holistic_prompts) | set(per_file_prompts)
-    invalid_requested = [
-        dim for dim in (resolved_options.dimensions or []) if dim not in valid_dims
-    ]
-    invalid_default = [dim for dim in default_dims if dim not in valid_dims]
+
     batches = build_investigation_batches_fn(
         context,
         lang,
         repo_root=path,
-        max_files_per_batch=resolved_options.max_files_per_batch,
+        max_files_per_batch=options.max_files_per_batch,
     )
 
-    try:
-        from desloppify.engine.concerns import generate_concerns
-
-        concerns = generate_concerns(state)
-        concerns = [
-            concern
-            for concern in concerns
-            if file_in_allowed_scope(getattr(concern, "file", ""), allowed_review_files)
-        ]
-        concerns_batch = batch_concerns_fn(
-            concerns,
-            max_files=resolved_options.max_files_per_batch,
-            active_dimensions=dims,
-        )
-        if concerns_batch:
-            batches.append(concerns_batch)
-    except (ImportError, AttributeError, TypeError, ValueError) as exc:
-        log_best_effort_failure_fn(logger, "generate review concern batch", exc)
+    _append_concerns_batch(
+        batches, state, dim_ctx.dims, allowed_review_files,
+        options.max_files_per_batch,
+        batch_concerns_fn=batch_concerns_fn,
+        log_best_effort_failure_fn=log_best_effort_failure_fn,
+        log=logger,
+    )
 
     batches = filter_batches_to_dimensions_fn(
         batches,
-        dims,
-        fallback_max_files=resolved_options.max_files_per_batch,
+        dim_ctx.dims,
+        fallback_max_files=options.max_files_per_batch,
     )
-    include_full_sweep = bool(resolved_options.include_full_sweep)
-    if resolved_options.dimensions:
+    include_full_sweep = bool(options.include_full_sweep)
+    if options.dimensions:
         include_full_sweep = False
     if include_full_sweep:
         append_full_sweep_batch_fn(
             batches=batches,
-            dims=dims,
+            dims=dim_ctx.dims,
             all_files=all_files,
             lang=lang,
-            max_files=resolved_options.max_files_per_batch,
+            max_files=options.max_files_per_batch,
         )
     batches = filter_batches_to_file_scope(
         batches,
         allowed_files=allowed_review_files,
     )
 
-    selected_prompts: dict[str, dict[str, object]] = {}
-    for dim in dims:
-        prompt = holistic_prompts.get(dim)
-        if prompt is None:
-            prompt = per_file_prompts.get(dim)
-        if prompt is None:
-            continue
-        selected_prompts[dim] = prompt
+    selected_prompts = _build_selected_prompts(
+        dim_ctx.dims, dim_ctx.holistic_prompts, dim_ctx.per_file_prompts,
+    )
 
     payload: dict[str, Any] = {
         "command": "review",
         "mode": "holistic",
         "language": lang.name,
-        "dimensions": dims,
+        "dimensions": dim_ctx.dims,
         "dimension_prompts": selected_prompts,
-        "lang_guidance": lang_guide,
+        "lang_guidance": dim_ctx.lang_guide,
         "holistic_context": context.to_dict(),
         "review_context": serialize_context_fn(review_ctx),
-        "system_prompt": system_prompt,
+        "system_prompt": dim_ctx.system_prompt,
         "total_files": context.codebase_stats.get("total_files", 0),
         "workflow": HOLISTIC_WORKFLOW,
         "invalid_dimensions": {
-            "requested": invalid_requested,
-            "default": invalid_default,
+            "requested": dim_ctx.invalid_requested,
+            "default": dim_ctx.invalid_default,
         },
     }
-    if resolved_options.include_issue_history:
-        history_payload = build_issue_history_context(
-            state,
-            options=ReviewHistoryOptions(
-                max_issues=resolved_options.issue_history_max_issues,
-            ),
-        )
-        payload["historical_review_issues"] = history_payload
-        for batch in batches:
-            if not isinstance(batch, dict):
-                continue
-            batch_dims = batch.get("dimensions", [])
-            batch["historical_issue_focus"] = build_batch_issue_focus(
-                history_payload,
-                dimensions=batch_dims,
-                max_items=resolved_options.issue_history_max_batch_items,
-            )
-        batches = filter_batches_to_file_scope(
-            batches,
-            allowed_files=allowed_review_files,
-        )
+
+    batches = _attach_issue_history_context(
+        payload, batches, state, options, allowed_review_files,
+    )
+
     payload["investigation_batches"] = batches
     return payload
 
