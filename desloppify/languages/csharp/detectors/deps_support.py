@@ -6,7 +6,7 @@ import argparse
 import json
 import logging
 import re
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 from collections import defaultdict
 from pathlib import Path
 
