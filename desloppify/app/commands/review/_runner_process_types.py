@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -21,6 +22,7 @@ class CodexBatchRunnerDeps:
     max_retries: int = 0
     retry_backoff_seconds: float = 0.0
     sleep_fn: object = time.sleep
+    validate_output_fn: Callable[[Path], bool] | None = None
 
 
 @dataclass(frozen=True)

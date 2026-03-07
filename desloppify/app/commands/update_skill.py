@@ -41,7 +41,7 @@ def _build_section(skill_content: str, overlay_content: str | None) -> str:
 
 # Interfaces whose skill systems parse YAML frontmatter and require ``---``
 # to appear on the very first line of the file.
-_FRONTMATTER_FIRST_INTERFACES = frozenset({"amp"})
+_FRONTMATTER_FIRST_INTERFACES = frozenset({"amp", "codex"})
 
 
 def _ensure_frontmatter_first(content: str) -> str:

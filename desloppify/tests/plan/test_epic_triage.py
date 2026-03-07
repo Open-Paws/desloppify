@@ -342,7 +342,7 @@ class TestBuildTriageStageItems:
         plan["queue_order"] = list(TRIAGE_STAGE_IDS)
         state = _state_with_review_issues("r1", "r2")
         items = build_triage_stage_items(plan, state)
-        assert len(items) == 4
+        assert len(items) == 5
         assert all(it["tier"] == 1 for it in items)
         assert all(it["kind"] == "workflow_stage" for it in items)
         assert items[0]["id"] == "triage::observe"

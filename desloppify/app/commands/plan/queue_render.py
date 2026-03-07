@@ -107,15 +107,22 @@ def _render_cluster_banner(item: dict, position: int, new_ids: set[str]) -> None
     member_count = item.get("member_count", 0)
     action_type = item.get("action_type", "manual_fix")
     type_label = _cluster_type_label(name, action_type)
+    cluster_type_tag = "[auto]" if item.get("cluster_auto", True) else "[triage]"
     new_in_cluster = sum(
         1 for m in item.get("members", [])
         if m.get("id") in new_ids
     )
     new_tag = f"  (+{new_in_cluster} new)" if new_in_cluster else ""
+    # Step progress badge
+    action_steps = item.get("action_steps") or []
+    step_badge = ""
+    if action_steps:
+        done_count = sum(1 for s in action_steps if isinstance(s, dict) and s.get("done"))
+        step_badge = f"  [{done_count}/{len(action_steps)} steps]"
     summary = item.get("summary", "")
     command = item.get("primary_command", "")
 
-    label = f"{position}. {type_label} — {member_count} items{new_tag}"
+    label = f"{position}. {cluster_type_tag} {type_label} — {member_count} items{step_badge}{new_tag}"
     width = max(len(label) + 4, 50)
     bar = "─" * width
     print(colorize(f"  {bar}", "dim"))
@@ -228,15 +235,24 @@ def cmd_plan_queue(args: argparse.Namespace) -> None:
 
     # Render cluster banners first, then remaining items in the table
     print()
+    cluster_count = 0
     for idx, item in enumerate(display_items, 1):
         if item.get("kind") == "cluster":
             _render_cluster_banner(item, idx, new_ids)
+            cluster_count += 1
 
     rows = _build_rows(display_items, new_ids=new_ids)
     if rows:
         headers = ["#", "Confidence", "Detector", "Summary", "Cluster"]
         widths = [4, 4, 12, 50, 16]
         print_table(headers, rows, widths=widths)
+
+    if cluster_count and rows:
+        print(colorize(
+            f"  ({cluster_count} cluster banner{'s' if cluster_count != 1 else ''}"
+            " shown above — table shows remaining individual items)",
+            "dim",
+        ))
 
     if top > 0 and len(items) > top:
         remaining = len(items) - top

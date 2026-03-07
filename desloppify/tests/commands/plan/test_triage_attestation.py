@@ -41,7 +41,7 @@ def _plan_with_stages(*stage_names: str, confirmed: bool = False) -> dict:
         stages[name] = {
             "stage": name,
             "report": f"A sufficiently long report for {name} stage that meets minimum length requirements and more text",
-            "cited_ids": [],
+            "cited_ids": ["r1", "r2", "r3"],
             "timestamp": "2025-06-01T00:00:00Z",
             "issue_count": 5,
         }

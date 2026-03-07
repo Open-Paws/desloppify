@@ -863,11 +863,11 @@ class TestUpdateInstalledSkill:
     @patch("desloppify.app.commands.update_skill.colorize", side_effect=lambda t, _c: t)
     @patch("desloppify.app.commands.update_skill._download")
     def test_successful_shared_install(self, mock_download, _mock_colorize, capsys, tmp_path):
-        """Non-dedicated install (e.g. codex) replaces section in existing file."""
+        """Non-dedicated install (e.g. windsurf) replaces section in existing file."""
         skill_content = "# Skill\n<!-- desloppify-skill-version: 1 -->\nContent"
         mock_download.side_effect = lambda f: {
             "SKILL.md": skill_content,
-            "CODEX.md": "codex overlay",
+            "WINDSURF.md": "windsurf overlay",
         }[f]
 
         # Pre-create the target file with some existing content
@@ -878,7 +878,7 @@ class TestUpdateInstalledSkill:
             "desloppify.app.commands.update_skill.get_project_root",
             return_value=tmp_path,
         ):
-            result = update_installed_skill("codex")
+            result = update_installed_skill("windsurf")
 
         assert result is True
         written = agents_file.read_text()

@@ -90,6 +90,18 @@ def run_codex_batch(
             stall_seconds=config.stall_seconds,
         )
         if timeout_or_stall is not None:
+            if timeout_or_stall == 0:
+                return 0  # recovered from timeout/stall
+            # Non-recovered timeout/stall: retry if attempts remain
+            if attempt < config.max_attempts:
+                delay = config.retry_backoff_seconds * (2 ** (attempt - 1))
+                log_sections.append(
+                    f"Timeout/stall on attempt {attempt}/{config.max_attempts}; "
+                    f"retrying in {delay:.1f}s."
+                )
+                if delay > 0:
+                    deps.sleep_fn(delay)
+                continue
             return timeout_or_stall
 
         log_sections.append(

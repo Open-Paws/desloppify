@@ -15,6 +15,7 @@ from desloppify.app.commands.helpers.state import state_path
 from desloppify.base.exception_sets import PLAN_LOAD_EXCEPTIONS
 from desloppify.base.output.terminal import colorize
 from desloppify.base.output.user_message import print_user_message
+from desloppify.engine._plan.step_completion import auto_complete_steps
 from desloppify.engine.plan import (
     add_uncommitted_issues,
     append_log_entry,
@@ -108,6 +109,10 @@ def _update_living_plan_after_resolve(
         plan = load_plan()
         ctx = _capture_cluster_context(plan, all_resolved)
         purged = purge_ids(plan, all_resolved)
+        # Auto-complete steps whose issue_refs are all resolved
+        step_messages = auto_complete_steps(plan)
+        for msg in step_messages:
+            print(colorize(msg, "green"))
         append_log_entry(
             plan,
             "resolve",

@@ -185,7 +185,7 @@ def _build_cluster_meta(
         "primary_command": primary_command,
         "autofix_hint": autofix_hint,
         "cluster_name": cluster_name,
-        "cluster_auto": True,
+        "cluster_auto": bool(cluster_data.get("auto")),
         "cluster_optional": bool(cluster_data.get("optional")),
         "confidence": "high",
         "detector": detector,
@@ -198,9 +198,9 @@ def _build_cluster_meta(
 def collapse_clusters(items: list[WorkQueueItem], plan: dict) -> list[WorkQueueItem]:
     """Replace cluster member items with single cluster meta-items.
 
-    Walks the list in order: the first member of each collapsed cluster is
-    replaced with its meta-item, subsequent members are skipped.  This
-    preserves the ordering established by sort + plan-order.
+    Both auto-clusters and manual (triage) clusters are collapsed.  Manual
+    clusters are inserted at the front in plan order so triage-prioritised
+    work appears before auto-clustered mechanical items.
     """
     clusters = plan.get("clusters", {})
     if not clusters:
@@ -208,10 +208,10 @@ def collapse_clusters(items: list[WorkQueueItem], plan: dict) -> list[WorkQueueI
 
     fid_to_cluster: dict[str, str] = {}
     for name, cluster in clusters.items():
-        if not cluster.get("auto"):
-            continue
         for issue_id in cluster.get("issue_ids", []):
-            fid_to_cluster[issue_id] = name
+            # Manual clusters take priority when an issue is in both
+            if issue_id not in fid_to_cluster or not cluster.get("auto"):
+                fid_to_cluster[issue_id] = name
 
     if not fid_to_cluster:
         return items
@@ -232,20 +232,32 @@ def collapse_clusters(items: list[WorkQueueItem], plan: dict) -> list[WorkQueueI
             cname, members, clusters.get(cname, {})
         )
 
-    # Walk in order: replace first member of each collapsed cluster
-    # with its meta-item, skip subsequent members
+    # Collect manual cluster names in plan order (for front-insertion)
+    manual_names = [
+        name for name in clusters
+        if not clusters[name].get("auto") and name in meta_items
+    ]
+
+    # Walk in order: replace first auto-cluster member with meta-item,
+    # skip subsequent members.  Manual cluster members are always skipped
+    # (they'll be inserted at the front).
     seen_clusters: set[str] = set()
-    result: list[WorkQueueItem] = []
+    rest: list[WorkQueueItem] = []
     for item in items:
         cname = fid_to_cluster.get(item.get("id", ""))
         if cname and cname in meta_items:
             if cname not in seen_clusters:
                 seen_clusters.add(cname)
-                result.append(meta_items[cname])
+                # Auto-clusters collapse in-place; manual clusters go to front
+                if clusters.get(cname, {}).get("auto"):
+                    rest.append(meta_items[cname])
             # skip individual member
         else:
-            result.append(item)
-    return result
+            rest.append(item)
+
+    # Manual clusters at the front in plan order, then everything else
+    manual_result = [meta_items[name] for name in manual_names if name in seen_clusters]
+    return manual_result + rest
 
 
 __all__ = [

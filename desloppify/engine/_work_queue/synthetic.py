@@ -122,7 +122,7 @@ def build_triage_stage_items(plan: dict, state: dict) -> list[WorkQueueItem]:
     )
 
     label_map = dict(TRIAGE_STAGE_LABELS)
-    stage_names = ("observe", "reflect", "organize", "commit")
+    stage_names = ("observe", "reflect", "organize", "enrich", "commit")
 
     items: list[WorkQueueItem] = []
     for sid, name in zip(TRIAGE_STAGE_IDS, stage_names, strict=False):

@@ -227,6 +227,8 @@ def _add_cluster_subparser(plan_sub) -> None:
     p_cl = cluster_sub.add_parser("list", help="List all clusters")
     p_cl.add_argument("--verbose", "-v", action="store_true", default=False,
                       help="Show queue position, steps count, and description as a table")
+    p_cl.add_argument("--missing-steps", action="store_true", default=False,
+                      help="Show only clusters that need action steps")
 
     # plan cluster merge <source> <target>
     p_cmerge = cluster_sub.add_parser("merge", help="Merge source cluster into target (moves issues, deletes source)")
@@ -254,6 +256,13 @@ def _add_cluster_subparser(plan_sub) -> None:
                       help="Mark step N (1-based) as not done")
     p_cu.add_argument("--priority", type=int, default=None,
                       help="Set cluster priority (lower = higher priority)")
+    p_cu.add_argument("--effort", type=str, default=None,
+                      choices=["trivial", "small", "medium", "large"],
+                      help="Effort tag for --add-step or --update-step")
+    p_cu.add_argument("--depends-on", nargs="+", default=None, metavar="CLUSTER",
+                      help="Cluster(s) this cluster depends on")
+    p_cu.add_argument("--issue-refs", nargs="+", default=None, metavar="REF",
+                      help="Issue refs for --add-step or --update-step")
 
     # plan cluster export <name> [--format text|yaml]
     p_cexport = cluster_sub.add_parser("export", help="Export cluster steps to editable format")
@@ -277,7 +286,7 @@ def _add_triage_subparser(plan_sub) -> None:
     p_triage.add_argument(
         "--stage",
         type=str,
-        choices=["observe", "reflect", "organize"],
+        choices=["observe", "reflect", "organize", "enrich"],
         default=None,
         help="Stage to record",
     )
@@ -308,7 +317,7 @@ def _add_triage_subparser(plan_sub) -> None:
     p_triage.add_argument(
         "--confirm",
         type=str,
-        choices=["observe", "reflect", "organize"],
+        choices=["observe", "reflect", "organize", "enrich"],
         default=None,
         help="Confirm a completed stage (shows summary, requires --attestation)",
     )
@@ -327,6 +336,33 @@ def _add_triage_subparser(plan_sub) -> None:
     p_triage.add_argument(
         "--dry-run", action="store_true", default=False,
         help="Preview mode",
+    )
+
+    # Subagent runner
+    p_triage.add_argument(
+        "--run-stages", action="store_true", default=False,
+        help="Run triage stages via subagent runner",
+    )
+    p_triage.add_argument(
+        "--runner", choices=["codex", "claude"], default="codex",
+        help="Subagent runner type (default: codex)",
+    )
+    p_triage.add_argument(
+        "--stage-timeout-seconds", type=int, default=1800,
+        help="Per-stage timeout in seconds (default: 1800, codex only)",
+    )
+    p_triage.add_argument(
+        "--only-stages", type=str, default=None,
+        help="Comma-separated list of stages to run (default: all)",
+    )
+
+    # Stage prompt (on-demand, for orchestrator flow)
+    p_triage.add_argument(
+        "--stage-prompt",
+        type=str,
+        choices=["observe", "reflect", "organize", "enrich"],
+        default=None,
+        help="Print the current prompt for a stage (built from live plan data)",
     )
 
 

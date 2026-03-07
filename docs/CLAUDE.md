@@ -26,5 +26,16 @@ Run `desloppify review --prepare` first to generate review data, then use Claude
 1. Each agent must be context-isolated — do not pass conversation history or score targets.
 2. Agents must consume `.desloppify/review_packet_blind.json` (not full `query.json`) to avoid score anchoring.
 
+### Triage workflow
+
+Orchestrate triage with per-stage subagents:
+1. `desloppify plan triage --run-stages --runner claude` — prints orchestrator instructions
+2. For each stage (observe → reflect → organize → enrich):
+   - Get prompt: `desloppify plan triage --stage-prompt <stage>`
+   - Launch a subagent with that prompt
+   - Verify: `desloppify plan triage` (check dashboard)
+   - Confirm: `desloppify plan triage --confirm <stage> --attestation "..."`
+3. Complete: `desloppify plan triage --complete --strategy "..." --attestation "..."`
+
 <!-- desloppify-overlay: claude -->
 <!-- desloppify-end -->

@@ -13,6 +13,7 @@ from desloppify.app.commands.plan.triage_playbook import (
     TRIAGE_CMD_CLUSTER_STEPS,
     TRIAGE_CMD_COMPLETE_VERBOSE,
     TRIAGE_CMD_CONFIRM_EXISTING,
+    TRIAGE_CMD_ENRICH,
     TRIAGE_CMD_OBSERVE,
     TRIAGE_CMD_ORGANIZE,
     TRIAGE_CMD_REFLECT,
@@ -149,14 +150,12 @@ def print_reflect_result(
         print(colorize(f"  \u2502 {line}", "cyan"))
     print(colorize("  \u2514" + "\u2500" * 57 + "\u2518", "cyan"))
     print_user_message(
-        "Hey — reflect is recorded, your strategy is printed"
-        " above. Before you confirm, make sure it's thorough —"
-        " think through contradictions, decide what's worth doing"
-        " vs busywork, lay out the real shape of the work. Write"
-        " it up properly if it helps. Once you're confident,"
-        " confirm and start organizing: create clusters, enrich"
-        " them, then record organize. No need to wait for my"
-        " input unless I've asked you to."
+        "Reflect recorded. Before confirming — check the"
+        " subagent's report. Is it a strategy or just observe"
+        " restated? It should include a concrete cluster"
+        " blueprint: which clusters, which issues, what to skip"
+        " (with per-issue reasons). Confirm when the blueprint"
+        " is specific enough for organize to execute mechanically."
     )
 
 def print_organize_result(
@@ -193,15 +192,12 @@ def print_organize_result(
         print(colorize(f"  \u2502 {line}", "cyan"))
     print(colorize("  \u2514" + "\u2500" * 57 + "\u2518", "cyan"))
     print_user_message(
-        "Hey — organize is recorded, your clusters are printed"
-        " above. Before you confirm, think from the executor's"
-        " perspective: is every task code-monkey-proof? Are the"
-        " action steps detailed enough that someone with zero"
-        " context won't make mistakes? Is the sequencing right"
-        " — both across clusters and within each one? Research"
-        " anything you're unsure about. Once you're confident,"
-        " confirm and complete triage. No need to stop unless"
-        " I've asked you to."
+        "Organize recorded. Before confirming — does the"
+        " organize output match the reflect blueprint? Clusters"
+        " by file area (same PR), not by theme? Step count <"
+        " issue count (consolidated)? Cluster names describe"
+        " locations, not problem types? This should read like"
+        " a set of PR plans."
     )
 
 def print_reflect_dashboard(
@@ -348,6 +344,15 @@ def _print_action_guidance(stages: dict, meta: dict, si: object, plan: dict) -> 
             print()
             print(colorize("  Or fast-track (if existing plan is still valid):", "dim"))
             print(f"    {TRIAGE_CMD_CONFIRM_EXISTING}")
+    elif "enrich" not in stages:
+        shallow = _unenriched_clusters(plan)
+        if shallow:
+            print(colorize("  Next step: enrich steps with detail and issue_refs.", "yellow"))
+            print(colorize('    desloppify plan cluster update <name> --update-step N --detail "sub-details"', "dim"))
+        else:
+            print(colorize("  Steps look enriched. Record the enrich stage:", "green"))
+        print(f"    {TRIAGE_CMD_ENRICH}")
+        print(colorize("  You can still reorganize: add/remove clusters, reorder items.", "dim"))
     else:
         print(colorize("  Ready to complete:", "green"))
         print(f"    {TRIAGE_CMD_COMPLETE_VERBOSE}")

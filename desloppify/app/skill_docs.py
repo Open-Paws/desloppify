@@ -35,7 +35,7 @@ SKILL_TARGETS: dict[str, tuple[str, str, bool]] = {
     "claude": (".claude/skills/desloppify/SKILL.md", "CLAUDE", True),
     # OpenCode support added with thanks to @H3xKatana.
     "opencode": (".opencode/skills/desloppify/SKILL.md", "OPENCODE", True),
-    "codex": ("AGENTS.md", "CODEX", False),
+    "codex": (".agents/skills/desloppify/SKILL.md", "CODEX", True),
     "cursor": (".cursor/rules/desloppify.md", "CURSOR", True),
     "copilot": (".github/copilot-instructions.md", "COPILOT", False),
     "windsurf": ("AGENTS.md", "WINDSURF", False),

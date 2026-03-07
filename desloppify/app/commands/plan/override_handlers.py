@@ -28,6 +28,7 @@ from desloppify.base.exception_sets import PLAN_LOAD_EXCEPTIONS, CommandError
 from desloppify.base.output.fallbacks import log_best_effort_failure
 from desloppify.base.output.terminal import colorize
 from desloppify.base.output.user_message import print_user_message
+from desloppify.engine._plan.step_completion import auto_complete_steps
 from desloppify.engine._plan.stale_dimensions import (
     WORKFLOW_CREATE_PLAN_ID,
     WORKFLOW_SCORE_CHECKPOINT_ID,
@@ -499,7 +500,7 @@ def _blocked_triage_stages(plan: dict) -> dict[str, list[str]]:
         return {}
 
     confirmed = set(plan.get("epic_triage_meta", {}).get("triage_stages", {}).keys())
-    stage_names = ("observe", "reflect", "organize", "commit")
+    stage_names = ("observe", "reflect", "organize", "enrich", "commit")
 
     blocked: dict[str, list[str]] = {}
     for sid, name in zip(TRIAGE_STAGE_IDS, stage_names, strict=False):
@@ -556,7 +557,7 @@ def cmd_plan_resolve(args: argparse.Namespace) -> None:
                 missing: set[str] = set()
             else:
                 confirmed_stages = set(meta.get("triage_stages", {}).keys())
-                required_stages = {"observe", "reflect", "organize", "commit"}
+                required_stages = {"observe", "reflect", "organize", "enrich", "commit"}
                 missing = required_stages - confirmed_stages
 
             if missing and not force:
@@ -568,7 +569,7 @@ def cmd_plan_resolve(args: argparse.Namespace) -> None:
                     save_plan(plan)
 
                 # Print targeted error based on which stage is next
-                stage_order = ["observe", "reflect", "organize", "commit"]
+                stage_order = ["observe", "reflect", "organize", "enrich", "commit"]
                 next_stage = next((s for s in stage_order if s in missing), "observe")
 
                 for wid in gated_ids:
@@ -594,8 +595,12 @@ def cmd_plan_resolve(args: argparse.Namespace) -> None:
                     print(colorize('    desloppify plan triage --stage organize --report "..."', "dim"))
                     print()
                     print(colorize("  All manual clusters must have descriptions and action_steps.", "dim"))
+                elif next_stage == "enrich":
+                    print(colorize("  Organize is done. Now enrich steps with detail and issue refs:", "yellow"))
+                    print(colorize('    desloppify plan cluster update <name> --update-step N --detail "sub-details"', "dim"))
+                    print(colorize('    desloppify plan triage --stage enrich --report "..."', "dim"))
                 elif next_stage == "commit":
-                    print(colorize("  Organize is done. Finalize the execution plan:", "yellow"))
+                    print(colorize("  Enrich is done. Finalize the execution plan:", "yellow"))
                     print(colorize('    desloppify plan triage --complete --strategy "..."', "dim"))
 
                 print()
@@ -688,6 +693,10 @@ def cmd_plan_resolve(args: argparse.Namespace) -> None:
                     return
 
         purge_ids(plan, synthetic_ids)
+        # Auto-complete steps whose issue_refs are all resolved
+        step_messages = auto_complete_steps(plan)
+        for msg in step_messages:
+            print(colorize(msg, "green"))
         append_log_entry(
             plan, "done", issue_ids=synthetic_ids, actor="user", note=note,
         )

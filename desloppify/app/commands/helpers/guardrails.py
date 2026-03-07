@@ -47,28 +47,41 @@ def triage_guardrail_status(
     return TriageGuardrailResult(is_stale=True, new_ids=new_ids, _plan=resolved_plan)
 
 
+def triage_guardrail_messages(
+    *,
+    plan: dict | None = None,
+    state: dict | None = None,
+) -> list[str]:
+    """Return warning strings without printing."""
+    result = triage_guardrail_status(plan=plan, state=state)
+    if not result.is_stale:
+        return []
+
+    messages: list[str] = []
+    if result.new_ids:
+        messages.append(
+            f"{len(result.new_ids)} new review issue(s) not yet triaged."
+            " Run `desloppify plan triage` to incorporate."
+        )
+
+    if result._plan is not None:
+        banner = triage_phase_banner(result._plan)
+        if banner:
+            messages.append(banner)
+
+    return messages
+
+
 def print_triage_guardrail_info(
     *,
     plan: dict | None = None,
     state: dict | None = None,
 ) -> bool:
     """Print yellow info banner if triage is stale. Returns True if banner was shown."""
-    result = triage_guardrail_status(plan=plan, state=state)
-    if not result.is_stale:
-        return False
-
-    if result.new_ids:
-        print(colorize(
-            f"  {len(result.new_ids)} new review issue(s) not yet triaged.",
-            "yellow",
-        ))
-
-    if result._plan is not None:
-        banner = triage_phase_banner(result._plan)
-        if banner:
-            print(colorize(f"  {banner}", "yellow"))
-
-    return True
+    messages = triage_guardrail_messages(plan=plan, state=state)
+    for msg in messages:
+        print(colorize(f"  {msg}", "yellow"))
+    return bool(messages)
 
 
 def require_triage_current_or_exit(
@@ -112,5 +125,6 @@ __all__ = [
     "TriageGuardrailResult",
     "print_triage_guardrail_info",
     "require_triage_current_or_exit",
+    "triage_guardrail_messages",
     "triage_guardrail_status",
 ]

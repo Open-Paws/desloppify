@@ -456,6 +456,9 @@ def _cmd_cluster_show(args: argparse.Namespace) -> None:
     priority = cluster.get("priority")
     if priority is not None:
         print(colorize(f"  Priority: {priority}", "dim"))
+    dep_order = cluster.get("dependency_order")
+    if dep_order is not None:
+        print(colorize(f"  Dependency order: {dep_order}", "dim"))
     desc = cluster.get("description") or ""
     if desc:
         print(colorize(f"  Description: {desc}", "dim"))
@@ -525,10 +528,13 @@ def _print_cluster_list_verbose(
     """Print the verbose table view of the cluster list."""
     name_width = max(20, min(35, max(len(n) for n, _ in sorted_clusters)))
     total = len(sorted_clusters)
+    has_dep = any(c.get("dependency_order") is not None for _, c in sorted_clusters)
     print(colorize(f"  Clusters ({total} total, sorted by priority/queue position):", "bold"))
     print()
-    header = f"  {'#pos':<5}  {'Pri':>3}  {'Name':<{name_width}}  {'Items':>5}  {'Steps':>5}  {'Type':<6}  Description"
-    sep = f"  {'─'*4}  {'─'*3}  {'─'*name_width}  {'─'*5}  {'─'*5}  {'─'*6}  {'─'*40}"
+    dep_header = f"  {'Dep':>3}" if has_dep else ""
+    header = f"  {'#pos':<5}  {'Pri':>3}{dep_header}  {'Name':<{name_width}}  {'Items':>5}  {'Steps':>5}  {'Type':<6}  Description"
+    dep_sep = f"  {'─'*3}" if has_dep else ""
+    sep = f"  {'─'*4}  {'─'*3}{dep_sep}  {'─'*name_width}  {'─'*5}  {'─'*5}  {'─'*6}  {'─'*40}"
     print(colorize(header, "dim"))
     print(colorize(sep, "dim"))
     for name, cluster in sorted_clusters:
@@ -536,6 +542,8 @@ def _print_cluster_list_verbose(
         pos_str = f"#{min_p}" if min_p < 999_999 else "—"
         priority = cluster.get("priority")
         pri_str = str(priority) if priority is not None else "—"
+        dep_order = cluster.get("dependency_order")
+        dep_str = f"  {dep_order:>3}" if has_dep and dep_order is not None else ("  {:>3}".format("—") if has_dep else "")
         member_count = len(cluster.get("issue_ids", []))
         steps = cluster.get("action_steps") or []
         steps_str = str(len(steps)) if steps else "—"
@@ -546,7 +554,7 @@ def _print_cluster_list_verbose(
         desc_truncated = (desc[:39] + "…") if len(desc) > 40 else desc
         name_display = (name[:name_width - 1] + "…") if len(name) > name_width else name
         focused = " *" if name == active else ""
-        print(f"  {pos_str:>5}  {pri_str:>3}  {name_display:<{name_width}}  {member_count:>5}  {steps_str:>5}  {type_str:<6}  {desc_truncated}{focused}")
+        print(f"  {pos_str:>5}  {pri_str:>3}{dep_str}  {name_display:<{name_width}}  {member_count:>5}  {steps_str:>5}  {type_str:<6}  {desc_truncated}{focused}")
     print()
 
 
@@ -555,6 +563,7 @@ def _cmd_cluster_list(args: argparse.Namespace) -> None:
     clusters = plan.get("clusters", {})
     active = plan.get("active_cluster")
     verbose: bool = getattr(args, "verbose", False)
+    missing_steps: bool = getattr(args, "missing_steps", False)
 
     if not clusters:
         print("  No clusters defined.")
@@ -562,6 +571,21 @@ def _cmd_cluster_list(args: argparse.Namespace) -> None:
 
     queue_order: list[str] = plan.get("queue_order", [])
     sorted_clusters, min_pos_cache = _sorted_clusters_by_queue_pos(clusters, queue_order)
+
+    if missing_steps:
+        from desloppify.app.commands.plan.triage.stage_helpers import _unenriched_clusters
+        gaps = _unenriched_clusters(plan)
+        if not gaps:
+            print(colorize("  All clusters have action steps.", "green"))
+            return
+        print(colorize(f"  {len(gaps)} cluster(s) need action steps:", "bold"))
+        for name, missing in gaps:
+            print(colorize(f"    {name}: missing {', '.join(missing)}", "yellow"))
+        print()
+        print(colorize("  Fix with:", "dim"))
+        print(colorize('    desloppify plan cluster update <name> --description "..." --steps "step1" "step2"', "dim"))
+        print(colorize('    desloppify plan cluster update <name> --add-step "step title" --detail "sub-details"', "dim"))
+        return
 
     if verbose:
         _print_cluster_list_verbose(sorted_clusters, min_pos_cache, active)
@@ -594,10 +618,14 @@ def _cmd_cluster_update(args: argparse.Namespace) -> None:
     done_step: int | None = getattr(args, "done_step", None)
     undone_step: int | None = getattr(args, "undone_step", None)
     priority: int | None = getattr(args, "priority", None)
+    effort: str | None = getattr(args, "effort", None)
+    depends_on: list[str] | None = getattr(args, "depends_on", None)
+    issue_refs: list[str] | None = getattr(args, "issue_refs", None)
 
     has_update = any(x is not None for x in [
         description, steps, steps_file, add_step, update_step,
-        remove_step, done_step, undone_step, priority,
+        remove_step, done_step, undone_step, priority, effort,
+        depends_on, issue_refs,
     ])
     if not has_update:
         print(colorize("  Nothing to update. Use --description, --steps, --steps-file, --add-step, --priority, etc.", "yellow"))
@@ -616,6 +644,15 @@ def _cmd_cluster_update(args: argparse.Namespace) -> None:
         cluster["priority"] = priority
         print(colorize(f"  Priority set to {priority}.", "dim"))
 
+    if depends_on is not None:
+        all_clusters = set(plan.get("clusters", {}).keys())
+        bad = [n for n in depends_on if n not in all_clusters]
+        if bad:
+            print(colorize(f"  Unknown cluster(s): {', '.join(bad)}", "red"))
+            return
+        cluster["depends_on_clusters"] = depends_on
+        print(colorize(f"  Dependencies set: {', '.join(depends_on)}", "dim"))
+
     # Steps replacement: --steps-file takes precedence over --steps
     if steps_file is not None:
         path = Path(steps_file)
@@ -633,10 +670,22 @@ def _cmd_cluster_update(args: argparse.Namespace) -> None:
     # Incremental step operations
     current_steps: list = cluster.get("action_steps") or []
 
+    MAX_STEP_TITLE = 150
+
     if add_step is not None:
         new_step: dict = {"title": add_step}
         if detail is not None:
             new_step["detail"] = detail
+        if effort is not None:
+            new_step["effort"] = effort
+        if issue_refs is not None:
+            new_step["issue_refs"] = issue_refs
+        if len(add_step) > MAX_STEP_TITLE:
+            print(colorize(
+                f"  Warning: step title is {len(add_step)} chars (recommended max {MAX_STEP_TITLE}).",
+                "yellow",
+            ))
+            print(colorize("  Move implementation detail to --detail instead.", "dim"))
         current_steps.append(new_step)
         cluster["action_steps"] = current_steps
         print(colorize(f"  Added step {len(current_steps)}: {add_step}", "dim"))
@@ -657,6 +706,16 @@ def _cmd_cluster_update(args: argparse.Namespace) -> None:
             old["title"] = add_step
             if detail is not None:
                 old["detail"] = detail
+            if len(add_step) > MAX_STEP_TITLE:
+                print(colorize(
+                    f"  Warning: step title is {len(add_step)} chars (recommended max {MAX_STEP_TITLE}).",
+                    "yellow",
+                ))
+                print(colorize("  Move implementation detail to --detail instead.", "dim"))
+        if effort is not None:
+            old["effort"] = effort
+        if issue_refs is not None:
+            old["issue_refs"] = issue_refs
         current_steps[idx] = old
         cluster["action_steps"] = current_steps
         print(colorize(f"  Updated step {update_step}.", "dim"))

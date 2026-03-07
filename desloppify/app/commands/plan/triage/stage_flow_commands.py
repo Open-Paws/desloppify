@@ -11,11 +11,13 @@ from desloppify.state import utc_now
 from .display import print_organize_result, print_reflect_result
 from .helpers import (
     cascade_clear_later_confirmations,
+    count_log_activity_since,
     has_triage_in_queue,
     inject_triage_stages,
     print_cascade_clear_feedback,
 )
 from ._stage_records import (
+    _record_enrich_stage,
     _record_observe_stage,
     _record_organize_stage,
     _resolve_reusable_report,
@@ -28,9 +30,15 @@ from ._stage_validation import (
     _auto_confirm_observe_if_attested,
     _auto_confirm_reflect_for_organize,
     _clusters_enriched_or_error,
+    _enrich_report_or_error,
     _manual_clusters_or_error,
     _organize_report_or_error,
+    _require_organize_stage_for_enrich,
     _require_reflect_stage_for_organize,
+    _shallow_steps,
+    _steps_with_bad_paths,
+    _steps_without_effort,
+    _unclustered_review_issues_or_error,
     _validate_recurring_dimension_mentions,
 )
 from .services import TriageServices, default_triage_services
@@ -54,12 +62,14 @@ def _cmd_stage_observe(
     plan = resolved_services.load_plan()
 
     # Auto-start: inject triage stage IDs if not present
+    # NOTE: preserve existing stage data — don't clear triage_stages.
+    # Only _cmd_triage_start (explicit --start) should clear stages.
     if not has_triage_in_queue(plan):
         inject_triage_stages(plan)
         meta = plan.setdefault("epic_triage_meta", {})
-        meta["triage_stages"] = {}
+        meta.setdefault("triage_stages", {})
         resolved_services.save_plan(plan)
-        print(colorize("  Planning mode auto-started (4 stages queued).", "cyan"))
+        print(colorize("  Planning mode auto-started (5 stages queued).", "cyan"))
 
     meta = plan.setdefault("epic_triage_meta", {})
     stages = meta.setdefault("triage_stages", {})
@@ -138,13 +148,12 @@ def _cmd_stage_observe(
 
     if not is_reuse:
         print_user_message(
-            "Hey — observe is recorded. Before you confirm, make"
-            " sure you really explored the codebase — deploy"
-            " sub-agents if needed, find the root causes, understand"
-            " how issues relate to each other. Don't just skim."
-            " Once you're confident in your analysis, confirm and"
-            " continue to reflect. No need to stop for my input"
-            " unless I've asked you to."
+            "Observe recorded. Before confirming — did the subagent"
+            " verify every issue with code reads? Check: are there"
+            " specific file/line citations in the report, or just"
+            " restated issue titles? Each issue needs a verdict:"
+            " genuine / false positive / exaggerated. Don't confirm"
+            " until the analysis is backed by actual code evidence."
         )
 
 
@@ -322,6 +331,29 @@ def _cmd_stage_organize(
     if not _clusters_enriched_or_error(plan):
         return
 
+    # Validate: all review issues are in a manual cluster (or wontfixed)
+    state = resolved_services.command_runtime(args).state
+    if not _unclustered_review_issues_or_error(plan, state):
+        return
+
+    # Warn if few/no cluster operations since reflect
+    reflect_ts = stages.get("reflect", {}).get("timestamp", "")
+    if reflect_ts and not is_reuse:
+        activity = count_log_activity_since(plan, reflect_ts)
+        cluster_ops = sum(
+            activity.get(k, 0)
+            for k in ("cluster_create", "cluster_add", "cluster_update", "cluster_remove")
+        )
+        if cluster_ops == 0:
+            print(colorize("  Warning: no cluster operations logged since reflect.", "yellow"))
+            print(colorize("  Did you create clusters, add issues, and enrich them?", "yellow"))
+            print(colorize("  The organize stage should reflect real work — not just recording a report.", "dim"))
+            print()
+        elif cluster_ops < 3:
+            print(colorize(f"  Note: only {cluster_ops} cluster operation(s) logged since reflect.", "yellow"))
+            print(colorize("  Make sure all clusters are properly set up before proceeding.", "dim"))
+            print()
+
     report = _organize_report_or_error(report)
     if report is None:
         return
@@ -355,6 +387,132 @@ def _cmd_stage_organize(
     )
 
 
+def _cmd_stage_enrich(
+    args: argparse.Namespace,
+    *,
+    services: TriageServices | None = None,
+) -> None:
+    """Record the ENRICH stage: validate steps have detail/refs for executor readiness.
+
+    This stage sits between organize and commit. It checks whether action steps
+    are detailed enough for an executor with zero context. Steps should have
+    ``detail`` (sub-points) and/or ``issue_refs`` (for auto-completion).
+
+    The agent can still go back and organize (add/remove clusters, reorder)
+    at this point — the stage just validates step quality.
+    """
+    report: str | None = getattr(args, "report", None)
+    attestation: str | None = getattr(args, "attestation", None)
+
+    resolved_services = services or default_triage_services()
+    plan = resolved_services.load_plan()
+
+    if not has_triage_in_queue(plan):
+        print(colorize("  No planning stages in the queue — nothing to enrich.", "yellow"))
+        return
+
+    meta = plan.get("epic_triage_meta", {})
+    stages = meta.get("triage_stages", {})
+
+    # Jump-back: reuse existing report if no --report provided
+    existing_stage = stages.get("enrich")
+    report, is_reuse = _resolve_reusable_report(report, existing_stage)
+
+    if not _require_organize_stage_for_enrich(stages):
+        return
+
+    # Auto-confirm organize if attestation provided
+    if not stages.get("organize", {}).get("confirmed_at"):
+        if attestation:
+            from ._stage_validation import _auto_confirm_organize_for_complete
+            if not _auto_confirm_organize_for_complete(
+                plan=plan, stages=stages, attestation=attestation,
+            ):
+                return
+        else:
+            print(colorize("  Cannot enrich: organize stage not confirmed.", "red"))
+            print(colorize("  Run: desloppify plan triage --confirm organize", "dim"))
+            print(colorize("  Or pass --attestation to auto-confirm organize inline.", "dim"))
+            return
+
+    # Check shallow steps — block if any steps lack detail or issue_refs
+    shallow = _shallow_steps(plan)
+    total_bare = sum(n for _, n, _ in shallow)
+
+    if shallow:
+        print(colorize(f"  Cannot enrich: {total_bare} step(s) across {len(shallow)} cluster(s) lack detail or issue_refs:", "red"))
+        for name, bare, total in shallow:
+            print(colorize(f"    {name}: {bare}/{total} steps need enrichment", "yellow"))
+        print()
+        print(colorize("  Every step needs --detail (sub-points) or --issue-refs (for auto-completion).", "dim"))
+        print(colorize("  Fix:", "dim"))
+        print(colorize('    desloppify plan cluster update <name> --update-step N --detail "sub-details"', "dim"))
+        print(colorize("  You can also still reorganize: add/remove clusters, reorder, etc.", "dim"))
+        return
+    else:
+        print(colorize("  All steps have detail or issue_refs.", "green"))
+
+    # Advisory: check for bad file paths in step details
+    from desloppify.base.discovery.paths import get_project_root
+    bad_paths = _steps_with_bad_paths(plan, get_project_root())
+    if bad_paths:
+        total_bad = sum(len(bp) for _, _, bp in bad_paths)
+        print(colorize(f"  Warning: {total_bad} file path(s) in step details don't exist on disk:", "yellow"))
+        for name, step_num, paths in bad_paths[:5]:
+            print(colorize(f"    {name} step {step_num}: {', '.join(paths[:3])}", "yellow"))
+        print(colorize("  Fix paths before confirming enrich (confirmation will block on bad paths).", "dim"))
+
+    # Advisory: check for missing effort tags
+    untagged = _steps_without_effort(plan)
+    if untagged:
+        total_missing = sum(n for _, n, _ in untagged)
+        print(colorize(f"  Note: {total_missing} step(s) have no effort tag.", "yellow"))
+        print(colorize("  Consider: desloppify plan cluster update <name> --update-step N --effort small", "dim"))
+
+    report = _enrich_report_or_error(report)
+    if report is None:
+        return
+
+    stages = meta.setdefault("triage_stages", {})
+    cleared = _record_enrich_stage(
+        stages,
+        report=report,
+        shallow_count=total_bare,
+        existing_stage=existing_stage,
+        is_reuse=is_reuse,
+    )
+
+    resolved_services.save_plan(plan)
+
+    resolved_services.append_log_entry(
+        plan,
+        "triage_enrich",
+        actor="user",
+        detail={"shallow_count": total_bare, "reuse": is_reuse},
+    )
+    resolved_services.save_plan(plan)
+
+    print(colorize(
+        f"  Enrich stage recorded: {total_bare} step(s) still without detail.",
+        "green",
+    ))
+    if is_reuse:
+        print(colorize("  Enrich data preserved (no changes).", "dim"))
+        if cleared:
+            print_cascade_clear_feedback(cleared, stages)
+    else:
+        print(colorize("  Now confirm the enrichment.", "yellow"))
+        print(colorize("    desloppify plan triage --confirm enrich", "dim"))
+
+    print_user_message(
+        "Enrich recorded. Before confirming — check the subagent's"
+        " work. Could a developer who has never seen this code"
+        " execute every step without asking a question? Every step"
+        " needs: file path, specific location, specific action."
+        " 'Refactor X' fails. 'Extract lines 45-89 into Y' passes."
+    )
+
+
 def cmd_stage_observe(
     args: argparse.Namespace,
     *,
@@ -373,6 +531,15 @@ def cmd_stage_reflect(
     _cmd_stage_reflect(args, services=services)
 
 
+def cmd_stage_enrich(
+    args: argparse.Namespace,
+    *,
+    services: TriageServices | None = None,
+) -> None:
+    """Public entrypoint for enrich stage recording."""
+    _cmd_stage_enrich(args, services=services)
+
+
 def cmd_stage_organize(
     args: argparse.Namespace,
     *,
@@ -383,9 +550,11 @@ def cmd_stage_organize(
 
 
 __all__ = [
+    "cmd_stage_enrich",
     "cmd_stage_observe",
     "cmd_stage_organize",
     "cmd_stage_reflect",
+    "_cmd_stage_enrich",
     "_cmd_stage_observe",
     "_cmd_stage_organize",
     "_cmd_stage_reflect",

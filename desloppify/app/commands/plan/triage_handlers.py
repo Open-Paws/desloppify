@@ -93,18 +93,27 @@ def _cmd_triage_start(
 
     runtime = resolved_services.command_runtime(args)
     si = resolved_services.collect_triage_input(plan, runtime.state)
-    print(colorize("  Planning mode started (4 stages queued).", "green"))
+    print(colorize("  Planning mode started (5 stages queued).", "green"))
     print(f"  Open review issues: {len(si.open_issues)}")
     print(colorize("  Begin with observe:", "dim"))
     print(colorize(f"    {TRIAGE_CMD_OBSERVE}", "dim"))
 
 
 def cmd_plan_triage(args: argparse.Namespace) -> None:
-    """Run epic triage: staged workflow OBSERVE → REFLECT → ORGANIZE → COMMIT."""
+    """Run epic triage: staged workflow OBSERVE → REFLECT → ORGANIZE → ENRICH → COMMIT."""
     resolved_services = _build_triage_services()
     runtime = resolved_services.command_runtime(args)
     state = runtime.state
     if not require_completed_scan(state):
+        return
+
+    if getattr(args, "stage_prompt", None):
+        from .triage.runner.stage_prompts import cmd_stage_prompt
+        cmd_stage_prompt(args, services=resolved_services)
+        return
+    if getattr(args, "run_stages", False):
+        from .triage.runner import do_run_triage_stages
+        do_run_triage_stages(args, services=resolved_services)
         return
 
     if getattr(args, "start", False):
@@ -129,6 +138,9 @@ def cmd_plan_triage(args: argparse.Namespace) -> None:
         return
     if stage == "organize":
         _flow_mod.cmd_stage_organize(args, services=resolved_services)
+        return
+    if stage == "enrich":
+        _flow_mod.cmd_stage_enrich(args, services=resolved_services)
         return
 
     if getattr(args, "dry_run", False):

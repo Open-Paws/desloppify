@@ -508,7 +508,7 @@ def test_cluster_drill_in_first_full_rest_compact(monkeypatch, capsys) -> None:
     out = capsys.readouterr().out
 
     # Focus header
-    assert "Focused on: import-cleanup" in out
+    assert "Cluster: import-cleanup" in out
     # First item is full — has confidence and file
     assert "(high confidence)" in out
     assert "File: src/a.py" in out

@@ -283,16 +283,28 @@ def _is_endgame_only(item: WorkQueueItem) -> bool:
     )
 
 
+def _has_triage_stages(items: list[WorkQueueItem]) -> bool:
+    """True if any pending triage stage items are in the queue."""
+    return any(
+        i.get("kind") == "workflow_stage"
+        and str(i.get("id", "")).startswith("triage::")
+        for i in items
+    )
+
+
 def _apply_lifecycle_filter(items: list[WorkQueueItem]) -> list[WorkQueueItem]:
     """Enforce lifecycle visibility rules.
 
-    The queue enforces a phase order: scan → initial review → objective work.
+    The queue enforces a phase order: scan → initial review → triage → objective work.
 
     1. **Initial reviews pending** → only show initial-review subjective items.
        The user must complete first-time reviews before working objective items.
-    2. **Objective work remains** → show objective items, hide endgame-only
+    2. **Triage in progress** → only show triage stages and workflow items.
+       Cluster work items aren't ready until triage completes (enrich adds
+       the detail that makes steps actionable).
+    3. **Objective work remains** → show objective items, hide endgame-only
        subjective reassessments (stale re-reviews).
-    3. **Objective drained** → everything visible (endgame).
+    4. **Objective drained** → everything visible (endgame).
     """
     if _has_initial_reviews(items):
         # Phase 1: only initial reviews visible — triage and workflow
@@ -300,6 +312,13 @@ def _apply_lifecycle_filter(items: list[WorkQueueItem]) -> list[WorkQueueItem]:
         return [
             i for i in items
             if i.get("kind") == "subjective_dimension" and i.get("initial_review")
+        ]
+    if _has_triage_stages(items):
+        # Phase 2: triage in progress — only triage stages and workflow items visible.
+        # Cluster work items aren't ready until enrich completes.
+        return [
+            i for i in items
+            if i.get("kind") in ("workflow_stage", "workflow_action")
         ]
     if not _has_objective_items(items):
         return items  # endgame: everything visible

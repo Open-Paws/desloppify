@@ -6,7 +6,10 @@ import argparse
 from dataclasses import dataclass
 
 from desloppify import state as state_mod
-from desloppify.app.commands.helpers.guardrails import print_triage_guardrail_info
+from desloppify.app.commands.helpers.guardrails import (
+    print_triage_guardrail_info,
+    triage_guardrail_messages,
+)
 from desloppify.app.commands.helpers.lang import resolve_lang
 from desloppify.app.commands.helpers.query import write_query
 from desloppify.app.commands.helpers.queue_progress import (
@@ -121,7 +124,6 @@ def cmd_next(args: argparse.Namespace) -> None:
     if config_warning:
         print(colorize(f"  {config_warning}", "yellow"))
 
-    print_triage_guardrail_info(state=state)
     _build_and_render_queue(args, state, config)
 
 
@@ -210,6 +212,11 @@ def _merge_potentials_safe(raw_potentials: dict | None) -> dict | None:
 def _build_and_render_queue(args: argparse.Namespace, state: dict, config: dict) -> None:
     opts = NextOptions.from_args(args)
 
+    # Triage guardrail: for terminal, print; for JSON, embed as warnings
+    if opts.output_format == "terminal":
+        print_triage_guardrail_info(state=state)
+    guardrail_warnings = triage_guardrail_messages(state=state)
+
     target_strict = target_strict_score_from_config(config)
 
     # Load the living plan
@@ -275,6 +282,8 @@ def _build_and_render_queue(args: argparse.Namespace, state: dict, config: dict)
         narrative=narrative,
         plan_data=plan_data,
     )
+    if guardrail_warnings:
+        payload["warnings"] = guardrail_warnings
     write_query(payload)
 
     if _emit_requested_output(opts, payload, items):
@@ -327,14 +336,9 @@ def _build_and_render_queue(args: argparse.Namespace, state: dict, config: dict)
 
     if items and plan_data:
         print_user_message(
-            "Hey — the task details are printed above. Just start"
-            " working on it. When you're done, resolve it with"
-            " `desloppify plan resolve` and then run `desloppify"
-            " next` again. If this doesn't seem like the right"
-            " priority, run `desloppify plan show` to see the full"
-            " queue, or `desloppify plan --help` for all plan tools."
-            " Don't stop until you're done — unless I've told you"
-            " otherwise, just keep going."
+            "Start working on the task above. When done:"
+            " `desloppify plan resolve`. Full queue:"
+            " `desloppify plan show`."
         )
 
 

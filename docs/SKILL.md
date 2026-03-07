@@ -1,5 +1,5 @@
 <!-- desloppify-begin -->
-<!-- desloppify-skill-version: 3 -->
+<!-- desloppify-skill-version: 4 -->
 ---
 name: desloppify
 description: >
@@ -45,6 +45,13 @@ desloppify plan triage --stage reflect --report "comparison against completed wo
 desloppify plan triage --stage organize --report "summary of priorities..."
 desloppify plan triage --complete --strategy "execution plan..."
 ```
+
+### Automated triage (subagent runners)
+
+For Codex: `desloppify plan triage --run-stages --runner codex`
+For Claude: `desloppify plan triage --run-stages --runner claude` — then follow orchestrator instructions per stage
+
+Options: `--only-stages observe,reflect` (subset), `--dry-run` (prompts only), `--stage-timeout-seconds N` (per-stage).
 
 Then shape the queue. **The plan shapes everything `next` gives you** — don't skip this step.
 

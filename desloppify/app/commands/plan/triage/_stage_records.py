@@ -65,6 +65,26 @@ def _record_organize_stage(
     return cascade_clear_later_confirmations(stages, "organize")
 
 
+def _record_enrich_stage(
+    stages: dict,
+    *,
+    report: str,
+    shallow_count: int,
+    existing_stage: dict | None,
+    is_reuse: bool,
+) -> list[str]:
+    stages["enrich"] = {
+        "stage": "enrich",
+        "report": report,
+        "timestamp": utc_now(),
+        "shallow_count": shallow_count,
+    }
+    if is_reuse and existing_stage and existing_stage.get("confirmed_at"):
+        stages["enrich"]["confirmed_at"] = existing_stage["confirmed_at"]
+        stages["enrich"]["confirmed_text"] = existing_stage.get("confirmed_text", "")
+    return cascade_clear_later_confirmations(stages, "enrich")
+
+
 def _record_confirm_existing_completion(
     *,
     stages: dict,
@@ -85,6 +105,7 @@ def _record_confirm_existing_completion(
 
 __all__ = [
     "_record_confirm_existing_completion",
+    "_record_enrich_stage",
     "_record_observe_stage",
     "_record_organize_stage",
     "_resolve_reusable_report",

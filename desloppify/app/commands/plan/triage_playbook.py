@@ -6,6 +6,7 @@ TRIAGE_STAGE_LABELS: tuple[tuple[str, str], ...] = (
     ("observe", "Analyse issues & spot contradictions"),
     ("reflect", "Form strategy & present to user"),
     ("organize", "Defer contradictions, cluster, & prioritize"),
+    ("enrich", "Make steps executor-ready (detail, refs)"),
     ("commit", "Write strategy & confirm"),
 )
 
@@ -13,7 +14,8 @@ TRIAGE_STAGE_DEPENDENCIES: dict[str, set[str]] = {
     "observe": set(),
     "reflect": {"observe"},
     "organize": {"reflect"},
-    "commit": {"organize"},
+    "enrich": {"organize"},
+    "commit": {"enrich"},
 }
 
 TRIAGE_CMD_OBSERVE = (
@@ -27,6 +29,10 @@ TRIAGE_CMD_REFLECT = (
 TRIAGE_CMD_ORGANIZE = (
     'desloppify plan triage --stage organize --report '
     '"summary of organization and priorities..."'
+)
+TRIAGE_CMD_ENRICH = (
+    'desloppify plan triage --stage enrich --report '
+    '"summary of enrichment work done..."'
 )
 TRIAGE_CMD_COMPLETE = (
     'desloppify plan triage --complete --strategy "execution plan..."'
@@ -65,6 +71,7 @@ __all__ = [
     "TRIAGE_CMD_COMPLETE",
     "TRIAGE_CMD_COMPLETE_VERBOSE",
     "TRIAGE_CMD_CONFIRM_EXISTING",
+    "TRIAGE_CMD_ENRICH",
     "TRIAGE_CMD_OBSERVE",
     "TRIAGE_CMD_ORGANIZE",
     "TRIAGE_CMD_REFLECT",

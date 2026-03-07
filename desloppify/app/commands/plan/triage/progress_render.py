@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from desloppify.app.commands.helpers.display import short_issue_id
+from desloppify.app.commands.plan.triage.helpers import manual_clusters_with_issues
 from desloppify.app.commands.plan.triage.stage_helpers import (
-    _manual_clusters_with_issues,
     _triage_coverage,
     _unenriched_clusters,
 )
@@ -29,7 +29,7 @@ def _print_stage_progress(stages: dict, plan: dict | None = None) -> None:
 
     if plan and "reflect" in stages and "organize" not in stages:
         gaps = _unenriched_clusters(plan)
-        manual = _manual_clusters_with_issues(plan)
+        manual = manual_clusters_with_issues(plan)
         if not manual:
             print(
                 colorize(

@@ -39,7 +39,7 @@ def _plan_with_stages(*stage_names: str, confirmed: bool = False) -> dict:
                 "A sufficiently long report for the stage that meets minimum "
                 "length requirements and more text to ensure validation passes"
             ),
-            "cited_ids": [],
+            "cited_ids": ["r1", "r2", "r3"],
             "timestamp": "2025-06-01T00:00:00Z",
             "issue_count": 5,
         }
@@ -57,9 +57,9 @@ def _plan_with_enriched_clusters(stage_names, confirmed=False):
     plan = _plan_with_stages(*stage_names, confirmed=confirmed)
     plan["clusters"]["fix-naming"] = {
         "name": "fix-naming",
-        "issue_ids": ["r1", "r2"],
+        "issue_ids": ["r1", "r2", "r3", "r4", "r5"],
         "description": "Fix naming issues",
-        "action_steps": ["step 1", "step 2"],
+        "action_steps": ["step 1", "step 2", "step 3", "step 4", "step 5"],
         "auto": False,
         "user_modified": True,
         "created_at": "2025-06-01T00:00:00Z",
@@ -323,7 +323,7 @@ class TestCompleteArchivesStages:
     def test_complete_archives_stages(self, monkeypatch, capsys):
         """After --complete, last_triage contains the stage data."""
         plan = _plan_with_enriched_clusters(
-            ["observe", "reflect", "organize"], confirmed=True,
+            ["observe", "reflect", "organize", "enrich"], confirmed=True,
         )
         # Add review issues to queue_order and cluster so coverage check works
         plan["queue_order"] = [*TRIAGE_STAGE_IDS, "review::test.py::r1", "review::test.py::r2"]

@@ -9,7 +9,7 @@ from desloppify.engine._state.schema import StateModel
 from desloppify.engine._work_queue.helpers import slugify
 from desloppify.engine.planning.scorecard_projection import all_subjective_entries
 
-_REVIEW_DETECTORS = ("review", "concerns")
+_REVIEW_DETECTORS = ("review", "concerns", "subjective_review")
 
 
 def current_stale_ids(

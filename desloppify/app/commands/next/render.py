@@ -18,6 +18,13 @@ from .render_support import render_compact_item as _render_compact_item
 from .render_support import render_grouped as _render_grouped
 
 
+def _step_text(step: str | dict) -> str:
+    """Extract display text from an action step (string or dict with title)."""
+    if isinstance(step, dict):
+        return step.get("title", str(step))
+    return str(step)
+
+
 def _normalized_dimension_key(value: str | None) -> str:
     return str(value or "").lower().replace(" ", "_")
 
@@ -111,11 +118,13 @@ def _render_issue_detail(
         if steps and single_item and not header_showed_plan:
             print(colorize("\n  Steps:", "dim"))
             for i, step in enumerate(steps, 1):
-                print(colorize(f"    {i}. {step}", "dim"))
+                print(colorize(f"    {i}. {_step_text(step)}", "dim"))
     if item.get("plan_note"):
         print(colorize(f"  Note: {item['plan_note']}", "dim"))
 
-    print(f"  File: {item.get('file', '')}")
+    file_val = item.get("file", "")
+    if file_val and file_val != ".":
+        print(f"  File: {file_val}")
     print(colorize(f"  ID:   {item.get('id', '')}", "dim"))
 
     detail = item.get("detail", {})
@@ -359,13 +368,21 @@ def render_terminal_items(
         clusters = plan.get("clusters", {})
         cluster_data = clusters.get(cluster_name, {})
         total = len(cluster_data.get("issue_ids", []))
-        print(colorize(f"\n  Focused on: {cluster_name} ({len(items)} of {total} remaining)", "cyan"))
+        desc = cluster_data.get("description") or ""
+        print(colorize(f"\n  ┌─ Cluster: {cluster_name} ({len(items)} of {total} remaining) ─┐", "cyan"))
+        if desc:
+            print(colorize(f"  │ {desc}", "cyan"))
         steps = cluster_data.get("action_steps") or []
         if steps:
-            print(colorize("\n  Cluster plan:", "dim"))
+            print(colorize("  │", "cyan"))
+            print(colorize("  │ Action plan:", "cyan"))
             for i, step in enumerate(steps, 1):
-                print(colorize(f"    {i}. {step}", "dim"))
-            header_showed_plan = True
+                print(colorize(f"  │   {i}. {_step_text(step)}", "cyan"))
+        print(colorize("  └" + "─" * 60 + "┘", "cyan"))
+        print(colorize("  Back to full queue: desloppify next", "dim"))
+        if steps:
+            print(colorize(f"  Mark step done: desloppify plan cluster update {cluster_name} --done-step N", "dim"))
+        header_showed_plan = True
 
     if group != "item":
         _render_grouped(items, group)

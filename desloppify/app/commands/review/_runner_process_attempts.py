@@ -149,14 +149,10 @@ def _run_via_subprocess(
             text=True,
             timeout=deps.timeout_seconds,
         )
-    except deps.timeout_error as exc:
+    except deps.timeout_error:
         state.stop_event.set()
         writer_thread.join(timeout=2)
-        ctx.log_sections.append(
-            f"{ctx.header}\n\nTIMEOUT after {deps.timeout_seconds}s\n{exc}\n"
-        )
-        ctx.safe_write_text_fn(ctx.log_file, "\n\n".join(ctx.log_sections))
-        return _ExecutionResult(code=124, stdout_text="", stderr_text="", early_return=124)
+        return _ExecutionResult(code=124, stdout_text="", stderr_text="", timed_out=True)
     except OSError as exc:
         state.stop_event.set()
         writer_thread.join(timeout=2)
@@ -306,7 +302,8 @@ def _handle_successful_attempt(
 ) -> int | None:
     if result.code != 0:
         return None
-    if not _output_file_has_json_payload(output_file):
+    validate = deps.validate_output_fn or _output_file_has_json_payload
+    if not validate(output_file):
         log_sections.append(
             "Runner exited 0 but output file is missing or invalid; "
             "treating as execution failure."

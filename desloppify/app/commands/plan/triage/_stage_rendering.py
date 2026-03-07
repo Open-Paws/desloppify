@@ -44,6 +44,12 @@ def _print_complete_summary(plan: dict, stages: dict) -> None:
         cluster = plan.get("clusters", {}).get(name, {})
         steps = cluster.get("action_steps", [])
         print(colorize(f"      {name}: {len(steps)} steps", "dim"))
+    if "enrich" in stages:
+        shallow = stages["enrich"].get("shallow_count", 0)
+        if shallow:
+            print(colorize(f"    Enrich: {shallow} step(s) still without detail", "dim"))
+        else:
+            print(colorize("    Enrich: all steps detailed", "dim"))
 
 
 def _print_new_issues_since_last(si) -> None:

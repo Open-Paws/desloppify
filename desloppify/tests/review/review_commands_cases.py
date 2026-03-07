@@ -868,7 +868,7 @@ class TestCmdReviewPrepare:
         args.packet = str(packet_path)
         args.only_batches = None
         args.scan_after_import = False
-        args.allow_partial = False
+        args.allow_partial = True
 
         review_packet_dir = tmp_path / ".desloppify" / "review_packets"
         runs_dir = tmp_path / ".desloppify" / "subagents" / "runs"
@@ -1044,7 +1044,7 @@ class TestCmdReviewPrepare:
             captured["kwargs"]["trusted_assessment_label"]
             == "trusted internal run-batches import"
         )
-        assert captured["kwargs"]["allow_partial"] is False
+        assert captured["kwargs"]["allow_partial"] is True
         summary_files = sorted(runs_dir.glob("*/run_summary.json"))
         assert len(summary_files) == 1
         summary_payload = json.loads(summary_files[0].read_text())
@@ -1189,7 +1189,7 @@ class TestCmdReviewPrepare:
         args.packet = str(packet_path)
         args.only_batches = None
         args.scan_after_import = False
-        args.allow_partial = False
+        args.allow_partial = True
 
         review_packet_dir = tmp_path / ".desloppify" / "review_packets"
         runs_dir = tmp_path / ".desloppify" / "subagents" / "runs"
@@ -1306,7 +1306,7 @@ class TestCmdReviewPrepare:
         args.packet = str(packet_path)
         args.only_batches = None
         args.scan_after_import = False
-        args.allow_partial = False
+        args.allow_partial = True
 
         review_packet_dir = tmp_path / ".desloppify" / "review_packets"
         runs_dir = tmp_path / ".desloppify" / "subagents" / "runs"

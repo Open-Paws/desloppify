@@ -96,7 +96,8 @@ def _render_cluster_files(members: list[dict]) -> None:
 def _render_cluster_sample(members: list[dict]) -> None:
     print(colorize("\n  Sample:", "dim"))
     for member in members[:3]:
-        print(f"    - {member.get('id', '')}")
+        summary = member.get("summary") or member.get("id", "")
+        print(f"    - {summary}")
     if len(members) > 3:
         print(colorize(f"    ... and {len(members) - 3} more", "dim"))
 
@@ -123,6 +124,13 @@ def _render_required_cluster_commands(cluster_name: str) -> None:
     print(colorize(f"  Skip cluster:  desloppify plan skip {cluster_name}", "dim"))
 
 
+def _step_display_text(step: str | dict) -> str:
+    """Extract display text from an action step (string or dict with title)."""
+    if isinstance(step, dict):
+        return step.get("title", str(step))
+    return str(step)
+
+
 def render_cluster_item(item: dict) -> None:
     """Render an auto-cluster task card."""
     member_count = int(item.get("member_count", 0))
@@ -130,17 +138,26 @@ def render_cluster_item(item: dict) -> None:
     cluster_name = item.get("id", "")
     is_optional = bool(item.get("cluster_optional"))
     type_label = _cluster_type_label(cluster_name, action_type)
+    action_steps = item.get("action_steps") or []
+    done_count = sum(1 for s in action_steps if isinstance(s, dict) and s.get("done"))
+    step_badge = f" [{done_count}/{len(action_steps)} steps done]" if action_steps else ""
     optional_tag = " — optional" if is_optional else ""
-    print(colorize(f"  ({type_label}, {member_count} issues{optional_tag})", "bold"))
+    print(colorize(f"  ({type_label}, {member_count} issues{step_badge}{optional_tag})", "bold"))
     print(colorize("  " + "─" * 60, "dim"))
     print(f"  {colorize(item.get('summary', ''), 'yellow')}")
 
-    action_steps = item.get("action_steps") or []
     if action_steps:
-        print(colorize(
-            f"  [plan: {len(action_steps)} steps] drill in to view",
-            "dim",
-        ))
+        show_count = min(3, len(action_steps))
+        for i, step in enumerate(action_steps[:show_count], 1):
+            marker = "[x]" if isinstance(step, dict) and step.get("done") else "[ ]"
+            print(colorize(f"    {i}. {marker} {_step_display_text(step)}", "dim"))
+        remaining = len(action_steps) - show_count
+        if remaining > 0:
+            print(colorize(f"    ... and {remaining} more — drill in to view all", "dim"))
+
+    dep_order = item.get("dependency_order")
+    if dep_order is not None and dep_order <= 2:
+        print(colorize("  Priority: complete before other clusters", "cyan"))
 
     members = item.get("members", [])
     if members:

@@ -25,6 +25,7 @@ from ..runner_parallel import BatchExecutionOptions, BatchProgressEvent
 from ..runtime.policy import resolve_batch_run_policy
 from .scope import (
     collect_reviewed_files_from_batches,
+    enforce_trusted_import_coverage_gate,
     normalize_dimension_list,
     print_import_dimension_coverage_notice,
     print_preflight_dimension_scope_notice,
@@ -267,8 +268,8 @@ def _merge_and_write_results(
     run_dir: Path,
     safe_write_text_fn,
     colorize_fn,
-) -> Path:
-    """Merge batch results, enrich with metadata, write to disk. Returns merged_path."""
+) -> tuple[Path, list[str]]:
+    """Merge batch results, enrich with metadata, write to disk. Returns (merged_path, missing_dims)."""
     merged = merge_batch_results_fn(batch_results)
     reviewed_files = collect_reviewed_files_from_batches(
         batches=batches,
@@ -334,7 +335,7 @@ def _merge_and_write_results(
     safe_write_text_fn(merged_path, json.dumps(merged, indent=2) + "\n")
     print(colorize_fn(f"\n  Merged outputs: {merged_path}", "bold"))
     print_review_quality(merged.get("review_quality", {}), colorize_fn=colorize_fn)
-    return merged_path
+    return merged_path, missing_after_import
 
 
 def _import_and_finalize(
@@ -711,7 +712,7 @@ def do_run_batches(
             f"failed={[idx + 1 for idx in sorted(failure_set)]}"
         )
 
-    merged_path = _merge_and_write_results(
+    merged_path, missing_after_import = _merge_and_write_results(
         merge_batch_results_fn=merge_batch_results_fn,
         build_import_provenance_fn=build_import_provenance_fn,
         batch_results=batch_results,
@@ -726,6 +727,14 @@ def do_run_batches(
         stamp=stamp,
         run_dir=run_dir,
         safe_write_text_fn=safe_write_text_fn,
+        colorize_fn=colorize_fn,
+    )
+
+    enforce_trusted_import_coverage_gate(
+        missing_dims=missing_after_import,
+        selected_dims=packet_dimensions,
+        allow_partial=allow_partial,
+        scan_path=scan_path,
         colorize_fn=colorize_fn,
     )
 
