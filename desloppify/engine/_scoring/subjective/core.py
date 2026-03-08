@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from desloppify.base.subjective_dimensions import default_dimension_keys
 from desloppify.base.text_utils import is_numeric
 from desloppify.engine._scoring.policy.core import SUBJECTIVE_CHECKS
-from desloppify.intelligence.review.dimensions.holistic import DIMENSIONS
 
 DISPLAY_NAMES: dict[str, str] = {
     # Holistic dimensions
@@ -155,7 +155,7 @@ def append_subjective_dimensions(
     determine pass-rate, while imported assessment scores are retained as
     metadata for transparency.
     """
-    raw_defaults = DIMENSIONS
+    raw_defaults = default_dimension_keys()
     allowed = (
         {_normalize_dimension_key(name) for name in allowed_dimensions}
         if allowed_dimensions is not None
