@@ -22,8 +22,14 @@ from desloppify.engine._plan.subjective_policy import (
 )
 from desloppify.engine._state.schema import StateModel
 
+
+class _PlanAutoLoad:
+    """Sentinel type: auto-load plan from disk."""
+
+
 # Sentinel: "auto-load plan from disk" (the default).
-_PLAN_AUTO_LOAD = object()
+_PLAN_AUTO_LOAD = _PlanAutoLoad()
+PlanOption = dict | None | _PlanAutoLoad
 
 
 @dataclass(frozen=True)
@@ -44,7 +50,7 @@ def queue_context(
     state: StateModel,
     *,
     config: dict | None = None,
-    plan: dict | None | object = _PLAN_AUTO_LOAD,
+    plan: PlanOption = _PLAN_AUTO_LOAD,
     target_strict: float | None = None,
 ) -> QueueContext:
     """Build a :class:`QueueContext` with all parameters resolved.
@@ -60,13 +66,13 @@ def queue_context(
        the same objective-vs-subjective balance.
     """
     # --- resolve plan ---
-    if plan is _PLAN_AUTO_LOAD:
+    if isinstance(plan, _PlanAutoLoad):
         try:
             resolved_plan: dict | None = plan_mod.load_plan()
         except PLAN_LOAD_EXCEPTIONS:
             resolved_plan = None
     else:
-        resolved_plan = plan  # type: ignore[assignment]
+        resolved_plan = plan
 
     # --- resolve target_strict ---
     if target_strict is not None:

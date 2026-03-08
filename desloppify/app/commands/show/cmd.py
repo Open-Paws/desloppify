@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from dataclasses import dataclass
 
 from desloppify.app.commands.helpers.guardrails import print_triage_guardrail_info
@@ -34,6 +35,8 @@ from .render import (
     write_show_output_file,
 )
 from .scope import load_matches, resolve_entity, resolve_noise, resolve_show_scope
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -99,7 +102,8 @@ def _load_entity_matches(
 def _active_plan_or_none() -> dict | None:
     try:
         plan = load_plan()
-    except PLAN_LOAD_EXCEPTIONS:
+    except PLAN_LOAD_EXCEPTIONS as exc:
+        logger.debug("Show command skipped active-plan lookup.", exc_info=exc)
         return None
     if plan.get("queue_order") or plan.get("clusters"):
         return plan

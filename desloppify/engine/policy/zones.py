@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -131,15 +132,15 @@ class FileZoneMap:
         self,
         files: list[str],
         rules: list[ZoneRule],
-        rel_fn=None,
+        rel_fn: Callable[[str], str] | None = None,
         overrides: dict[str, str] | None = None,
     ):
         """Build a zone map from files, ordered rules, and optional overrides."""
         self._map: dict[str, Zone] = {}
         self._overrides = overrides
-        for f in files:
-            rp = rel_fn(f) if rel_fn else f
-            self._map[f] = classify_file(rp, rules, overrides)
+        for file_path in files:
+            rel_path = rel_fn(file_path) if rel_fn else file_path
+            self._map[file_path] = classify_file(rel_path, rules, overrides)
 
     def get(self, path: str) -> Zone:
         """Get zone for a file path. Returns PRODUCTION if not classified."""
@@ -148,12 +149,20 @@ class FileZoneMap:
     def exclude(self, files: list[str], *zones: Zone) -> list[str]:
         """Return files NOT in the given zones."""
         zone_set = set(zones)
-        return [f for f in files if self._map.get(f, Zone.PRODUCTION) not in zone_set]
+        return [
+            file_path
+            for file_path in files
+            if self._map.get(file_path, Zone.PRODUCTION) not in zone_set
+        ]
 
     def include_only(self, files: list[str], *zones: Zone) -> list[str]:
         """Return files that ARE in the given zones."""
         zone_set = set(zones)
-        return [f for f in files if self._map.get(f, Zone.PRODUCTION) in zone_set]
+        return [
+            file_path
+            for file_path in files
+            if self._map.get(file_path, Zone.PRODUCTION) in zone_set
+        ]
 
     def counts(self) -> dict[str, int]:
         """Return file count per zone."""

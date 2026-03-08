@@ -366,7 +366,8 @@ def show_score_with_plan_context(state: dict, prev) -> None:
     """
     try:
         plan = plan_mod.load_plan()
-    except PLAN_LOAD_EXCEPTIONS:
+    except PLAN_LOAD_EXCEPTIONS as exc:
+        _logger.debug("score display skipped plan-aware context", exc_info=exc)
         plan = None
     print_execution_or_reveal(state, prev, plan)
 

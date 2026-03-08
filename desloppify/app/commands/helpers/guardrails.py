@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 
 from desloppify.app.commands.helpers.display import short_issue_id
@@ -13,6 +14,8 @@ from desloppify.engine.plan import (
     load_plan,
     triage_phase_banner,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -32,7 +35,8 @@ def triage_guardrail_status(
     """Pure detection: is triage stale? Returns structured result, no side effects."""
     try:
         resolved_plan = plan if isinstance(plan, dict) else load_plan()
-    except PLAN_LOAD_EXCEPTIONS:
+    except PLAN_LOAD_EXCEPTIONS as exc:
+        logger.debug("Triage guardrail status skipped: plan could not be loaded.", exc_info=exc)
         return TriageGuardrailResult()
 
     resolved_state = state or {}
@@ -108,8 +112,8 @@ def require_triage_current_or_exit(
     ]
     if new_ids:
         for fid in sorted(new_ids)[:5]:
-            f = state.get("issues", {}).get(fid, {})
-            lines.append(f"    * [{short_issue_id(fid)}] {f.get('summary', '')}")
+            issue = state.get("issues", {}).get(fid, {})
+            lines.append(f"    * [{short_issue_id(fid)}] {issue.get('summary', '')}")
         if len(new_ids) > 5:
             lines.append(f"    ... and {len(new_ids) - 5} more")
     lines.append("")

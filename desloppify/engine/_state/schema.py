@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any, NotRequired, Required, TypedDict, cast
 
-from desloppify.base.enums import Status, canonical_issue_status, issue_status_tokens
 from desloppify.base.discovery.paths import get_project_root
+from desloppify.base.enums import Status, canonical_issue_status, issue_status_tokens
 from desloppify.engine._state.schema_scores import (
     json_default,
 )
@@ -421,10 +421,10 @@ def ensure_state_defaults(state: StateModel | dict) -> None:
         issue.setdefault("confidence", "low")
         issue.setdefault("summary", "")
         issue.setdefault("detail", {})
-        issue.setdefault("status", "open")
+        issue.setdefault("status", Status.OPEN)
         issue["status"] = canonical_issue_status(
             issue.get("status"),
-            default="open",
+            default=Status.OPEN,
         )
         issue.setdefault("note", None)
         issue.setdefault("first_seen", state.get("created") or utc_now())

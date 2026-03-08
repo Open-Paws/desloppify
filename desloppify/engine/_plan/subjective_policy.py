@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from desloppify.base.config import DEFAULT_TARGET_STRICT_SCORE
+from desloppify.base.enums import Status
 from desloppify.base.registry import DETECTORS
 from desloppify.engine._state.filtering import issue_in_scan_scope
 from desloppify.engine._state.schema import StateModel
@@ -67,14 +68,19 @@ def _is_evidence_only(issue: dict) -> bool:
     return False
 
 
-_SCAN_PATH_FROM_STATE_POLICY = object()
+class _ScanPathFromStatePolicy:
+    """Sentinel type: resolve scan_path from state."""
+
+
+_SCAN_PATH_FROM_STATE_POLICY = _ScanPathFromStatePolicy()
+ScanPathPolicyOption = str | None | _ScanPathFromStatePolicy
 
 
 def compute_subjective_visibility(
     state: StateModel,
     *,
     target_strict: float = DEFAULT_TARGET_STRICT_SCORE,
-    scan_path: str | None | object = _SCAN_PATH_FROM_STATE_POLICY,
+    scan_path: ScanPathPolicyOption = _SCAN_PATH_FROM_STATE_POLICY,
     plan: dict | None = None,
 ) -> SubjectiveVisibility:
     """Build the policy snapshot from current state.
@@ -95,8 +101,8 @@ def compute_subjective_visibility(
 
     resolved_scan_path: str | None = (
         state.get("scan_path")
-        if scan_path is _SCAN_PATH_FROM_STATE_POLICY
-        else scan_path  # type: ignore[assignment]
+        if isinstance(scan_path, _ScanPathFromStatePolicy)
+        else scan_path
     )
 
     issues = state.get("issues", {})
@@ -109,13 +115,13 @@ def compute_subjective_visibility(
     # so the policy matches what the user actually sees in the queue.
     objective_count = sum(
         1
-        for fid, f in issues.items()
-        if f.get("status") == "open"
-        and f.get("detector") not in NON_OBJECTIVE_DETECTORS
-        and not f.get("suppressed")
-        and not _is_evidence_only(f)
-        and issue_in_scan_scope(str(f.get("file", "")), resolved_scan_path)
-        and fid not in skipped_ids
+        for issue_id, issue in issues.items()
+        if issue.get("status") == Status.OPEN
+        and issue.get("detector") not in NON_OBJECTIVE_DETECTORS
+        and not issue.get("suppressed")
+        and not _is_evidence_only(issue)
+        and issue_in_scan_scope(str(issue.get("file", "")), resolved_scan_path)
+        and issue_id not in skipped_ids
     )
 
     unscored = current_unscored_ids(state)

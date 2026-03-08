@@ -37,6 +37,7 @@ from .scoring import DimensionMergeScorer
 _DIMENSION_SCORER = DimensionMergeScorer()
 
 
+# mypy struggles with `total=False` on TypedDict inheritance across modules.
 class BatchIssuePayload(ReviewIssuePayload, total=False):  # type: ignore[call-arg]
     """Normalized issue payload passed across batch merge/import seams."""
 
@@ -99,7 +100,9 @@ class NormalizedBatchIssue:
     evidence_lines: list[int] | None = None
 
     def to_payload(self) -> BatchIssuePayload:
-        payload: BatchIssuePayload = {  # type: ignore[assignment]
+        payload = cast(
+            BatchIssuePayload,
+            {
             "dimension": self.dimension,
             "identifier": self.identifier,
             "summary": self.summary,
@@ -109,7 +112,8 @@ class NormalizedBatchIssue:
             "evidence": list(self.evidence),
             "impact_scope": self.impact_scope,
             "fix_scope": self.fix_scope,
-        }
+            },
+        )
         if self.reasoning:
             payload["reasoning"] = self.reasoning
         if self.evidence_lines:

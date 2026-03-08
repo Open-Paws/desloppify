@@ -6,19 +6,18 @@ import argparse
 import json
 import logging
 import re
+
 try:
     import defusedxml.ElementTree as ET
 except ModuleNotFoundError:  # pragma: no cover — optional dep
+    # Fallback import when `defusedxml` is unavailable; same alias is intentional.
     import xml.etree.ElementTree as ET  # type: ignore[no-redef]
 from collections import defaultdict
 from pathlib import Path
 
 from desloppify.base.discovery.file_paths import (
-
     rel,
-
     resolve_path,
-
 )
 from desloppify.base.output.terminal import colorize, print_table
 from desloppify.engine.detectors.graph import (

@@ -11,6 +11,7 @@ import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import cast
 
 from desloppify.base.discovery.file_paths import safe_write_text
 from desloppify.base.output.fallbacks import log_best_effort_failure
@@ -91,7 +92,7 @@ def load_plan(path: Path | None = None) -> PlanModel:
         print(f"  Warning: Plan invariants invalid ({ex}). Starting fresh.", file=sys.stderr)
         return empty_plan()
 
-    return data  # type: ignore[return-value]
+    return cast(PlanModel, data)
 
 
 def save_plan(plan: PlanModel | dict, path: Path | None = None) -> None:

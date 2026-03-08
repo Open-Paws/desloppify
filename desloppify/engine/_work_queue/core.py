@@ -40,9 +40,15 @@ from desloppify.engine._work_queue.synthetic import (
 from desloppify.engine._work_queue.types import WorkQueueItem
 from desloppify.state import StateModel
 
+
+class _ScanPathFromState:
+    """Sentinel type: resolve scan_path from state."""
+
+
 # Sentinel: "read scan_path from state" (the safe default).
 # Callers that want to override can pass an explicit str or None.
-_SCAN_PATH_FROM_STATE = object()
+_SCAN_PATH_FROM_STATE = _ScanPathFromState()
+ScanPathOption = str | None | _ScanPathFromState
 
 
 @dataclass(frozen=True)
@@ -59,7 +65,7 @@ class QueueBuildOptions:
     explain: bool = False
 
     # Scope filtering
-    scan_path: str | None | object = _SCAN_PATH_FROM_STATE
+    scan_path: ScanPathOption = _SCAN_PATH_FROM_STATE
     scope: str | None = None
     status: str = "open"
     chronic: bool = False
@@ -156,8 +162,8 @@ def _resolve_inputs(
 
     scan_path: str | None = (
         state.get("scan_path")
-        if opts.scan_path is _SCAN_PATH_FROM_STATE
-        else opts.scan_path  # type: ignore[assignment]
+        if isinstance(opts.scan_path, _ScanPathFromState)
+        else opts.scan_path
     )
 
     status = opts.status

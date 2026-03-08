@@ -10,6 +10,7 @@ from desloppify.base.runtime_state import current_runtime_context
 
 _DEFAULT_PROJECT_ROOT = Path(os.environ.get("DESLOPPIFY_ROOT", Path.cwd())).resolve()
 
+
 def get_project_root() -> Path:
     """Return the active project root, checking RuntimeContext first."""
     override = current_runtime_context().project_root
@@ -29,7 +30,7 @@ def get_default_path() -> Path:
 
 
 def get_src_path() -> Path:
-    """Return TypeScript source root."""
+    """Return the configured source root directory."""
     return get_project_root() / os.environ.get("DESLOPPIFY_SRC", "src")
 
 

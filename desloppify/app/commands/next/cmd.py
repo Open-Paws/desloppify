@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from dataclasses import dataclass
 
 from desloppify import state as state_mod
@@ -51,6 +52,8 @@ from . import render_nudges as next_nudges_mod
 from .render_support import render_queue_header as _render_queue_header
 from .render_support import scorecard_subjective as _scorecard_subjective_impl
 from .render_support import show_empty_queue as _show_empty_queue
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -188,9 +191,7 @@ def _emit_requested_output(
             return True
         raise CommandError("Failed to write output file")
 
-    if next_output_mod.emit_non_terminal_output(opts.output_format, payload, items):
-        return True
-    return False
+    return next_output_mod.emit_non_terminal_output(opts.output_format, payload, items)
 
 
 def _plan_queue_context(
@@ -203,7 +204,8 @@ def _plan_queue_context(
     plan_start_strict = get_plan_start_strict(effective_plan)
     try:
         breakdown = plan_aware_queue_breakdown(state, plan_data, context=context)
-    except PLAN_LOAD_EXCEPTIONS:
+    except PLAN_LOAD_EXCEPTIONS as exc:
+        logger.debug("Unable to build plan-aware queue breakdown.", exc_info=exc)
         breakdown = None
     return plan_start_strict, breakdown
 

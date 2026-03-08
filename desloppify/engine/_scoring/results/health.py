@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TypedDict
+
 from desloppify.base.text_utils import is_numeric
 from desloppify.engine._scoring.policy.core import (
     MECHANICAL_DIMENSION_WEIGHTS,
@@ -10,6 +12,33 @@ from desloppify.engine._scoring.policy.core import (
     SUBJECTIVE_DIMENSION_WEIGHTS,
     SUBJECTIVE_WEIGHT_FRACTION,
 )
+
+
+class HealthBreakdownEntry(TypedDict):
+    """Per-dimension contribution row used in score transparency output."""
+
+    name: str
+    pool: str
+    score: float
+    checks: float
+    sample_factor: float
+    configured_weight: float
+    effective_weight: float
+    pool_share: float
+    overall_per_point: float
+    overall_contribution: float
+    overall_drag: float
+
+
+class HealthBreakdown(TypedDict):
+    """Typed shape returned by ``compute_health_breakdown``."""
+
+    overall_score: float
+    mechanical_fraction: float
+    subjective_fraction: float
+    mechanical_avg: float
+    subjective_avg: float | None
+    entries: list[HealthBreakdownEntry]
 
 
 def _normalize_dimension_name(name: str) -> str:
@@ -51,7 +80,7 @@ def compute_health_breakdown(
     dimension_scores: dict,
     *,
     score_key: str = "score",
-) -> dict[str, object]:
+) -> HealthBreakdown:
     """Return pool averages and weighted contribution breakdown for score transparency."""
     if not dimension_scores:
         return {
@@ -124,7 +153,7 @@ def compute_health_breakdown(
             1,
         )
 
-    entries: list[dict[str, float | str]] = []
+    entries: list[HealthBreakdownEntry] = []
     for row in mechanical_rows:
         pool_share = (
             float(row["effective_weight"]) / mech_weight if mech_weight > 0 else 0.0
@@ -193,4 +222,3 @@ def compute_health_score(
 
 
 __all__ = ["compute_health_breakdown", "compute_health_score"]
-

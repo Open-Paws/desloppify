@@ -31,11 +31,7 @@ def status_matches(item_status: str, status_filter: str) -> bool:
 
 def is_subjective_issue(item: WorkQueueItem | dict[str, Any]) -> bool:
     detector = item.get("detector")
-    if detector in {"subjective_assessment"}:
-        return True
-    if detector == "holistic_review":
-        return True
-    return False
+    return detector in {"subjective_assessment", "holistic_review"}
 
 
 def is_review_issue(item: WorkQueueItem | dict[str, Any]) -> bool:
