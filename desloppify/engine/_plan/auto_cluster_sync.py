@@ -362,7 +362,7 @@ def sync_subjective_clusters(
     if has_objective_items and not cycle_just_completed:
         objective_evict = [
             fid for fid in order
-            if fid in under_target_ids
+            if fid in under_target_ids or fid in stale_state_ids
         ]
         for fid in objective_evict:
             order.remove(fid)

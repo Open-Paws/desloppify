@@ -877,6 +877,37 @@ def test_under_target_evicted_when_objective_backlog_returns():
     assert subjective_ut == []
 
 
+def test_stale_ids_evicted_when_objective_backlog_returns():
+    """Stale subjective IDs must not stay in queue when objective issues exist."""
+    plan = empty_plan()
+    stale_state = _stale_state("design_coherence", "error_consistency", score=50.0)
+    plan["queue_order"] = [
+        "subjective::design_coherence",
+        "subjective::error_consistency",
+    ]
+
+    # Step 1: no objective items -> stale IDs remain present
+    state_no_obj = {**stale_state, "issues": {}}
+    auto_cluster_issues(plan, state_no_obj)
+    order = plan["queue_order"]
+    assert "subjective::design_coherence" in order
+    assert "subjective::error_consistency" in order
+
+    # Step 2: objective issues reappear -> stale IDs should be evicted
+    state_with_obj = {
+        **stale_state,
+        "issues": {
+            "u1": _issue("u1", "unused"),
+            "u2": _issue("u2", "unused"),
+        },
+    }
+    auto_cluster_issues(plan, state_with_obj)
+
+    order = plan["queue_order"]
+    assert "subjective::design_coherence" not in order
+    assert "subjective::error_consistency" not in order
+
+
 def test_under_target_lifecycle_inject_then_evict():
     """Full lifecycle: inject under-target when no objective, evict when objective returns."""
     plan = empty_plan()

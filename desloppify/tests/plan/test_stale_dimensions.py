@@ -222,12 +222,8 @@ def test_no_injection_when_queue_has_real_items():
     assert "subjective::design_coherence" not in plan["queue_order"]
 
 
-def test_stale_ids_stay_in_queue_with_objective_backlog():
-    """Stale IDs already in queue stay put when objective backlog exists.
-
-    The lifecycle filter in _work_queue/core.py hides them at display time.
-    No eviction needed — queue_order is stable.
-    """
+def test_stale_ids_evicted_when_objective_backlog_exists():
+    """Stale IDs should be removed from queue_order when objective work exists."""
     plan = _plan_with_queue(
         "subjective::design_coherence",
         "subjective::error_consistency",
@@ -241,10 +237,11 @@ def test_stale_ids_stay_in_queue_with_objective_backlog():
     }
 
     result = sync_stale_dimensions(plan, state)
-    # Stale IDs remain in queue (hidden at display time by lifecycle filter)
-    assert result.pruned == []
-    assert "subjective::design_coherence" in plan["queue_order"]
-    assert "subjective::error_consistency" in plan["queue_order"]
+    # Stale IDs are evicted while objective backlog exists
+    assert "subjective::design_coherence" in result.pruned
+    assert "subjective::error_consistency" in result.pruned
+    assert "subjective::design_coherence" not in plan["queue_order"]
+    assert "subjective::error_consistency" not in plan["queue_order"]
     # No new injection either (objective backlog blocks new injections)
     assert result.injected == []
 

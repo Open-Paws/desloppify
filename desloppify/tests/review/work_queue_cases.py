@@ -932,6 +932,66 @@ def test_plan_ordered_stale_subjective_gated_with_objective_backlog():
     assert len(subj_with_plan) == 0
 
 
+def test_triage_pending_does_not_unhide_stale_subjective_items():
+    """Triage presence must not bypass stale-subjective gating."""
+    from desloppify.engine._plan.schema import empty_plan
+
+    state = _state(
+        [
+            _issue("smells::src/a.py::x", detector="smells", tier=3),
+            _issue("smells::src/b.py::x", detector="smells", tier=3),
+        ],
+        dimension_scores={
+            "Naming quality": {
+                "score": 70.0,
+                "strict": 70.0,
+                "failing": 1,
+                "detectors": {
+                    "subjective_assessment": {"dimension_key": "naming_quality"},
+                },
+            },
+            "Error consistency": {
+                "score": 72.0,
+                "strict": 72.0,
+                "failing": 1,
+                "detectors": {
+                    "subjective_assessment": {"dimension_key": "error_consistency"},
+                },
+            },
+        },
+    )
+    state["subjective_assessments"] = {
+        "naming_quality": {
+            "score": 70.0,
+            "needs_review_refresh": True,
+            "stale_since": "2026-01-01T00:00:00+00:00",
+        },
+        "error_consistency": {
+            "score": 72.0,
+            "needs_review_refresh": True,
+            "stale_since": "2026-01-01T00:00:00+00:00",
+        },
+    }
+
+    plan = empty_plan()
+    plan["queue_order"] = [
+        "triage::observe",
+        "subjective::naming_quality",
+        "subjective::error_consistency",
+        "smells::src/a.py::x",
+        "smells::src/b.py::x",
+    ]
+
+    queue = build_work_queue(
+        state, count=None, include_subjective=True, plan=plan,
+    )
+    ids = [item["id"] for item in queue["items"]]
+    assert "smells::src/a.py::x" in ids
+    assert "smells::src/b.py::x" in ids
+    assert "subjective::naming_quality" not in ids
+    assert "subjective::error_consistency" not in ids
+
+
 # ── Lifecycle filter runs after plan_presort ───────────
 
 

@@ -59,7 +59,10 @@ def apply_lifecycle_filter(items: list[WorkQueueItem]) -> list[WorkQueueItem]:
     if _has_triage_stages(items):
         # Triage should not block while objective queue work still exists.
         if _has_objective_items(items):
-            return [item for item in items if not _is_triage_stage(item)]
+            return [
+                item for item in items
+                if not _is_triage_stage(item) and not _is_endgame_only(item)
+            ]
         return [
             item for item in items
             if item.get("kind") in ("workflow_stage", "workflow_action")

@@ -265,3 +265,80 @@ def test_guard_all_resolved_ids_stale(tmp_path, monkeypatch):
     # Trying to resolve only stale IDs → nothing to block
     blocked = _check_queue_order_guard(state, ["stale_1"], "fixed")
     assert blocked is False
+
+
+def test_guard_allows_objective_when_triage_pending_and_stale_cluster_exists(
+    tmp_path, monkeypatch,
+):
+    """Triage-pending state must not surface stale cluster ahead of objective work."""
+    state = {
+        "issues": {
+            "smells::src/a.py::x": {
+                "id": "smells::src/a.py::x",
+                "status": "open",
+                "detector": "smells",
+                "file": "src/a.py",
+                "tier": 3,
+                "confidence": "high",
+                "summary": "x",
+            },
+        },
+        "scan_count": 5,
+        "dimension_scores": {
+            "Naming quality": {
+                "score": 70.0,
+                "strict": 70.0,
+                "failing": 1,
+                "detectors": {
+                    "subjective_assessment": {"dimension_key": "naming_quality"},
+                },
+            },
+            "Error consistency": {
+                "score": 72.0,
+                "strict": 72.0,
+                "failing": 1,
+                "detectors": {
+                    "subjective_assessment": {"dimension_key": "error_consistency"},
+                },
+            },
+        },
+        "subjective_assessments": {
+            "naming_quality": {
+                "score": 70.0,
+                "needs_review_refresh": True,
+                "stale_since": "2026-01-01T00:00:00+00:00",
+            },
+            "error_consistency": {
+                "score": 72.0,
+                "needs_review_refresh": True,
+                "stale_since": "2026-01-01T00:00:00+00:00",
+            },
+        },
+    }
+    _setup_plan(
+        tmp_path,
+        monkeypatch,
+        [
+            "triage::observe",
+            "subjective::naming_quality",
+            "subjective::error_consistency",
+            "smells::src/a.py::x",
+        ],
+        clusters={
+            "auto/stale-review": {
+                "name": "auto/stale-review",
+                "auto": True,
+                "cluster_key": "subjective::stale",
+                "issue_ids": [
+                    "subjective::naming_quality",
+                    "subjective::error_consistency",
+                ],
+                "description": "Re-review stale dimensions",
+                "action": "desloppify review --prepare --dimensions naming_quality,error_consistency",
+                "user_modified": False,
+            },
+        },
+    )
+
+    blocked = _check_queue_order_guard(state, ["smells::src/a.py::x"], "fixed")
+    assert blocked is False

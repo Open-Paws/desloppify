@@ -5,7 +5,8 @@ Two independent sync functions:
 - **sync_unscored_dimensions** — append never-scored (placeholder) dimensions
   to the *back* of the queue unconditionally.
 - **sync_stale_dimensions** — append stale (previously-scored) dimensions to
-  the *back* of the queue when no objective items remain.
+  the *back* of the queue when no objective items remain, and evict them
+  again when objective backlog returns.
 
 Invariant: new items are always appended — sync never reorders existing queue.
 """
@@ -148,6 +149,8 @@ def sync_stale_dimensions(
     1. Remove any ``subjective::*`` IDs from ``queue_order`` that are no
        longer stale/under-target and not unscored (avoids pruning IDs owned
        by ``sync_unscored_dimensions``).
+       When objective backlog exists (and this is not a just-completed cycle),
+       stale/under-target IDs are also evicted so they do not block objective work.
     2. Append stale and under-target dimension IDs to the *back* when either:
        a. No objective items remain (mid-cycle), OR
        b. A cycle just completed.
@@ -163,12 +166,19 @@ def sync_stale_dimensions(
     unscored_ids = current_unscored_ids(state)
     order: list[str] = plan["queue_order"]
 
+    objective_backlog = has_objective_backlog(state, policy)
+
     # --- Cleanup: prune resolved subjective IDs --------------------------
-    # Only prune IDs that are no longer injectable and not unscored.
-    _prune_subjective_ids(order, keep_ids=injectable_ids | unscored_ids, pruned=result.pruned)
+    # Keep unscored IDs always. Keep stale/under-target only when objective
+    # backlog is clear, or when intentionally front-loading right after a
+    # completed cycle.
+    keep_ids = unscored_ids | injectable_ids
+    if objective_backlog and not cycle_just_completed:
+        keep_ids = unscored_ids
+    _prune_subjective_ids(order, keep_ids=keep_ids, pruned=result.pruned)
 
     # --- Inject stale + under-target dimensions --------------------------
-    should_inject = not has_objective_backlog(state, policy) or cycle_just_completed
+    should_inject = not objective_backlog or cycle_just_completed
 
     if should_inject and injectable_ids:
         _inject_subjective_ids(order, inject_ids=injectable_ids, injected=result.injected)
