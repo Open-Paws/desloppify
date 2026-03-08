@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from desloppify.app.commands.plan.triage_playbook import TRIAGE_STAGE_DEPENDENCIES
 from desloppify.base.output.terminal import colorize
+from desloppify.engine.plan import TRIAGE_IDS, TRIAGE_STAGE_IDS
+
+_CLUSTER_INDIVIDUAL_THRESHOLD = 10
 
 
 def check_cluster_guard(patterns: list[str], plan: dict, state: dict) -> bool:
     """Return True if blocked by cluster guard, False if OK to proceed."""
-    from . import override_handlers as host  # noqa: PLC0415
-
     clusters = plan.get("clusters", {})
     issues = state.get("issues", {})
     for pattern in patterns:
@@ -28,7 +30,7 @@ def check_cluster_guard(patterns: list[str], plan: dict, state: dict) -> bool:
                 )
                 print(colorize(f"  Use: desloppify plan cluster add {pattern} <issue-id>", "dim"))
                 return True
-            if len(ids) <= host._CLUSTER_INDIVIDUAL_THRESHOLD:
+            if len(ids) <= _CLUSTER_INDIVIDUAL_THRESHOLD:
                 print_cluster_guard(pattern, ids, state)
                 return True
     return False
@@ -75,10 +77,8 @@ def resolve_synthetic_ids(patterns: list[str]) -> tuple[list[str], list[str]]:
 
 def blocked_triage_stages(plan: dict) -> dict[str, list[str]]:
     """Return triage stages that are blocked by unmet dependencies."""
-    from . import override_handlers as host  # noqa: PLC0415
-
     order_set = set(plan.get("queue_order", []))
-    present = order_set & host.TRIAGE_IDS
+    present = order_set & TRIAGE_IDS
     if not present:
         return {}
 
@@ -86,10 +86,10 @@ def blocked_triage_stages(plan: dict) -> dict[str, list[str]]:
     stage_names = ("observe", "reflect", "organize", "enrich", "sense-check", "commit")
 
     blocked: dict[str, list[str]] = {}
-    for sid, name in zip(host.TRIAGE_STAGE_IDS, stage_names, strict=False):
+    for sid, name in zip(TRIAGE_STAGE_IDS, stage_names, strict=False):
         if sid not in present or name in confirmed:
             continue
-        deps = host.TRIAGE_STAGE_DEPENDENCIES.get(name, set())
+        deps = TRIAGE_STAGE_DEPENDENCIES.get(name, set())
         unmet = sorted(
             f"triage::{dep}" for dep in deps if f"triage::{dep}" in present and dep not in confirmed
         )

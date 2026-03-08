@@ -6,7 +6,7 @@ from pathlib import Path
 
 from desloppify import state as state_mod
 from desloppify.base.discovery.file_paths import safe_write_text
-from desloppify.engine.plan import get_plan_file, plan_path_for_state
+from desloppify.engine.plan import get_plan_file, plan_path_for_state, save_plan
 
 
 def _resolve_state_file(path: Path | None) -> Path:
@@ -54,11 +54,7 @@ def save_plan_state_transactional(
 
     try:
         state_mod.save_state(state_data, effective_state_path)
-        # Keep this import-time indirection so tests monkeypatching
-        # override_handlers.save_plan still affect transactional writes.
-        from . import override_handlers as host  # noqa: PLC0415
-
-        host.save_plan(plan, effective_plan_path)
+        save_plan(plan, effective_plan_path)
     except Exception:
         _restore_file_snapshot(effective_state_path, state_snapshot)
         _restore_file_snapshot(effective_plan_path, plan_snapshot)

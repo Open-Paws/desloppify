@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import argparse
 
-from .confirmations_advanced import confirm_enrich as _confirm_enrich_impl
-from .confirmations_advanced import confirm_organize as _confirm_organize_impl
-from .confirmations_advanced import confirm_sense_check as _confirm_sense_check_impl
+from .confirmations_enrich import confirm_enrich as _confirm_enrich_impl
+from .confirmations_enrich import confirm_sense_check as _confirm_sense_check_impl
+from .confirmations_organize import confirm_organize as _confirm_organize_impl
 from .confirmations_basic import MIN_ATTESTATION_LEN as _MIN_ATTESTATION_LEN
 from .confirmations_basic import confirm_observe as _confirm_observe_impl
 from .confirmations_basic import confirm_reflect as _confirm_reflect_impl

@@ -52,7 +52,12 @@ from ..runtime_paths import (
 from ..runtime_paths import (
     subagent_runs_dir as _subagent_runs_dir,
 )
-from . import core as batch_core_mod
+from .core_merge_support import assessment_weight  # noqa: F401 — re-exported
+from .core_models import BatchResultPayload
+from .core_normalize import normalize_batch_result
+from .core_parse import extract_json_payload, parse_batch_selection
+from .merge import merge_batch_results
+from .prompt_template import render_batch_prompt
 from . import execution as review_batches_mod
 
 FOLLOWUP_SCAN_TIMEOUT_SECONDS = 45 * 60
@@ -101,16 +106,16 @@ def _try_load_prepared_packet() -> dict | None:
 
 def _merge_batch_results(batch_results: list[object]) -> dict[str, object]:
     """Deterministically merge assessments/issues across batch outputs."""
-    normalized_results: list[batch_core_mod.BatchResultPayload] = []
+    normalized_results: list[BatchResultPayload] = []
     for result in batch_results:
         if hasattr(result, "to_dict") and callable(result.to_dict):
             payload = result.to_dict()
             if isinstance(payload, dict):
-                normalized_results.append(cast(batch_core_mod.BatchResultPayload, payload))
+                normalized_results.append(cast(BatchResultPayload, payload))
                 continue
         if isinstance(result, dict):
-            normalized_results.append(cast(batch_core_mod.BatchResultPayload, result))
-    return batch_core_mod.merge_batch_results(
+            normalized_results.append(cast(BatchResultPayload, result))
+    return merge_batch_results(
         normalized_results,
         abstraction_sub_axes=ABSTRACTION_SUB_AXES,
         abstraction_component_names=ABSTRACTION_COMPONENT_NAMES,
@@ -249,7 +254,7 @@ def do_run_batches(args, state, lang, state_file, config: dict | None = None) ->
             packet_path=packet_path,
             run_root=run_root,
             repo_root=repo_root,
-            build_prompt_fn=batch_core_mod.build_batch_prompt,
+            build_prompt_fn=render_batch_prompt,
             safe_write_text_fn=safe_write_text,
             colorize_fn=colorize,
         )
@@ -260,8 +265,8 @@ def do_run_batches(args, state, lang, state_file, config: dict | None = None) ->
             failures=failures,
             output_files=output_files,
             allowed_dims=allowed_dims,
-            extract_payload_fn=lambda raw: batch_core_mod.extract_json_payload(raw, log_fn=log),
-            normalize_result_fn=lambda payload, dims: batch_core_mod.normalize_batch_result(
+            extract_payload_fn=lambda raw: extract_json_payload(raw, log_fn=log),
+            normalize_result_fn=lambda payload, dims: normalize_batch_result(
                 payload,
                 dims,
                 max_batch_issues=max_batch_issues_for_dimension_count(
@@ -282,7 +287,7 @@ def do_run_batches(args, state, lang, state_file, config: dict | None = None) ->
         selected_batch_indexes_fn=lambda args, *, batch_count: selected_batch_indexes(
             raw_selection=getattr(args, "only_batches", None),
             batch_count=batch_count,
-            parse_fn=batch_core_mod.parse_batch_selection,
+            parse_fn=parse_batch_selection,
             colorize_fn=colorize,
         ),
         prepare_run_artifacts_fn=_prepare_run_artifacts,
@@ -407,8 +412,8 @@ def do_import_run(
         failures=[],
         output_files=output_files,
         allowed_dims=allowed_dims,
-        extract_payload_fn=lambda raw: batch_core_mod.extract_json_payload(raw, log_fn=log),
-        normalize_result_fn=lambda payload, dims: batch_core_mod.normalize_batch_result(
+        extract_payload_fn=lambda raw: extract_json_payload(raw, log_fn=log),
+        normalize_result_fn=lambda payload, dims: normalize_batch_result(
             payload,
             dims,
             max_batch_issues=max_batch_issues_for_dimension_count(len(dims)),

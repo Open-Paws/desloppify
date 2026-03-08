@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from desloppify.app.commands.plan.override_handlers import (
+from desloppify.app.commands.plan.override_resolve_helpers import (
     _CLUSTER_INDIVIDUAL_THRESHOLD,
-    _check_cluster_guard,
+    check_cluster_guard as _check_cluster_guard,
 )
 from desloppify.engine._plan.schema import empty_plan, ensure_plan_defaults
 

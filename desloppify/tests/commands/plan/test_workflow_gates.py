@@ -13,7 +13,8 @@ from __future__ import annotations
 
 import argparse
 
-import desloppify.app.commands.plan.override_handlers as override_mod
+import desloppify.app.commands.plan.override_resolve_cmd as resolve_mod
+import desloppify.app.commands.plan.override_misc as misc_mod
 from desloppify.engine._plan.schema import empty_plan
 from desloppify.engine._plan.constants import (
     WORKFLOW_CREATE_PLAN_ID,
@@ -95,19 +96,23 @@ def _scan_gate_args(**overrides) -> argparse.Namespace:
 
 def _mock_plan_io(monkeypatch, plan):
     """Patch load_plan/save_plan, return list of saved plans."""
-    monkeypatch.setattr(override_mod, "load_plan", lambda *a, **kw: plan)
+    monkeypatch.setattr(resolve_mod, "load_plan", lambda *a, **kw: plan)
+    monkeypatch.setattr(misc_mod, "load_plan", lambda *a, **kw: plan)
     saved = []
-    monkeypatch.setattr(override_mod, "save_plan", lambda p, *a, **kw: saved.append(p))
+    monkeypatch.setattr(resolve_mod, "save_plan", lambda p, *a, **kw: saved.append(p))
+    monkeypatch.setattr(misc_mod, "save_plan", lambda p, *a, **kw: saved.append(p))
     return saved
 
 
 def _mock_state(monkeypatch, state):
     """Patch state_path and load_state to return our spoofed state."""
     import desloppify.state as state_mod_real
-    monkeypatch.setattr(override_mod, "state_path", lambda args: None)
+    monkeypatch.setattr(resolve_mod, "state_path", lambda args: None)
+    monkeypatch.setattr(misc_mod, "state_path", lambda args: None)
     monkeypatch.setattr(state_mod_real, "load_state", lambda path=None: state)
-    # Also patch the module-level import used in override_handlers
-    monkeypatch.setattr(override_mod.state_mod, "load_state", lambda path=None: state)
+    # Also patch the module-level import used in the split modules
+    monkeypatch.setattr(resolve_mod.state_mod, "load_state", lambda path=None: state)
+    monkeypatch.setattr(misc_mod.state_mod, "load_state", lambda path=None: state)
 
 
 # ===========================================================================
@@ -122,7 +127,7 @@ class TestTriageGateBlocksWorkflow:
         plan = _plan_with_workflow_item(triage_complete=False)
         _mock_plan_io(monkeypatch, plan)
 
-        override_mod.cmd_plan_resolve(_args())
+        resolve_mod.cmd_plan_resolve(_args())
 
         out = capsys.readouterr().out
         assert "triage not complete" in out
@@ -138,7 +143,7 @@ class TestTriageGateBlocksWorkflow:
         }
         _mock_plan_io(monkeypatch, plan)
 
-        override_mod.cmd_plan_resolve(_args())
+        resolve_mod.cmd_plan_resolve(_args())
 
         out = capsys.readouterr().out
         assert "triage not complete" in out
@@ -155,7 +160,7 @@ class TestTriageGateBlocksWorkflow:
         }
         _mock_plan_io(monkeypatch, plan)
 
-        override_mod.cmd_plan_resolve(_args())
+        resolve_mod.cmd_plan_resolve(_args())
 
         out = capsys.readouterr().out
         assert "triage not complete" in out
@@ -173,7 +178,7 @@ class TestTriageGateBlocksWorkflow:
         }
         _mock_plan_io(monkeypatch, plan)
 
-        override_mod.cmd_plan_resolve(_args())
+        resolve_mod.cmd_plan_resolve(_args())
 
         out = capsys.readouterr().out
         assert "triage not complete" in out
@@ -183,7 +188,7 @@ class TestTriageGateBlocksWorkflow:
         plan = _plan_with_workflow_item(triage_complete=False)
         _mock_plan_io(monkeypatch, plan)
 
-        override_mod.cmd_plan_resolve(_args(
+        resolve_mod.cmd_plan_resolve(_args(
             force_resolve=True,
             note="too short",
             confirm=True,
@@ -203,7 +208,7 @@ class TestTriageGateBlocksWorkflow:
         _mock_state(monkeypatch, state)
 
         long_note = "Skipping triage because I manually reviewed all findings in the previous session"
-        override_mod.cmd_plan_resolve(_args(
+        resolve_mod.cmd_plan_resolve(_args(
             force_resolve=True,
             note=long_note,
             confirm=True,
@@ -224,7 +229,7 @@ class TestTriageGateBlocksWorkflow:
         saved = _mock_plan_io(monkeypatch, plan)
         _mock_state(monkeypatch, state)
 
-        override_mod.cmd_plan_resolve(_args())
+        resolve_mod.cmd_plan_resolve(_args())
 
         out = capsys.readouterr().out
         assert "Resolved" in out
@@ -248,7 +253,7 @@ class TestScanGateBlocksWorkflow:
         _mock_plan_io(monkeypatch, plan)
         _mock_state(monkeypatch, state)
 
-        override_mod.cmd_plan_resolve(_args())
+        resolve_mod.cmd_plan_resolve(_args())
 
         out = capsys.readouterr().out
         assert "no scan has run this cycle" in out
@@ -263,7 +268,7 @@ class TestScanGateBlocksWorkflow:
         saved = _mock_plan_io(monkeypatch, plan)
         _mock_state(monkeypatch, state)
 
-        override_mod.cmd_plan_resolve(_args())
+        resolve_mod.cmd_plan_resolve(_args())
 
         out = capsys.readouterr().out
         assert "Resolved" in out
@@ -279,7 +284,7 @@ class TestScanGateBlocksWorkflow:
         saved = _mock_plan_io(monkeypatch, plan)
         _mock_state(monkeypatch, state)
 
-        override_mod.cmd_plan_resolve(_args())
+        resolve_mod.cmd_plan_resolve(_args())
 
         out = capsys.readouterr().out
         assert "Resolved" in out
@@ -295,7 +300,7 @@ class TestScanGateBlocksWorkflow:
         _mock_state(monkeypatch, state)
 
         long_note = "Forcing resolution because scan results were already reviewed manually in detail"
-        override_mod.cmd_plan_resolve(_args(
+        resolve_mod.cmd_plan_resolve(_args(
             force_resolve=True,
             note=long_note,
             confirm=True,
@@ -314,7 +319,7 @@ class TestScanGateBlocksWorkflow:
         )
         saved = _mock_plan_io(monkeypatch, plan)
 
-        override_mod.cmd_plan_resolve(_args())
+        resolve_mod.cmd_plan_resolve(_args())
 
         out = capsys.readouterr().out
         assert "Resolved" in out
@@ -331,7 +336,7 @@ class TestScanGateBlocksWorkflow:
         _mock_plan_io(monkeypatch, plan)
         _mock_state(monkeypatch, state)
 
-        override_mod.cmd_plan_resolve(_args(patterns=[WORKFLOW_CREATE_PLAN_ID]))
+        resolve_mod.cmd_plan_resolve(_args(patterns=[WORKFLOW_CREATE_PLAN_ID]))
 
         out = capsys.readouterr().out
         assert "no scan has run this cycle" in out
@@ -354,7 +359,7 @@ class TestScanGateCommand:
         _mock_plan_io(monkeypatch, plan)
         _mock_state(monkeypatch, state)
 
-        override_mod.cmd_plan_scan_gate(_scan_gate_args())
+        misc_mod.cmd_plan_scan_gate(_scan_gate_args())
 
         out = capsys.readouterr().out
         assert "BLOCKED" in out
@@ -368,7 +373,7 @@ class TestScanGateCommand:
         _mock_plan_io(monkeypatch, plan)
         _mock_state(monkeypatch, state)
 
-        override_mod.cmd_plan_scan_gate(_scan_gate_args())
+        misc_mod.cmd_plan_scan_gate(_scan_gate_args())
 
         out = capsys.readouterr().out
         assert "PASSED" in out
@@ -383,7 +388,7 @@ class TestScanGateCommand:
         _mock_plan_io(monkeypatch, plan)
         _mock_state(monkeypatch, state)
 
-        override_mod.cmd_plan_scan_gate(_scan_gate_args())
+        misc_mod.cmd_plan_scan_gate(_scan_gate_args())
 
         out = capsys.readouterr().out
         assert "SKIPPED" in out
@@ -397,7 +402,7 @@ class TestScanGateCommand:
         _mock_plan_io(monkeypatch, plan)
         _mock_state(monkeypatch, state)
 
-        override_mod.cmd_plan_scan_gate(_scan_gate_args(skip=True, note="too short"))
+        misc_mod.cmd_plan_scan_gate(_scan_gate_args(skip=True, note="too short"))
 
         out = capsys.readouterr().out
         assert "50 chars" in out
@@ -412,7 +417,7 @@ class TestScanGateCommand:
         _mock_state(monkeypatch, state)
 
         long_note = "Skipping scan because I already validated all findings manually in the previous session"
-        override_mod.cmd_plan_scan_gate(_scan_gate_args(skip=True, note=long_note))
+        misc_mod.cmd_plan_scan_gate(_scan_gate_args(skip=True, note=long_note))
 
         out = capsys.readouterr().out
         assert "satisfied" in out
@@ -428,7 +433,7 @@ class TestScanGateCommand:
         _mock_plan_io(monkeypatch, plan)
         _mock_state(monkeypatch, state)
 
-        override_mod.cmd_plan_scan_gate(_scan_gate_args(skip=True, note="x" * 50))
+        misc_mod.cmd_plan_scan_gate(_scan_gate_args(skip=True, note="x" * 50))
 
         out = capsys.readouterr().out
         assert "already ran" in out
@@ -437,7 +442,7 @@ class TestScanGateCommand:
         plan = empty_plan()  # no scan_count_at_plan_start
         _mock_plan_io(monkeypatch, plan)
 
-        override_mod.cmd_plan_scan_gate(_scan_gate_args())
+        misc_mod.cmd_plan_scan_gate(_scan_gate_args())
 
         out = capsys.readouterr().out
         assert "not applicable" in out
@@ -461,7 +466,7 @@ class TestBothGatesInteraction:
         _mock_plan_io(monkeypatch, plan)
         _mock_state(monkeypatch, state)
 
-        override_mod.cmd_plan_resolve(_args())
+        resolve_mod.cmd_plan_resolve(_args())
 
         out = capsys.readouterr().out
         assert "triage not complete" in out
@@ -477,7 +482,7 @@ class TestBothGatesInteraction:
         saved = _mock_plan_io(monkeypatch, plan)
         _mock_state(monkeypatch, state)
 
-        override_mod.cmd_plan_resolve(_args())
+        resolve_mod.cmd_plan_resolve(_args())
 
         out = capsys.readouterr().out
         assert "Resolved" in out
@@ -490,7 +495,7 @@ class TestBothGatesInteraction:
 
         _mock_plan_io(monkeypatch, plan)
 
-        override_mod.cmd_plan_resolve(_args(patterns=["triage::observe"]))
+        resolve_mod.cmd_plan_resolve(_args(patterns=["triage::observe"]))
 
         out = capsys.readouterr().out
         assert "Resolved" in out

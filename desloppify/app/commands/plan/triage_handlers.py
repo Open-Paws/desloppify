@@ -114,8 +114,22 @@ def cmd_plan_triage(args: argparse.Namespace) -> None:
         cmd_stage_prompt(args, services=resolved_services)
         return
     if getattr(args, "run_stages", False):
-        from .triage.runner.orchestrator import do_run_triage_stages
-        do_run_triage_stages(args, services=resolved_services)
+        from desloppify.base.output.terminal import colorize
+        from .triage.runner.orchestrator_common import parse_only_stages
+        runner = str(getattr(args, "runner", "codex")).strip().lower()
+        try:
+            stages_to_run = parse_only_stages(getattr(args, "only_stages", None))
+        except ValueError as exc:
+            print(colorize(f"  {exc}", "red"))
+            return
+        if runner == "claude":
+            from .triage.runner.orchestrator_claude import run_claude_orchestrator
+            run_claude_orchestrator(args, services=resolved_services)
+        elif runner == "codex":
+            from .triage.runner.orchestrator_codex_pipeline import run_codex_pipeline
+            run_codex_pipeline(args, stages_to_run=stages_to_run, services=resolved_services)
+        else:
+            print(colorize(f"  Unknown runner: {runner}. Use 'codex' or 'claude'.", "red"))
         return
 
     if getattr(args, "start", False):

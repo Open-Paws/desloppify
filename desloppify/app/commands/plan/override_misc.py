@@ -6,64 +6,75 @@ import argparse
 from pathlib import Path
 
 from desloppify import state as state_mod
+from desloppify.app.commands.helpers.runtime import command_runtime
+from desloppify.app.commands.helpers.state import require_completed_scan, state_path
+from desloppify.app.commands.plan._resolve import resolve_ids_from_patterns
+from desloppify.app.commands.plan.override_io import (
+    _plan_file_for_state,
+    save_plan_state_transactional,
+)
 from desloppify.base.output.terminal import colorize
+from desloppify.engine.plan import (
+    annotate_issue,
+    append_log_entry,
+    clear_focus,
+    describe_issue,
+    load_plan,
+    purge_uncommitted_ids,
+    save_plan,
+    set_focus,
+)
 
 
 def cmd_plan_describe(args: argparse.Namespace) -> None:
     """Set augmented description on issues."""
-    from . import override_handlers as host  # noqa: PLC0415
-
-    state = host.command_runtime(args).state
-    if not host.require_completed_scan(state):
+    state = command_runtime(args).state
+    if not require_completed_scan(state):
         return
 
     patterns: list[str] = getattr(args, "patterns", [])
     text: str = getattr(args, "text", "")
 
-    plan = host.load_plan()
-    issue_ids = host.resolve_ids_from_patterns(state, patterns, plan=plan)
+    plan = load_plan()
+    issue_ids = resolve_ids_from_patterns(state, patterns, plan=plan)
     if not issue_ids:
         print(colorize("  No matching issues found.", "yellow"))
         return
 
     for fid in issue_ids:
-        host.describe_issue(plan, fid, text or None)
-    host.append_log_entry(plan, "describe", issue_ids=issue_ids, actor="user", detail={"text": text or None})
-    host.save_plan(plan)
+        describe_issue(plan, fid, text or None)
+    append_log_entry(plan, "describe", issue_ids=issue_ids, actor="user", detail={"text": text or None})
+    save_plan(plan)
     print(colorize(f"  Set description on {len(issue_ids)} issue(s).", "green"))
 
 
 def cmd_plan_note(args: argparse.Namespace) -> None:
     """Set note on issues."""
-    from . import override_handlers as host  # noqa: PLC0415
-
-    state = host.command_runtime(args).state
-    if not host.require_completed_scan(state):
+    state = command_runtime(args).state
+    if not require_completed_scan(state):
         return
 
     patterns: list[str] = getattr(args, "patterns", [])
     text: str | None = getattr(args, "text", None)
 
-    plan = host.load_plan()
-    issue_ids = host.resolve_ids_from_patterns(state, patterns, plan=plan)
+    plan = load_plan()
+    issue_ids = resolve_ids_from_patterns(state, patterns, plan=plan)
     if not issue_ids:
         print(colorize("  No matching issues found.", "yellow"))
         return
 
     for fid in issue_ids:
-        host.annotate_issue(plan, fid, text)
-    host.append_log_entry(plan, "note", issue_ids=issue_ids, actor="user", note=text)
-    host.save_plan(plan)
+        annotate_issue(plan, fid, text)
+    append_log_entry(plan, "note", issue_ids=issue_ids, actor="user", note=text)
+    save_plan(plan)
     print(colorize(f"  Set note on {len(issue_ids)} issue(s).", "green"))
 
 
 def cmd_plan_reopen(args: argparse.Namespace) -> None:
     """Reopen resolved issues from plan context."""
-    from . import override_handlers as host  # noqa: PLC0415
-
     patterns: list[str] = getattr(args, "patterns", [])
 
-    raw_state_path = host.state_path(args)
+    raw_state_path = state_path(args)
     state_file = (
         raw_state_path
         if isinstance(raw_state_path, Path)
@@ -72,7 +83,7 @@ def cmd_plan_reopen(args: argparse.Namespace) -> None:
         else None
     )
     state_data = state_mod.load_state(state_file)
-    plan_file = host._plan_file_for_state(state_file)
+    plan_file = _plan_file_for_state(state_file)
 
     reopened: list[str] = []
     for pattern in patterns:
@@ -82,8 +93,8 @@ def cmd_plan_reopen(args: argparse.Namespace) -> None:
         print(colorize("  No resolved issues matching: " + " ".join(patterns), "yellow"))
         return
 
-    plan = host.load_plan(plan_file)
-    host.purge_uncommitted_ids(plan, reopened)
+    plan = load_plan(plan_file)
+    purge_uncommitted_ids(plan, reopened)
 
     skipped = plan.get("skipped", {})
     count = 0
@@ -97,8 +108,8 @@ def cmd_plan_reopen(args: argparse.Namespace) -> None:
             order.add(fid)
             count += 1
 
-    host.append_log_entry(plan, "reopen", issue_ids=reopened, actor="user")
-    host._save_plan_state_transactional(
+    append_log_entry(plan, "reopen", issue_ids=reopened, actor="user")
+    save_plan_state_transactional(
         plan=plan,
         plan_path=plan_file,
         state_data=state_data,
@@ -112,17 +123,15 @@ def cmd_plan_reopen(args: argparse.Namespace) -> None:
 
 def cmd_plan_focus(args: argparse.Namespace) -> None:
     """Set or clear the active cluster focus."""
-    from . import override_handlers as host  # noqa: PLC0415
-
     clear_flag = getattr(args, "clear", False)
     cluster_name: str | None = getattr(args, "cluster_name", None)
 
-    plan = host.load_plan()
+    plan = load_plan()
     if clear_flag:
         prev = plan.get("active_cluster")
-        host.clear_focus(plan)
-        host.append_log_entry(plan, "focus", actor="user", detail={"action": "clear", "previous": prev})
-        host.save_plan(plan)
+        clear_focus(plan)
+        append_log_entry(plan, "focus", actor="user", detail={"action": "clear", "previous": prev})
+        save_plan(plan)
         print(colorize("  Focus cleared.", "green"))
         return
 
@@ -135,23 +144,21 @@ def cmd_plan_focus(args: argparse.Namespace) -> None:
         return
 
     try:
-        host.set_focus(plan, cluster_name)
+        set_focus(plan, cluster_name)
     except ValueError as ex:
         print(colorize(f"  {ex}", "red"))
         return
-    host.append_log_entry(plan, "focus", cluster_name=cluster_name, actor="user", detail={"action": "set"})
-    host.save_plan(plan)
+    append_log_entry(plan, "focus", cluster_name=cluster_name, actor="user", detail={"action": "set"})
+    save_plan(plan)
     print(colorize(f"  Focused on: {cluster_name}", "green"))
 
 
 def cmd_plan_scan_gate(args: argparse.Namespace) -> None:
     """Check or skip the scan requirement for workflow items."""
-    from . import override_handlers as host  # noqa: PLC0415
-
     skip = getattr(args, "skip", False)
     note: str | None = getattr(args, "note", None)
 
-    plan = host.load_plan()
+    plan = load_plan()
     scan_count_at_start = plan.get("scan_count_at_plan_start")
 
     if scan_count_at_start is None:
@@ -159,7 +166,7 @@ def cmd_plan_scan_gate(args: argparse.Namespace) -> None:
         print(colorize("  Scan gate is not applicable — workflow items gate themselves.", "dim"))
         return
 
-    resolved_state_path = host.state_path(args)
+    resolved_state_path = state_path(args)
     state_data = state_mod.load_state(resolved_state_path)
     current_scan_count = int(state_data.get("scan_count", 0) or 0)
     scan_ran = current_scan_count > scan_count_at_start
@@ -187,7 +194,7 @@ def cmd_plan_scan_gate(args: argparse.Namespace) -> None:
         return
 
     plan["scan_gate_skipped"] = True
-    host.append_log_entry(
+    append_log_entry(
         plan,
         "scan_gate_skip",
         actor="user",
@@ -197,7 +204,7 @@ def cmd_plan_scan_gate(args: argparse.Namespace) -> None:
             "current_scan_count": current_scan_count,
         },
     )
-    host.save_plan(plan)
+    save_plan(plan)
     print(colorize("  Scan requirement marked as satisfied (logged).", "yellow"))
 
 

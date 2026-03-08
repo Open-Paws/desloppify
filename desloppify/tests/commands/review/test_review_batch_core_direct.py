@@ -6,7 +6,9 @@ from pathlib import Path
 
 import pytest
 
-import desloppify.app.commands.review.batch.core as batch_core_mod
+from desloppify.app.commands.review.batch.core_normalize import normalize_batch_result
+from desloppify.app.commands.review.batch.merge import merge_batch_results
+from desloppify.app.commands.review.batch.prompt_template import render_batch_prompt
 from desloppify.app.commands.review.batch.scoring import (
     DimensionMergeScorer,
     ScoreInputs,
@@ -29,7 +31,7 @@ _ABSTRACTION_COMPONENT_NAMES = {
 
 
 def _merge(batch_results: list[dict]) -> dict[str, object]:
-    return batch_core_mod.merge_batch_results(
+    return merge_batch_results(
         batch_results,
         abstraction_sub_axes=_ABSTRACTION_SUB_AXES,
         abstraction_component_names=_ABSTRACTION_COMPONENT_NAMES,
@@ -93,7 +95,7 @@ def test_merge_keeps_scores_without_issues():
 
 
 def test_batch_prompt_requires_score_and_issue_consistency():
-    prompt = batch_core_mod.build_batch_prompt(
+    prompt = render_batch_prompt(
         repo_root=Path("/repo"),
         packet_path=Path("/repo/.desloppify/review_packets/p.json"),
         batch_index=0,
@@ -220,7 +222,7 @@ def test_merge_batch_results_merges_same_identifier_issues():
 
 def test_normalize_batch_result_rejects_low_score_without_same_dimension_issue():
     with pytest.raises(ValueError) as exc:
-        batch_core_mod.normalize_batch_result(
+        normalize_batch_result(
             payload={
                 "assessments": {"logic_clarity": LOW_SCORE_ISSUE_THRESHOLD - 10.0},
                 "dimension_notes": {
@@ -242,7 +244,7 @@ def test_normalize_batch_result_rejects_low_score_without_same_dimension_issue()
 
 
 def test_normalize_batch_result_accepts_low_score_with_same_dimension_issue():
-    assessments, issues, _notes, _judgment, _quality = batch_core_mod.normalize_batch_result(
+    assessments, issues, _notes, _judgment, _quality = normalize_batch_result(
         payload={
             "assessments": {"logic_clarity": LOW_SCORE_ISSUE_THRESHOLD - 10.0},
             "dimension_notes": {
@@ -277,7 +279,7 @@ def test_normalize_batch_result_accepts_low_score_with_same_dimension_issue():
 
 
 def test_normalize_batch_result_accepts_legacy_findings_alias():
-    assessments, issues, _notes, _judgment, _quality = batch_core_mod.normalize_batch_result(
+    assessments, issues, _notes, _judgment, _quality = normalize_batch_result(
         payload={
             "assessments": {"logic_clarity": 80.0},
             "dimension_notes": {
@@ -313,7 +315,7 @@ def test_normalize_batch_result_accepts_legacy_findings_alias():
 
 
 def test_normalize_batch_result_accepts_legacy_unreported_risk_key():
-    _assessments, _issues, notes, _judgment, _quality = batch_core_mod.normalize_batch_result(
+    _assessments, _issues, notes, _judgment, _quality = normalize_batch_result(
         payload={
             "assessments": {"logic_clarity": 90.0},
             "dimension_notes": {

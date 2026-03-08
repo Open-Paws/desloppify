@@ -1,394 +1,36 @@
-"""Batch execution flow helpers for review command."""
-
+"""Batch execution orchestration for review command."""
 from __future__ import annotations
-
-import json
 import math
 from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
 from typing import Any
-
-from desloppify.base.exception_sets import CommandError
-
-from ..batches_runtime import (
-    BatchRunSummaryConfig,
-    build_batch_tasks,
-    make_run_log_writer,
-    resolve_run_log_path,
-)
-from ..batches_runtime import (
-    write_run_summary as _write_run_summary_impl,
-)
+from ..batches_runtime import build_batch_tasks, make_run_log_writer, resolve_run_log_path
 from ..prompt_sections import explode_to_single_dimension
-from ..runner_parallel import BatchExecutionOptions, BatchProgressEvent
+from ..runner_parallel import BatchExecutionOptions
 from ..runtime.policy import resolve_batch_run_policy
+from .execution_dry_run import maybe_handle_dry_run
+from .execution_progress import (
+    build_initial_batch_status,
+    build_progress_reporter,
+    mark_interrupted_batches,
+    record_execution_issue,
+)
+from .execution_results import (
+    collect_and_reconcile_results,
+    enforce_import_coverage,
+    import_and_finalize,
+    log_run_start,
+    merge_and_write_results,
+)
+from .execution_summary import build_run_summary_writer
 from .scope import (
-    collect_reviewed_files_from_batches,
-    enforce_trusted_import_coverage_gate,
     normalize_dimension_list,
-    print_import_dimension_coverage_notice,
     print_preflight_dimension_scope_notice,
-    print_review_quality,
     require_batches,
     scored_dimensions_for_lang,
     validate_runner,
 )
-
-
-def _record_execution_issue(append_run_log_fn, batch_index: int, exc: Exception) -> None:
-    """Record one execute_batches callback/task failure in run.log."""
-    if batch_index < 0:
-        append_run_log_fn(f"execution-error heartbeat error={exc}")
-        return
-    append_run_log_fn(f"execution-error batch={batch_index + 1} error={exc}")
-
-
-def _build_progress_reporter(
-    *,
-    batch_positions: dict[int, int],
-    batch_status: dict[str, dict[str, object]],
-    stall_warned_batches: set[int],
-    total_batches: int,
-    stall_warning_seconds: float,
-    prompt_files: dict,
-    output_files: dict,
-    log_files: dict,
-    append_run_log,
-    colorize_fn,
-):
-    """Build the _report_progress closure used during batch execution."""
-
-    def _report_progress(
-        progress_event: BatchProgressEvent,
-    ) -> None:
-        batch_index = progress_event.batch_index
-        event = progress_event.event
-        code = progress_event.code
-        details = progress_event.details
-        if event == "heartbeat":
-            _handle_heartbeat(
-                details=details,
-                total_batches=total_batches,
-                stall_warning_seconds=stall_warning_seconds,
-                stall_warned_batches=stall_warned_batches,
-                append_run_log=append_run_log,
-                colorize_fn=colorize_fn,
-            )
-            return
-
-        position = batch_positions.get(batch_index, 0)
-        key = str(batch_index + 1)
-        state = batch_status.setdefault(
-            key,
-            {
-                "position": position,
-                "status": "pending",
-                "prompt_path": str(prompt_files.get(batch_index, "")),
-                "result_path": str(output_files.get(batch_index, "")),
-                "log_path": str(log_files.get(batch_index, "")),
-            },
-        )
-        if event == "queued":
-            state["status"] = "queued"
-            print(
-                colorize_fn(
-                    f"  Batch {position}/{total_batches} queued (#{batch_index + 1})",
-                    "dim",
-                )
-            )
-            append_run_log(f"batch-queued batch={batch_index + 1} position={position}/{total_batches}")
-            return
-        if event == "start":
-            state["status"] = "running"
-            state["started_at"] = datetime.now(UTC).isoformat(timespec="seconds")
-            print(
-                colorize_fn(
-                    f"  Batch {position}/{total_batches} started (#{batch_index + 1})",
-                    "dim",
-                )
-            )
-            append_run_log(f"batch-start batch={batch_index + 1} position={position}/{total_batches}")
-            return
-        if event == "done":
-            status = "done" if code == 0 else f"failed ({code})"
-            tone = "dim" if code == 0 else "yellow"
-            elapsed_seconds = details.get("elapsed_seconds")
-            elapsed_suffix = ""
-            if isinstance(elapsed_seconds, int | float):
-                elapsed_suffix = f" in {int(max(0, elapsed_seconds))}s"
-                state["elapsed_seconds"] = int(max(0, elapsed_seconds))
-            state["status"] = "succeeded" if code == 0 else "failed"
-            state["exit_code"] = int(code) if isinstance(code, int) else code
-            state["completed_at"] = datetime.now(UTC).isoformat(timespec="seconds")
-            if batch_index in stall_warned_batches:
-                stall_warned_batches.discard(batch_index)
-            print(
-                colorize_fn(
-                    f"  Batch {position}/{total_batches} {status}{elapsed_suffix} (#{batch_index + 1})",
-                    tone,
-                )
-            )
-            append_run_log(
-                f"batch-done batch={batch_index + 1} position={position}/{total_batches} "
-                f"code={code} elapsed={state.get('elapsed_seconds', 0)}"
-            )
-
-    return _report_progress
-
-
-def _handle_heartbeat(
-    *,
-    details: dict,
-    total_batches: int,
-    stall_warning_seconds: float,
-    stall_warned_batches: set[int],
-    append_run_log,
-    colorize_fn,
-) -> None:
-    """Handle a heartbeat progress event — print status and stall warnings."""
-    active = details.get("active_batches")
-    queued = details.get("queued_batches", [])
-    elapsed = details.get("elapsed_seconds", {})
-    if not isinstance(active, list):
-        active = []
-    if not isinstance(queued, list):
-        queued = []
-    if not active and not queued:
-        return
-    segments: list[str] = []
-    for idx in active[:6]:
-        secs = 0
-        if isinstance(elapsed, dict):
-            raw_secs = elapsed.get(idx, 0)
-            secs = int(raw_secs) if isinstance(raw_secs, int | float) else 0
-        segments.append(f"#{idx + 1}:{secs}s")
-    if len(active) > 6:
-        segments.append(f"+{len(active) - 6} more")
-    queued_segment = ""
-    if queued:
-        queued_segment = f", queued {len(queued)}"
-    print(
-        colorize_fn(
-            "  Batch heartbeat: "
-            f"{len(active)}/{total_batches} active{queued_segment} "
-            f"({', '.join(segments) if segments else 'running batches pending'})",
-            "dim",
-        )
-    )
-    append_run_log(
-        "heartbeat "
-        f"active={[idx + 1 for idx in active]} queued={[idx + 1 for idx in queued]} "
-        f"elapsed={{{', '.join(f'{idx + 1}:{elapsed.get(idx, 0)}' for idx in active)}}}"
-    )
-    if stall_warning_seconds > 0 and isinstance(elapsed, dict):
-        slow_active = [
-            idx
-            for idx in active
-            if isinstance(elapsed.get(idx), int | float)
-            and int(elapsed.get(idx) or 0) >= stall_warning_seconds
-        ]
-        newly_warned = [idx for idx in slow_active if idx not in stall_warned_batches]
-        if newly_warned:
-            stall_warned_batches.update(newly_warned)
-            warning_message = (
-                "  Stall warning: batches "
-                f"{[idx + 1 for idx in sorted(newly_warned)]} exceeded "
-                f"{stall_warning_seconds}s elapsed. "
-                "This may be normal for long runs; review run.log and batch logs."
-            )
-            print(colorize_fn(warning_message, "yellow"))
-            append_run_log(
-                "stall-warning "
-                f"threshold={stall_warning_seconds}s batches={[idx + 1 for idx in sorted(newly_warned)]}"
-            )
-
-
-def _collect_and_reconcile_results(
-    *,
-    collect_batch_results_fn,
-    selected_indexes: list[int],
-    execution_failures: list[int],
-    output_files: dict,
-    packet: dict,
-    batch_positions: dict[int, int],
-    batch_status: dict[str, dict[str, object]],
-) -> tuple[list[dict], list[int], list[int], set[int]]:
-    """Collect batch results and reconcile per-batch status entries.
-
-    Returns (batch_results, successful_indexes, failures, failure_set).
-    """
-    allowed_dims = {
-        str(dim) for dim in packet.get("dimensions", []) if isinstance(dim, str)
-    }
-    batch_results, failures = collect_batch_results_fn(
-        selected_indexes=selected_indexes,
-        failures=execution_failures,
-        output_files=output_files,
-        allowed_dims=allowed_dims,
-    )
-
-    execution_failure_set = set(execution_failures)
-    failure_set = set(failures)
-    successful_indexes = sorted(idx for idx in selected_indexes if idx not in failure_set)
-    for idx in selected_indexes:
-        key = str(idx + 1)
-        state = batch_status.setdefault(
-            key,
-            {"position": batch_positions.get(idx, 0), "status": "pending"},
-        )
-        if idx not in failure_set:
-            state["status"] = "succeeded"
-            continue
-        if idx in execution_failure_set:
-            state["status"] = "failed"
-            continue
-        if not output_files[idx].exists():
-            state["status"] = "missing_output"
-            continue
-        state["status"] = "parse_failed"
-
-    return batch_results, successful_indexes, failures, failure_set
-
-
-def _merge_and_write_results(
-    *,
-    merge_batch_results_fn,
-    build_import_provenance_fn,
-    batch_results: list[dict],
-    batches: list,
-    successful_indexes: list[int],
-    packet: dict,
-    packet_dimensions: list[str],
-    scored_dimensions: list[str],
-    scan_path: str,
-    runner: str,
-    prompt_packet_path: Path,
-    stamp: str,
-    run_dir: Path,
-    safe_write_text_fn,
-    colorize_fn,
-) -> tuple[Path, list[str]]:
-    """Merge batch results, enrich with metadata, write to disk. Returns (merged_path, missing_dims)."""
-    merged = merge_batch_results_fn(batch_results)
-    reviewed_files = collect_reviewed_files_from_batches(
-        batches=batches,
-        selected_indexes=successful_indexes,
-    )
-    full_sweep_included = any(
-        str(batch.get("name", "")).strip().lower() == "full codebase sweep"
-        for idx in successful_indexes
-        if 0 <= idx < len(batches)
-        for batch in [batches[idx]]
-        if isinstance(batch, dict)
-    )
-    review_scope: dict[str, object] = {
-        "reviewed_files_count": len(reviewed_files),
-        "successful_batch_count": len(successful_indexes),
-        "full_sweep_included": full_sweep_included,
-    }
-    total_files = packet.get("total_files")
-    if isinstance(total_files, int) and not isinstance(total_files, bool) and total_files > 0:
-        review_scope["total_files"] = total_files
-    merged["review_scope"] = review_scope
-    if reviewed_files:
-        merged["reviewed_files"] = reviewed_files
-        print(
-            colorize_fn(
-                f"  Reviewed files captured for cache refresh: {len(reviewed_files)}",
-                "dim",
-            )
-        )
-    merged["provenance"] = build_import_provenance_fn(
-        runner=runner,
-        blind_packet_path=prompt_packet_path,
-        run_stamp=stamp,
-        batch_indexes=successful_indexes,
-    )
-    merged_assessment_dims = normalize_dimension_list(
-        list((merged.get("assessments") or {}).keys())
-    )
-    merged_issue_dims = normalize_dimension_list(
-        [
-            issue.get("dimension")
-            for issue in (merged.get("issues") or [])
-            if isinstance(issue, dict)
-        ]
-    )
-    merged_imported_dims = normalize_dimension_list(
-        merged_assessment_dims + merged_issue_dims
-    )
-    review_scope["imported_dimensions"] = merged_imported_dims
-    missing_after_import = print_import_dimension_coverage_notice(
-        assessed_dims=merged_assessment_dims,
-        scored_dims=scored_dimensions,
-        scan_path=scan_path,
-        colorize_fn=colorize_fn,
-    )
-    merged["assessment_coverage"] = {
-        "scored_dimensions": scored_dimensions,
-        "selected_dimensions": packet_dimensions,
-        "imported_dimensions": merged_assessment_dims,
-        "missing_dimensions": missing_after_import,
-    }
-    merged_path = run_dir / "holistic_issues_merged.json"
-    safe_write_text_fn(merged_path, json.dumps(merged, indent=2) + "\n")
-    print(colorize_fn(f"\n  Merged outputs: {merged_path}", "bold"))
-    print_review_quality(merged.get("review_quality", {}), colorize_fn=colorize_fn)
-    return merged_path, missing_after_import
-
-
-def _import_and_finalize(
-    *,
-    do_import_fn,
-    run_followup_scan_fn,
-    merged_path: Path,
-    state,
-    lang,
-    state_file,
-    config: dict,
-    allow_partial: bool,
-    successful_indexes: list[int],
-    failure_set: set[int],
-    append_run_log,
-    args,
-) -> None:
-    """Import merged results into state and optionally run a followup scan."""
-    try:
-        do_import_fn(
-            str(merged_path),
-            state,
-            lang,
-            state_file,
-            config=config,
-            allow_partial=allow_partial,
-            trusted_assessment_source=True,
-            trusted_assessment_label="trusted internal run-batches import",
-        )
-    except SystemExit as exc:
-        append_run_log(f"run-finished import-failed code={exc.code}")
-        raise
-    except Exception as exc:
-        append_run_log(f"run-finished import-error error={exc}")
-        raise
-    append_run_log(
-        "run-finished "
-        f"successful={[idx + 1 for idx in successful_indexes]} "
-        f"failed={[idx + 1 for idx in sorted(failure_set)]} imported={str(merged_path)}"
-    )
-
-    if getattr(args, "scan_after_import", False):
-        followup_code = run_followup_scan_fn(
-            lang_name=lang.name,
-            scan_path=str(args.path),
-        )
-        if followup_code != 0:
-            raise CommandError(
-                f"Error: follow-up scan failed with exit code {followup_code}.",
-                exit_code=followup_code,
-            )
-
-
 def do_run_batches(
     args,
     state,
@@ -428,7 +70,6 @@ def do_run_batches(
     batch_retry_backoff_seconds = policy.batch_retry_backoff_seconds
     stall_warning_seconds = policy.stall_warning_seconds
     stall_kill_seconds = policy.stall_kill_seconds
-
     stamp = run_stamp_fn()
     packet, immutable_packet_path, prompt_packet_path = load_or_prepare_packet_fn(
         args,
@@ -437,7 +78,6 @@ def do_run_batches(
         config=config,
         stamp=stamp,
     )
-
     scan_path = str(getattr(args, "path", ".") or ".")
     packet_dimensions = normalize_dimension_list(packet.get("dimensions", []))
     scored_dimensions = scored_dimensions_for_lang(lang.name)
@@ -487,74 +127,39 @@ def do_run_batches(
         run_dir=run_dir,
     )
     append_run_log = make_run_log_writer(run_log_path)
-
-    append_run_log(
-        "run-start "
-        f"runner={runner} parallel={run_parallel} max_parallel={max_parallel_batches} "
-        f"timeout={batch_timeout_seconds}s heartbeat={heartbeat_seconds:.1f}s "
-        f"stall_warning={stall_warning_seconds}s stall_kill={stall_kill_seconds}s "
-        f"retries={batch_max_retries} "
-        f"retry_backoff={batch_retry_backoff_seconds:.1f}s upper_bound={worst_case_minutes}m "
-        f"selected={[idx + 1 for idx in selected_indexes]}"
+    log_run_start(
+        append_run_log=append_run_log,
+        colorize_fn=colorize_fn,
+        run_log_path=run_log_path,
+        run_dir=run_dir,
+        immutable_packet_path=immutable_packet_path,
+        prompt_packet_path=prompt_packet_path,
+        runner=runner,
+        run_parallel=run_parallel,
+        max_parallel_batches=max_parallel_batches,
+        batch_timeout_seconds=batch_timeout_seconds,
+        heartbeat_seconds=heartbeat_seconds,
+        stall_warning_seconds=stall_warning_seconds,
+        stall_kill_seconds=stall_kill_seconds,
+        batch_max_retries=batch_max_retries,
+        batch_retry_backoff_seconds=batch_retry_backoff_seconds,
+        worst_case_minutes=worst_case_minutes,
+        selected_indexes=selected_indexes,
     )
-    append_run_log(f"run-path {run_dir}")
-    append_run_log(f"packet {immutable_packet_path}")
-    append_run_log(f"blind-packet {prompt_packet_path}")
-    print(colorize_fn(f"  Live run log: {run_log_path}", "dim"))
-
-    if getattr(args, "dry_run", False):
-        # Write a stub run_summary.json so --import-run works after manual
-        # subagent execution (e.g. Claude subagents filling in results/).
-        dry_summary: dict[str, object] = {
-            "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
-            "run_stamp": stamp,
-            "runner": "dry-run",
-            "parallel": False,
-            "selected_batches": [idx + 1 for idx in selected_indexes],
-            "successful_batches": [idx + 1 for idx in selected_indexes],
-            "failed_batches": [],
-            "immutable_packet": str(immutable_packet_path),
-            "blind_packet": str(prompt_packet_path),
-            "run_dir": str(run_dir),
-            "logs_dir": str(logs_dir),
-            "batches": {
-                str(idx + 1): {
-                    "status": "pending",
-                    "prompt_path": str(prompt_files[idx]),
-                    "result_path": str(output_files[idx]),
-                }
-                for idx in selected_indexes
-            },
-        }
-        dry_summary_path = run_dir / "run_summary.json"
-        safe_write_text_fn(dry_summary_path, json.dumps(dry_summary, indent=2) + "\n")
-
-        n = len(selected_indexes)
-        print(
-            colorize_fn(
-                f"  Dry run: {n} prompt(s) generated, runner execution skipped.", "yellow"
-            )
-        )
-        print(colorize_fn(f"  Run directory: {run_dir}", "dim"))
-        print(colorize_fn(f"  Immutable packet: {immutable_packet_path}", "dim"))
-        print(colorize_fn(f"  Blind packet: {prompt_packet_path}", "dim"))
-        print(colorize_fn(f"  Prompts: {run_dir / 'prompts'}", "dim"))
-        print(colorize_fn(f"  Results: {run_dir / 'results'}  (write subagent output here)", "dim"))
-        print()
-        print(
-            colorize_fn(
-                f"  Next: launch {n} subagent(s), one per prompt file. "
-                "Each writes JSON output to the matching results/ file.",
-                "bold",
-            )
-        )
-        print(
-            colorize_fn(
-                f"  Then: desloppify review --import-run {run_dir} --scan-after-import",
-                "bold",
-            )
-        )
-        append_run_log("run-finished dry-run")
+    if maybe_handle_dry_run(
+        args=args,
+        stamp=stamp,
+        selected_indexes=selected_indexes,
+        run_dir=run_dir,
+        logs_dir=logs_dir,
+        immutable_packet_path=immutable_packet_path,
+        prompt_packet_path=prompt_packet_path,
+        prompt_files=prompt_files,
+        output_files=output_files,
+        safe_write_text_fn=safe_write_text_fn,
+        colorize_fn=colorize_fn,
+        append_run_log=append_run_log,
+    ):
         return
     tasks = build_batch_tasks(
         selected_indexes=selected_indexes,
@@ -564,21 +169,16 @@ def do_run_batches(
         project_root=project_root,
         run_codex_batch_fn=run_codex_batch_fn,
     )
-
     batch_positions = {batch_idx: pos + 1 for pos, batch_idx in enumerate(selected_indexes)}
     summary_created_at = datetime.now(UTC).isoformat(timespec="seconds")
     stall_warned_batches: set[int] = set()
-    batch_status: dict[str, dict[str, object]] = {
-        str(idx + 1): {
-            "position": batch_positions.get(idx, 0),
-            "status": "pending",
-            "prompt_path": str(prompt_files[idx]),
-            "result_path": str(output_files[idx]),
-            "log_path": str(log_files[idx]),
-        }
-        for idx in selected_indexes
-    }
-
+    batch_status = build_initial_batch_status(
+        selected_indexes=selected_indexes,
+        batch_positions=batch_positions,
+        prompt_files=prompt_files,
+        output_files=output_files,
+        log_files=log_files,
+    )
     if run_parallel:
         print(
             colorize_fn(
@@ -588,8 +188,7 @@ def do_run_batches(
                 "dim",
             )
         )
-
-    _report_progress = _build_progress_reporter(
+    report_progress = build_progress_reporter(
         batch_positions=batch_positions,
         batch_status=batch_status,
         stall_warned_batches=stall_warned_batches,
@@ -601,12 +200,11 @@ def do_run_batches(
         append_run_log=append_run_log,
         colorize_fn=colorize_fn,
     )
-
-    record_execution_issue = partial(_record_execution_issue, append_run_log)
-    run_summary_path = run_dir / "run_summary.json"
-    summary_config = BatchRunSummaryConfig(
-        created_at=summary_created_at,
-        run_stamp=stamp,
+    record_issue = partial(record_execution_issue, append_run_log)
+    write_run_summary = build_run_summary_writer(
+        run_dir=run_dir,
+        summary_created_at=summary_created_at,
+        stamp=stamp,
         runner=runner,
         run_parallel=run_parallel,
         selected_indexes=selected_indexes,
@@ -620,25 +218,13 @@ def do_run_batches(
         stall_kill_seconds=stall_kill_seconds,
         immutable_packet_path=immutable_packet_path,
         prompt_packet_path=prompt_packet_path,
-        run_dir=run_dir,
         logs_dir=logs_dir,
         run_log_path=run_log_path,
+        batch_status=batch_status,
+        safe_write_text_fn=safe_write_text_fn,
+        colorize_fn=colorize_fn,
+        append_run_log=append_run_log,
     )
-
-    def write_run_summary(*, successful_batches, failed_batches, interrupted=False, interruption_reason=None):
-        _write_run_summary_impl(
-            summary_path=run_summary_path,
-            summary_config=summary_config,
-            batch_status=batch_status,
-            successful_batches=successful_batches,
-            failed_batches=failed_batches,
-            safe_write_text_fn=safe_write_text_fn,
-            colorize_fn=colorize_fn,
-            append_run_log_fn=append_run_log,
-            interrupted=interrupted,
-            interruption_reason=interruption_reason,
-        )
-
     try:
         execution_failures = execute_batches_fn(
             tasks=tasks,
@@ -647,18 +233,15 @@ def do_run_batches(
                 max_parallel_workers=max_parallel_batches,
                 heartbeat_seconds=heartbeat_seconds,
             ),
-            progress_fn=_report_progress,
-            error_log_fn=record_execution_issue,
+            progress_fn=report_progress,
+            error_log_fn=record_issue,
         )
     except KeyboardInterrupt:
-        for idx in selected_indexes:
-            key = str(idx + 1)
-            state = batch_status.setdefault(
-                key,
-                {"position": batch_positions.get(idx, 0), "status": "pending"},
-            )
-            if state.get("status") in {"pending", "queued", "running"}:
-                state["status"] = "interrupted"
+        mark_interrupted_batches(
+            selected_indexes=selected_indexes,
+            batch_status=batch_status,
+            batch_positions=batch_positions,
+        )
         write_run_summary(
             successful_batches=[],
             failed_batches=[],
@@ -667,8 +250,7 @@ def do_run_batches(
         )
         append_run_log("run-interrupted reason=keyboard_interrupt")
         raise SystemExit(130) from None
-
-    batch_results, successful_indexes, failures, failure_set = _collect_and_reconcile_results(
+    batch_results, successful_indexes, failures, failure_set = collect_and_reconcile_results(
         collect_batch_results_fn=collect_batch_results_fn,
         selected_indexes=selected_indexes,
         execution_failures=execution_failures,
@@ -677,12 +259,10 @@ def do_run_batches(
         batch_positions=batch_positions,
         batch_status=batch_status,
     )
-
     write_run_summary(
         successful_batches=[idx + 1 for idx in successful_indexes],
         failed_batches=[idx + 1 for idx in sorted(failure_set)],
     )
-
     if failures and (not allow_partial or not batch_results):
         append_run_log(
             f"run-finished failures={[idx + 1 for idx in sorted(failure_set)]} mode=exit"
@@ -711,8 +291,7 @@ def do_run_batches(
             f"successful={[idx + 1 for idx in successful_indexes]} "
             f"failed={[idx + 1 for idx in sorted(failure_set)]}"
         )
-
-    merged_path, missing_after_import = _merge_and_write_results(
+    merged_path, missing_after_import = merge_and_write_results(
         merge_batch_results_fn=merge_batch_results_fn,
         build_import_provenance_fn=build_import_provenance_fn,
         batch_results=batch_results,
@@ -729,16 +308,14 @@ def do_run_batches(
         safe_write_text_fn=safe_write_text_fn,
         colorize_fn=colorize_fn,
     )
-
-    enforce_trusted_import_coverage_gate(
-        missing_dims=missing_after_import,
-        selected_dims=packet_dimensions,
+    enforce_import_coverage(
+        missing_after_import=missing_after_import,
+        packet_dimensions=packet_dimensions,
         allow_partial=allow_partial,
         scan_path=scan_path,
         colorize_fn=colorize_fn,
     )
-
-    _import_and_finalize(
+    import_and_finalize(
         do_import_fn=do_import_fn,
         run_followup_scan_fn=run_followup_scan_fn,
         merged_path=merged_path,
@@ -752,6 +329,4 @@ def do_run_batches(
         append_run_log=append_run_log,
         args=args,
     )
-
-
 __all__ = ["do_run_batches"]

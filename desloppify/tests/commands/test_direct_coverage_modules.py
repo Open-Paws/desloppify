@@ -12,7 +12,7 @@ import desloppify.app.commands.next.output as next_output
 import desloppify.app.commands.next.render_support as next_render_support
 import desloppify.app.commands.plan.cmd as plan_cmd_mod
 import desloppify.app.commands.registry as cmd_registry
-import desloppify.app.commands.review.batch.core as review_batch_core
+from desloppify.app.commands.review.batch import merge as review_batch_merge
 import desloppify.app.commands.review.batch.execution as review_batches
 import desloppify.app.commands.review.importing.cmd as review_import
 import desloppify.app.commands.review.importing.helpers as review_import_helpers
@@ -121,7 +121,7 @@ def test_smoke_commands():
         next_output.serialize_item,
         next_output.build_query_payload,
         next_render_support.render_queue_header,
-        review_batch_core.merge_batch_results,
+        review_batch_merge.merge_batch_results,
         review_batches.do_run_batches,
         review_import.do_import,
         review_import_helpers.load_import_issues_data,

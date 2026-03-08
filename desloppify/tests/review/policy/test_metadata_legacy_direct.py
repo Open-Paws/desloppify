@@ -8,7 +8,7 @@ from desloppify.engine._scoring.subjective.core import DISPLAY_NAMES
 
 def test_legacy_display_names_aliases_scoring_display_names() -> None:
     assert legacy_mod.LEGACY_DISPLAY_NAMES is DISPLAY_NAMES
-    assert legacy_mod.LEGACY_DISPLAY_NAMES["high_level_elegance"] == "High Elegance"
+    assert legacy_mod.LEGACY_DISPLAY_NAMES["high_level_elegance"] == "High elegance"
 
 
 def test_normalize_display_name_for_weight_lookup_collapses_spacing_and_case() -> None:

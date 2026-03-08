@@ -3,20 +3,42 @@
 from __future__ import annotations
 
 import argparse
+import logging
 
 from desloppify import state as state_mod
+from desloppify.app.commands.helpers.attestation import (
+    show_attestation_requirement,
+    show_note_length_requirement,
+    validate_attestation,
+    validate_note_length,
+)
+from desloppify.app.commands.helpers.runtime import command_runtime
+from desloppify.app.commands.helpers.state import state_path
+from desloppify.app.commands.plan.triage.helpers import has_triage_in_queue, inject_triage_stages
+from desloppify.app.commands.resolve.cmd import cmd_resolve
+from desloppify.base.exception_sets import PLAN_LOAD_EXCEPTIONS
 from desloppify.base.output.fallbacks import log_best_effort_failure
 from desloppify.base.output.terminal import colorize
+from desloppify.engine._work_queue.core import ATTEST_EXAMPLE
+from desloppify.engine.plan import (
+    WORKFLOW_CREATE_PLAN_ID,
+    WORKFLOW_SCORE_CHECKPOINT_ID,
+    append_log_entry,
+    auto_complete_steps,
+    load_plan,
+    purge_ids,
+    save_plan,
+)
 
 from .override_resolve_helpers import blocked_triage_stages
 from .override_resolve_helpers import check_cluster_guard
 from .override_resolve_helpers import resolve_synthetic_ids
 
+logger = logging.getLogger(__name__)
+
 
 def cmd_plan_resolve(args: argparse.Namespace) -> None:
     """Mark issues as fixed — delegates to cmd_resolve for rich UX."""
-    from . import override_handlers as host  # noqa: PLC0415
-
     patterns: list[str] = getattr(args, "patterns", [])
     attestation: str | None = getattr(args, "attest", None)
     note: str | None = getattr(args, "note", None)
@@ -30,7 +52,7 @@ def cmd_plan_resolve(args: argparse.Namespace) -> None:
 
     synthetic_ids, real_patterns = resolve_synthetic_ids(patterns)
     if synthetic_ids:
-        plan = host.load_plan()
+        plan = load_plan()
 
         blocked_map = blocked_triage_stages(plan)
         for sid in synthetic_ids:
@@ -44,7 +66,7 @@ def cmd_plan_resolve(args: argparse.Namespace) -> None:
         gated_ids = [
             sid
             for sid in synthetic_ids
-            if sid in {host.WORKFLOW_SCORE_CHECKPOINT_ID, host.WORKFLOW_CREATE_PLAN_ID}
+            if sid in {WORKFLOW_SCORE_CHECKPOINT_ID, WORKFLOW_CREATE_PLAN_ID}
         ]
         if gated_ids:
             force = getattr(args, "force_resolve", False)
@@ -58,11 +80,11 @@ def cmd_plan_resolve(args: argparse.Namespace) -> None:
                 missing = required_stages - confirmed_stages
 
             if missing and not force:
-                if not host.has_triage_in_queue(plan):
-                    host.inject_triage_stages(plan)
+                if not has_triage_in_queue(plan):
+                    inject_triage_stages(plan)
                     meta.setdefault("triage_stages", {})
                     plan["epic_triage_meta"] = meta
-                    host.save_plan(plan)
+                    save_plan(plan)
 
                 stage_order = ["observe", "reflect", "organize", "enrich", "commit"]
                 next_stage = next((stage for stage in stage_order if stage in missing), "observe")
@@ -102,7 +124,7 @@ def cmd_plan_resolve(args: argparse.Namespace) -> None:
                 print(colorize(f"  Remaining stages: {', '.join(sorted(missing))}", "dim"))
                 print(colorize("  To skip triage: --force-resolve --note 'reason for skipping triage'", "dim"))
 
-                host.append_log_entry(
+                append_log_entry(
                     plan,
                     "workflow_blocked",
                     issue_ids=gated_ids,
@@ -110,7 +132,7 @@ def cmd_plan_resolve(args: argparse.Namespace) -> None:
                     note=note,
                     detail={"missing_stages": sorted(missing), "next_stage": next_stage},
                 )
-                host.save_plan(plan)
+                save_plan(plan)
                 return
 
             if missing and force:
@@ -124,7 +146,7 @@ def cmd_plan_resolve(args: argparse.Namespace) -> None:
                     )
                     return
                 print(colorize("  WARNING: Skipping triage requirement — this is logged.", "yellow"))
-                host.append_log_entry(
+                append_log_entry(
                     plan,
                     "workflow_force_skip",
                     issue_ids=gated_ids,
@@ -132,13 +154,13 @@ def cmd_plan_resolve(args: argparse.Namespace) -> None:
                     note=note,
                     detail={"forced": True, "missing_stages": sorted(missing)},
                 )
-                host.save_plan(plan)
+                save_plan(plan)
 
         if gated_ids:
             scan_count_at_start = plan.get("scan_count_at_plan_start")
             force = getattr(args, "force_resolve", False)
             if scan_count_at_start is not None:
-                resolved_state_path = host.state_path(args)
+                resolved_state_path = state_path(args)
                 state_data = state_mod.load_state(resolved_state_path)
                 current_scan_count = int(state_data.get("scan_count", 0) or 0)
                 scan_ran = current_scan_count > scan_count_at_start
@@ -167,7 +189,7 @@ def cmd_plan_resolve(args: argparse.Namespace) -> None:
                     )
                     print(colorize("  Or use: --force-resolve --note 'reason for skipping'", "dim"))
 
-                    host.append_log_entry(
+                    append_log_entry(
                         plan,
                         "scan_gate_blocked",
                         issue_ids=gated_ids,
@@ -178,15 +200,15 @@ def cmd_plan_resolve(args: argparse.Namespace) -> None:
                             "current_scan_count": current_scan_count,
                         },
                     )
-                    host.save_plan(plan)
+                    save_plan(plan)
                     return
 
-        host.purge_ids(plan, synthetic_ids)
-        step_messages = host.auto_complete_steps(plan)
+        purge_ids(plan, synthetic_ids)
+        step_messages = auto_complete_steps(plan)
         for msg in step_messages:
             print(colorize(msg, "green"))
-        host.append_log_entry(plan, "done", issue_ids=synthetic_ids, actor="user", note=note)
-        host.save_plan(plan)
+        append_log_entry(plan, "done", issue_ids=synthetic_ids, actor="user", note=note)
+        save_plan(plan)
         for sid in synthetic_ids:
             print(colorize(f"  Resolved: {sid}", "green"))
         if not real_patterns:
@@ -194,30 +216,30 @@ def cmd_plan_resolve(args: argparse.Namespace) -> None:
         patterns = real_patterns
         args.patterns = patterns
 
-    if not host.validate_note_length(note):
-        host.show_note_length_requirement(note)
+    if not validate_note_length(note):
+        show_note_length_requirement(note)
         return
 
-    if not host.validate_attestation(attestation):
-        host.show_attestation_requirement("Plan resolve", attestation, host.ATTEST_EXAMPLE)
+    if not validate_attestation(attestation):
+        show_attestation_requirement("Plan resolve", attestation, ATTEST_EXAMPLE)
         return
 
     plan: dict | None = None
     try:
-        runtime = host.command_runtime(args)
+        runtime = command_runtime(args)
         state = runtime.state
-        plan = host.load_plan()
+        plan = load_plan()
         if check_cluster_guard(patterns, plan, state):
             return
-    except host.PLAN_LOAD_EXCEPTIONS:
+    except PLAN_LOAD_EXCEPTIONS:
         plan = None
 
     try:
         if plan is None:
-            plan = host.load_plan()
+            plan = load_plan()
         clusters = plan.get("clusters", {})
         cluster_name = next((pattern for pattern in patterns if pattern in clusters), None)
-        host.append_log_entry(
+        append_log_entry(
             plan,
             "done",
             issue_ids=patterns,
@@ -225,9 +247,9 @@ def cmd_plan_resolve(args: argparse.Namespace) -> None:
             actor="user",
             note=note,
         )
-        host.save_plan(plan)
-    except host.PLAN_LOAD_EXCEPTIONS as exc:
-        log_best_effort_failure(host.logger, "append plan resolve log entry", exc)
+        save_plan(plan)
+    except PLAN_LOAD_EXCEPTIONS as exc:
+        log_best_effort_failure(logger, "append plan resolve log entry", exc)
         print(colorize(f"  Note: unable to append plan resolve log entry ({exc}).", "dim"))
 
     resolve_args = argparse.Namespace(
@@ -243,7 +265,7 @@ def cmd_plan_resolve(args: argparse.Namespace) -> None:
         exclude=getattr(args, "exclude", None),
     )
 
-    host.cmd_resolve(resolve_args)
+    cmd_resolve(resolve_args)
 
 
 __all__ = ["cmd_plan_resolve"]

@@ -3,12 +3,42 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 from pathlib import Path
 
 from desloppify import state as state_mod
+from desloppify.app.commands.helpers.attestation import (
+    show_attestation_requirement,
+    validate_attestation,
+)
+from desloppify.app.commands.helpers.runtime import command_runtime
+from desloppify.app.commands.helpers.state import require_completed_scan
+from desloppify.app.commands.plan._resolve import resolve_ids_from_patterns
+from desloppify.app.commands.plan.override_io import (
+    _plan_file_for_state,
+    save_plan_state_transactional,
+)
+from desloppify.base.exception_sets import CommandError
 from desloppify.base.output.terminal import colorize
 from desloppify.base.output.user_message import print_user_message
+from desloppify.engine._work_queue.core import ATTEST_EXAMPLE
+from desloppify.engine.plan import (
+    SKIP_KIND_LABELS,
+    append_log_entry,
+    load_plan,
+    save_plan,
+    skip_items,
+    skip_kind_from_flags,
+    skip_kind_requires_attestation,
+    skip_kind_requires_note,
+    skip_kind_state_status,
+    unskip_items,
+)
+
+logger = logging.getLogger(__name__)
+
+_BULK_SKIP_THRESHOLD = 5
 
 
 def _validate_skip_requirements(
@@ -17,18 +47,16 @@ def _validate_skip_requirements(
     attestation: str | None,
     note: str | None,
 ) -> bool:
-    from . import override_handlers as host  # noqa: PLC0415
-
-    if not host.skip_kind_requires_attestation(kind):
+    if not skip_kind_requires_attestation(kind):
         return True
-    if not host.validate_attestation(attestation):
-        host.show_attestation_requirement(
+    if not validate_attestation(attestation):
+        show_attestation_requirement(
             "Permanent skip" if kind == "permanent" else "False positive",
             attestation,
-            host.ATTEST_EXAMPLE,
+            ATTEST_EXAMPLE,
         )
         return False
-    if host.skip_kind_requires_note(kind) and not note:
+    if skip_kind_requires_note(kind) and not note:
         print(
             colorize("  --permanent requires --note to explain the decision.", "yellow"),
             file=sys.stderr,
@@ -45,7 +73,7 @@ def _apply_state_skip_resolution(
     note: str | None,
     attestation: str | None,
 ) -> dict | None:
-    status = _skip_kind_state_status(kind)
+    status = skip_kind_state_status(kind)
     if status is None:
         return None
     state_data = state_mod.load_state(state_file)
@@ -60,19 +88,11 @@ def _apply_state_skip_resolution(
     return state_data
 
 
-def _skip_kind_state_status(kind: str) -> str | None:
-    from . import override_handlers as host  # noqa: PLC0415
-
-    return host.skip_kind_state_status(kind)
-
-
 def cmd_plan_skip(args: argparse.Namespace) -> None:
     """Skip issues — unified command for temporary/permanent/false-positive."""
-    from . import override_handlers as host  # noqa: PLC0415
-
-    runtime = host.command_runtime(args)
+    runtime = command_runtime(args)
     state = runtime.state
-    if not host.require_completed_scan(state):
+    if not require_completed_scan(state):
         return
 
     patterns: list[str] = getattr(args, "patterns", [])
@@ -83,19 +103,19 @@ def cmd_plan_skip(args: argparse.Namespace) -> None:
     note: str | None = getattr(args, "note", None)
     attestation: str | None = getattr(args, "attest", None)
 
-    kind = host.skip_kind_from_flags(permanent=permanent, false_positive=false_positive)
+    kind = skip_kind_from_flags(permanent=permanent, false_positive=false_positive)
     if not _validate_skip_requirements(kind=kind, attestation=attestation, note=note):
         return
 
     state_file = runtime.state_path
-    plan_file = host._plan_file_for_state(state_file)
-    plan = host.load_plan(plan_file)
-    issue_ids = host.resolve_ids_from_patterns(state, patterns, plan=plan)
+    plan_file = _plan_file_for_state(state_file)
+    plan = load_plan(plan_file)
+    issue_ids = resolve_ids_from_patterns(state, patterns, plan=plan)
     if not issue_ids:
         print(colorize("  No matching issues found.", "yellow"))
         return
 
-    if len(issue_ids) > host._BULK_SKIP_THRESHOLD:
+    if len(issue_ids) > _BULK_SKIP_THRESHOLD:
         print(
             colorize(
                 f"  Bulk skip: {len(issue_ids)} items will be removed from the active queue.",
@@ -104,7 +124,7 @@ def cmd_plan_skip(args: argparse.Namespace) -> None:
             file=sys.stderr,
         )
         if not getattr(args, "confirm", False):
-            raise host.CommandError(
+            raise CommandError(
                 f"Skipping {len(issue_ids)} items requires --confirm. "
                 "Review the items first, or skip individually."
             )
@@ -118,7 +138,7 @@ def cmd_plan_skip(args: argparse.Namespace) -> None:
     )
 
     scan_count = state.get("scan_count", 0)
-    count = host.skip_items(
+    count = skip_items(
         plan,
         issue_ids,
         kind=kind,
@@ -129,7 +149,7 @@ def cmd_plan_skip(args: argparse.Namespace) -> None:
         scan_count=scan_count,
     )
 
-    host.append_log_entry(
+    append_log_entry(
         plan,
         "skip",
         issue_ids=issue_ids,
@@ -138,16 +158,16 @@ def cmd_plan_skip(args: argparse.Namespace) -> None:
         detail={"kind": kind, "reason": reason},
     )
     if state_data is not None:
-        host._save_plan_state_transactional(
+        save_plan_state_transactional(
             plan=plan,
             plan_path=plan_file,
             state_data=state_data,
             state_path_value=state_file,
         )
     else:
-        host.save_plan(plan, plan_file)
+        save_plan(plan, plan_file)
 
-    print(colorize(f"  {host.SKIP_KIND_LABELS[kind]} {count} item(s).", "green"))
+    print(colorize(f"  {SKIP_KIND_LABELS[kind]} {count} item(s).", "green"))
     if review_after:
         print(colorize(f"  Will re-surface after {review_after} scan(s).", "dim"))
     print_user_message(
@@ -161,31 +181,29 @@ def cmd_plan_skip(args: argparse.Namespace) -> None:
 
 def cmd_plan_unskip(args: argparse.Namespace) -> None:
     """Unskip issues — bring back to queue."""
-    from . import override_handlers as host  # noqa: PLC0415
-
-    runtime = host.command_runtime(args)
+    runtime = command_runtime(args)
     state = runtime.state
-    if not host.require_completed_scan(state):
+    if not require_completed_scan(state):
         return
 
     patterns: list[str] = getattr(args, "patterns", [])
 
     state_file = runtime.state_path
-    plan_file = host._plan_file_for_state(state_file)
-    plan = host.load_plan(plan_file)
-    issue_ids = host.resolve_ids_from_patterns(state, patterns, plan=plan, status_filter="all")
+    plan_file = _plan_file_for_state(state_file)
+    plan = load_plan(plan_file)
+    issue_ids = resolve_ids_from_patterns(state, patterns, plan=plan, status_filter="all")
     if not issue_ids:
         print(colorize("  No matching issues found.", "yellow"))
         return
 
     include_protected = bool(getattr(args, "force", False))
-    count, need_reopen, protected_kept = host.unskip_items(
+    count, need_reopen, protected_kept = unskip_items(
         plan,
         issue_ids,
         include_protected=include_protected,
     )
     unskipped_ids = [fid for fid in issue_ids if fid not in protected_kept]
-    host.append_log_entry(
+    append_log_entry(
         plan,
         "unskip",
         issue_ids=unskipped_ids,
@@ -198,7 +216,7 @@ def cmd_plan_unskip(args: argparse.Namespace) -> None:
         state_data = state_mod.load_state(state_file)
         for fid in need_reopen:
             reopened.extend(state_mod.resolve_issues(state_data, fid, "open"))
-        host._save_plan_state_transactional(
+        save_plan_state_transactional(
             plan=plan,
             plan_path=plan_file,
             state_data=state_data,
@@ -206,7 +224,7 @@ def cmd_plan_unskip(args: argparse.Namespace) -> None:
         )
         print(colorize(f"  Reopened {len(reopened)} issue(s) in state.", "dim"))
     else:
-        host.save_plan(plan, plan_file)
+        save_plan(plan, plan_file)
 
     print(colorize(f"  Unskipped {count} item(s) — back in queue.", "green"))
     if protected_kept:

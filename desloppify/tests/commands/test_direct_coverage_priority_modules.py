@@ -140,7 +140,11 @@ def test_app_plan_modules_avoid_private_engine_plan_imports():
     rel_paths = [
         "app/commands/plan/cmd.py",
         "app/commands/plan/cluster_handlers.py",
-        "app/commands/plan/override_handlers.py",
+        "app/commands/plan/override_io.py",
+        "app/commands/plan/override_misc.py",
+        "app/commands/plan/override_skip.py",
+        "app/commands/plan/override_resolve_cmd.py",
+        "app/commands/plan/override_resolve_helpers.py",
         "app/commands/plan/triage/helpers.py",
         "app/commands/plan/triage/runner/stage_validation.py",
         "app/commands/plan/triage/runner/stage_prompts.py",

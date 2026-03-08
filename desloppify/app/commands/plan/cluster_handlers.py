@@ -22,14 +22,14 @@ from desloppify.engine.plan import (
 )
 from desloppify.state import utc_now
 
-from .cluster_ops import _cmd_cluster_create
-from .cluster_ops import _cmd_cluster_delete
-from .cluster_ops import _cmd_cluster_export
-from .cluster_ops import _cmd_cluster_import
-from .cluster_ops import _cmd_cluster_list
-from .cluster_ops import _cmd_cluster_merge
-from .cluster_ops import _cmd_cluster_reorder
-from .cluster_ops import _cmd_cluster_show
+from .cluster_ops_display import _cmd_cluster_list
+from .cluster_ops_display import _cmd_cluster_show
+from .cluster_ops_manage import _cmd_cluster_create
+from .cluster_ops_manage import _cmd_cluster_delete
+from .cluster_ops_manage import _cmd_cluster_export
+from .cluster_ops_manage import _cmd_cluster_import
+from .cluster_ops_manage import _cmd_cluster_merge
+from .cluster_ops_reorder import _cmd_cluster_reorder
 from .cluster_update import cmd_cluster_update as _cmd_cluster_update_impl
 
 _HEX8_RE = re.compile(r"^[0-9a-f]{8}$")

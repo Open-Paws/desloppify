@@ -13,6 +13,7 @@ from desloppify.engine.detectors.coverage.mapping_imports import (
     _parse_test_imports,
     _resolve_barrel_reexports,
 )
+from desloppify.engine.detectors.test_coverage.io import read_coverage_file
 from desloppify.engine.detectors.coverage.mapping_analysis import (
     analyze_test_quality_core,
     build_test_import_index_core,

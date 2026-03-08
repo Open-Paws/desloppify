@@ -108,8 +108,9 @@ def test_detect_command_keys_use_canonical_snake_case():
 def test_detect_command_registry_owned_by_language_commands_module():
     for lang in _full_langs():
         cfg = get_lang(lang)
-        expected_module = f"desloppify.languages.{lang}.commands"
+        expected_prefix = f"desloppify.languages.{lang}.commands"
         for key, fn in cfg.detect_commands.items():
-            assert fn.__module__ == expected_module, (
-                f"{lang} detect command '{key}' must be defined in {expected_module}"
+            assert fn.__module__.startswith(expected_prefix), (
+                f"{lang} detect command '{key}' must be defined in {expected_prefix}* "
+                f"(got {fn.__module__})"
             )

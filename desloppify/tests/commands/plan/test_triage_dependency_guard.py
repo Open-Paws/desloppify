@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import argparse
 
-import desloppify.app.commands.plan.override_handlers as override_mod
-from desloppify.app.commands.plan.override_handlers import _blocked_triage_stages
+import desloppify.app.commands.plan.override_resolve_cmd as override_mod
+from desloppify.app.commands.plan.override_resolve_helpers import blocked_triage_stages as _blocked_triage_stages
 from desloppify.engine._plan.schema import empty_plan
 from desloppify.engine._plan.constants import TRIAGE_STAGE_IDS
 

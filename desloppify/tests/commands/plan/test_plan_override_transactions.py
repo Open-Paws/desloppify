@@ -9,7 +9,8 @@ import pytest
 
 from desloppify import state as state_mod
 from desloppify.app.commands.helpers.runtime import CommandRuntime
-from desloppify.app.commands.plan import override_handlers
+from desloppify.app.commands.plan import override_io
+from desloppify.app.commands.plan import override_skip
 from desloppify.engine.plan import empty_plan, load_plan, save_plan, skip_items
 
 _ATTEST = "I have actually reviewed this and I am not gaming the score."
@@ -72,9 +73,9 @@ def test_save_plan_state_transactional_rolls_back_on_plan_write_failure(
     def _boom(*_args, **_kwargs):
         raise OSError("simulated plan write failure")
 
-    monkeypatch.setattr(override_handlers, "save_plan", _boom)
+    monkeypatch.setattr(override_io, "save_plan", _boom)
     with pytest.raises(OSError):
-        override_handlers._save_plan_state_transactional(
+        override_io.save_plan_state_transactional(
             plan=changed_plan,
             plan_path=plan_file,
             state_data=changed_state,
@@ -113,15 +114,15 @@ def test_cmd_plan_skip_permanent_rollback_when_plan_write_fails(
         attest=_ATTEST,
     )
 
-    monkeypatch.setattr(override_handlers, "resolve_ids_from_patterns", lambda *_a, **_k: [issue_id])
+    monkeypatch.setattr(override_skip, "resolve_ids_from_patterns", lambda *_a, **_k: [issue_id])
 
     def _boom(*_args, **_kwargs):
         raise OSError("simulated plan write failure")
 
-    monkeypatch.setattr(override_handlers, "save_plan", _boom)
+    monkeypatch.setattr(override_io, "save_plan", _boom)
 
     with pytest.raises(OSError):
-        override_handlers.cmd_plan_skip(args)
+        override_skip.cmd_plan_skip(args)
 
     state_after = state_mod.load_state(state_file)
     plan_after = load_plan(plan_file)
