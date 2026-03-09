@@ -26,7 +26,7 @@ import desloppify.base.output.terminal as output_mod
 import desloppify.app.skill_docs as skill_docs_mod
 import desloppify.base.subjective_dimensions as subjective_dimensions_mod
 import desloppify.base.discovery.paths as paths_mod
-import desloppify.engine._plan.schema_migrations as schema_migrations_mod
+import desloppify.engine._plan.schema.migrations as schema_migrations_mod
 import desloppify.engine._scoring.results.health as scoring_health_mod
 import desloppify.engine._scoring.results.impact as scoring_impact_mod
 import desloppify.engine._state.schema_scores as schema_scores_mod

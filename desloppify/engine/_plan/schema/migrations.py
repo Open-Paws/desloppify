@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from desloppify.engine._plan.schema_migration_helpers import (
+from desloppify.engine._plan.schema.helpers import (
     _cleanup_synthesis_meta,
     _drop_legacy_plan_keys,
     _has_synthesis_artifacts,
@@ -43,6 +43,7 @@ def ensure_container_types(plan: dict[str, Any]) -> None:
         ("superseded", dict, dict),
         ("promoted_ids", list, list),
         ("plan_start_scores", dict, dict),
+        ("refresh_state", dict, dict),
         ("execution_log", list, list),
         ("epic_triage_meta", dict, dict),
     ):

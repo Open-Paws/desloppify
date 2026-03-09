@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import desloppify.engine._plan._sync_context as sync_context_mod
 import desloppify.engine._plan.epic_triage_dismiss as triage_dismiss_mod
 import desloppify.engine._plan.reconcile_review_import as reconcile_import_mod
-import desloppify.engine._plan.schema_migration_helpers as schema_helpers_mod
+import desloppify.engine._plan.schema.helpers as schema_helpers_mod
 import desloppify.engine._plan.sync_auto_prune as sync_auto_prune_mod
 import desloppify.engine._plan.sync_workflow as sync_workflow_mod
 import desloppify.engine._scoring.state_integration_subjective as scoring_subjective_mod

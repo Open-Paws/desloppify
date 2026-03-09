@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, NotRequired, Required, TypedDict
 
-from desloppify.engine._plan.schema_migrations import (
+from desloppify.engine._plan.schema.migrations import (
     upgrade_plan_to_v8 as _upgrade_plan_to_v8,
 )
 from desloppify.engine._plan.skip_policy import VALID_SKIP_KINDS
@@ -150,6 +150,12 @@ class EpicTriageMeta(TypedDict, total=False):
     last_triage: LastTriageSnapshot
 
 
+class RefreshState(TypedDict, total=False):
+    """Metadata for the post-flight refresh pipeline."""
+
+    postflight_scan_completed_at_scan_count: int
+
+
 class PlanModel(TypedDict, total=False):
     version: Required[int]
     created: Required[str]
@@ -163,6 +169,7 @@ class PlanModel(TypedDict, total=False):
     superseded: dict[str, SupersededEntry]
     promoted_ids: list[str]  # IDs user explicitly positioned via move_items()
     plan_start_scores: PlanStartScores
+    refresh_state: RefreshState
     execution_log: list[ExecutionLogEntry]
     epic_triage_meta: EpicTriageMeta
     commit_log: list[CommitRecord]
@@ -187,6 +194,7 @@ def empty_plan() -> PlanModel:
         "superseded": {},
         "promoted_ids": [],
         "plan_start_scores": {},
+        "refresh_state": {},
         "execution_log": [],
         "epic_triage_meta": {},
         "commit_log": [],
@@ -251,6 +259,7 @@ __all__ = [
     "LastTriageSnapshot",
     "PlanModel",
     "PlanStartScores",
+    "RefreshState",
     "SkipEntry",
     "SupersededEntry",
     "TriageStagePayload",

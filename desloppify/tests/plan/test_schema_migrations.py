@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from desloppify.engine._plan import schema_migrations as migrations
+import desloppify.engine._plan.schema.migrations as migrations
 
 
 def test_ensure_container_types_sets_defaults_and_renames_keys() -> None:
