@@ -120,7 +120,7 @@ def _append_concerns_batch(
 ) -> None:
     """Generate concern signals and append as a batch (best-effort)."""
     try:
-        from desloppify.engine.concerns import generate_concerns
+        from desloppify.engine._concerns.generators import generate_concerns
 
         concerns = generate_concerns(state)
         concerns = [

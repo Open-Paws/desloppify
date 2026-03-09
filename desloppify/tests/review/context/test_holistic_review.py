@@ -36,13 +36,13 @@ from desloppify.intelligence.review._prepare.helpers import (
 )
 from desloppify.intelligence.review.context import file_excerpt
 from desloppify.intelligence.review.prepare import HolisticReviewPrepareOptions
-from desloppify.intelligence.review.prepare_batches import (
+from desloppify.intelligence.review.prepare_batches_builders import (
     batch_concerns as _batch_concerns,
 )
-from desloppify.intelligence.review.prepare_batches import (
+from desloppify.intelligence.review.prepare_batches_builders import (
     build_investigation_batches as _build_investigation_batches,
 )
-from desloppify.intelligence.review.prepare_batches import filter_batches_to_dimensions
+from desloppify.intelligence.review.prepare_batches_builders import filter_batches_to_dimensions
 from desloppify.state import empty_state, path_scoped_issues
 
 
@@ -392,7 +392,7 @@ class TestPrepareHolisticReview:
             for idx in range(6)
         ]
         monkeypatch.setattr(
-            "desloppify.engine.concerns.generate_concerns",
+            "desloppify.engine._concerns.generators.generate_concerns",
             lambda *_args, **_kwargs: concerns,
         )
 
@@ -441,7 +441,7 @@ class TestPrepareHolisticReview:
             for idx in range(3)
         ]
         monkeypatch.setattr(
-            "desloppify.engine.concerns.generate_concerns",
+            "desloppify.engine._concerns.generators.generate_concerns",
             lambda *_args, **_kwargs: concerns,
         )
 
@@ -514,7 +514,7 @@ class TestPrepareHolisticReview:
             ),
         ]
         monkeypatch.setattr(
-            "desloppify.engine.concerns.generate_concerns",
+            "desloppify.engine._concerns.generators.generate_concerns",
             lambda *_args, **_kwargs: concerns,
         )
 

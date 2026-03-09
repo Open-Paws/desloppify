@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 
 from desloppify.app.commands.helpers.runtime import command_runtime
-from desloppify.app.commands.plan.triage_playbook import TRIAGE_CMD_ORGANIZE
+from desloppify.engine._plan.triage_playbook import TRIAGE_CMD_ORGANIZE
 from desloppify.base.output.terminal import colorize
 from desloppify.engine.plan import collect_triage_input, detect_recurring_patterns, save_plan
 from desloppify.state import utc_now

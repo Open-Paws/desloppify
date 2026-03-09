@@ -97,7 +97,7 @@ def import_holistic_issues(
     )
 
     if dismissed_concerns:
-        from desloppify.engine.concerns import generate_concerns
+        from desloppify.engine._concerns.generators import generate_concerns
 
         store = state.setdefault("concern_dismissals", {})
         now = utc_now_fn()
@@ -173,7 +173,7 @@ def import_holistic_issues(
     )
     resolve_holistic_coverage_issues(state, diff, utc_now_fn=utc_now_fn)
 
-    from desloppify.engine.concerns import cleanup_stale_dismissals
+    from desloppify.engine._concerns.generators import cleanup_stale_dismissals
 
     cleanup_stale_dismissals(state)
 

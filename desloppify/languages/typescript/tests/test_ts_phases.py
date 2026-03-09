@@ -52,10 +52,11 @@ def test_phase_structural_uses_lang_thresholds(monkeypatch, tmp_path: Path):
         "desloppify.engine.detectors.flat_dirs.detect_flat_dirs", lambda *a, **k: ([], 0)
     )
     monkeypatch.setattr(
-        "desloppify.languages.typescript.extractors.extract_ts_components", lambda _p: []
+        "desloppify.languages.typescript.extractors_components.extract_ts_components",
+        lambda _p: [],
     )
     monkeypatch.setattr(
-        "desloppify.languages.typescript.extractors.detect_passthrough_components",
+        "desloppify.languages.typescript.extractors_components.detect_passthrough_components",
         lambda _p: [],
     )
     monkeypatch.setattr(

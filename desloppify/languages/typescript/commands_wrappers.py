@@ -16,7 +16,7 @@ from desloppify.engine.detectors import dupes as dupes_detector_mod
 from desloppify.engine.detectors import gods as gods_detector_mod
 from desloppify.engine.detectors import orphaned as orphaned_detector_mod
 from desloppify.languages.typescript.detectors import deps as deps_detector_mod
-from desloppify.languages.typescript.extractors import extract_ts_functions
+from desloppify.languages.typescript.extractors_functions import extract_ts_functions
 from desloppify.languages.typescript.extractors_components import extract_ts_components
 from desloppify.languages.typescript.phases import TS_GOD_RULES
 

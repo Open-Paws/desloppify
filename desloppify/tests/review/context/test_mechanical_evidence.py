@@ -395,7 +395,7 @@ class TestConcernsIntegration:
 
     def test_one_judgment_plus_mechanical_triggers(self):
         """1 judgment detector + 2 additional issues should now trigger."""
-        from desloppify.engine.concerns import generate_concerns
+        from desloppify.engine._concerns.generators import generate_concerns
 
         state = {
             "issues": {
@@ -424,7 +424,7 @@ class TestConcernsIntegration:
 
     def test_systemic_smell_concern(self):
         """Smell in 5+ files should generate systemic concern."""
-        from desloppify.engine.concerns import generate_concerns
+        from desloppify.engine._concerns.generators import generate_concerns
 
         issues = {}
         for i in range(6):

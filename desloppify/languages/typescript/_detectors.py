@@ -8,7 +8,7 @@ from desloppify.base.discovery.source import find_ts_files
 from desloppify.engine.detectors.base import FunctionInfo
 from desloppify.languages._framework.base.types import DetectorPhase
 from desloppify.languages._framework.treesitter.phases import make_cohesion_phase
-from desloppify.languages.typescript.extractors import extract_ts_functions
+from desloppify.languages.typescript.extractors_functions import extract_ts_functions
 
 
 def ts_treesitter_phases() -> list[DetectorPhase]:

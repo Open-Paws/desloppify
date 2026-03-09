@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from desloppify.base.output.terminal import colorize
-from desloppify.engine.concerns import generate_concerns
+from desloppify.engine._concerns.generators import generate_concerns
 
 
 def _show_concerns(state: dict, lang_name: str | None) -> None:

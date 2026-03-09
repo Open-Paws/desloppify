@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 
 from desloppify.app.commands.helpers.display import short_issue_id
-from desloppify.app.commands.plan.triage_playbook import (
+from desloppify.engine._plan.triage_playbook import (
     TRIAGE_CMD_CLUSTER_ADD,
     TRIAGE_CMD_CLUSTER_CREATE,
     TRIAGE_CMD_CLUSTER_ENRICH_COMPACT,

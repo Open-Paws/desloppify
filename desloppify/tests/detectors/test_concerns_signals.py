@@ -7,7 +7,7 @@ These tests verify the fix works with the real structural format.
 
 from __future__ import annotations
 
-from desloppify.engine.concerns import (
+from desloppify.engine._concerns.signals import (
     _extract_signals,
     _has_elevated_signals,
     _parse_complexity_signals,

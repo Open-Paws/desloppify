@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import desloppify.app.output.scorecard_parts.dimensions as scorecard_dimensions
+import desloppify.engine.planning.scorecard_dimensions as scorecard_dimensions
 import desloppify.app.output.scorecard_parts.theme as scorecard_theme
 import desloppify.engine._scoring.detection as scoring_detection
 import desloppify.engine._scoring.policy.core as scoring_policy
@@ -12,7 +12,7 @@ import desloppify.engine._state.merge_history as merge_history
 import desloppify.engine._state.merge_issues as merge_issues
 import desloppify.engine._work_queue.ranking as work_queue_ranking
 import desloppify.engine._work_queue.synthetic as work_queue_synthetic
-import desloppify.intelligence.review.prepare_batches as review_prepare_batches
+import desloppify.intelligence.review.prepare_batches_builders as review_prepare_batches
 
 
 def test_split_module_direct_coverage_smoke_signals():

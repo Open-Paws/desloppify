@@ -3,13 +3,15 @@
 import re
 import textwrap
 
-from desloppify.languages.typescript.extractors import (
+from desloppify.languages.typescript.extractors_components import (
+    extract_props,
+    tsx_passthrough_pattern,
+)
+from desloppify.languages.typescript.extractors_functions import (
     _extract_ts_params,
     _parse_param_names,
-    extract_props,
     extract_ts_functions,
     normalize_ts_body,
-    tsx_passthrough_pattern,
 )
 
 # ── _parse_param_names() ──────────────────────────────────────

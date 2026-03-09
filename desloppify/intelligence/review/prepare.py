@@ -35,13 +35,13 @@ from desloppify.intelligence.review.context_holistic.orchestrator import (
 from desloppify.intelligence.review.dimensions.data import load_dimensions_for_lang
 from desloppify.intelligence.review.dimensions.lang import get_lang_guidance
 from desloppify.intelligence.review.dimensions.selection import resolve_dimensions
-from desloppify.intelligence.review.prepare_batches import (
+from desloppify.intelligence.review.prepare_batches_builders import (
     batch_concerns as _batch_concerns,
 )
-from desloppify.intelligence.review.prepare_batches import (
+from desloppify.intelligence.review.prepare_batches_builders import (
     build_investigation_batches as _build_investigation_batches,
 )
-from desloppify.intelligence.review.prepare_batches import (
+from desloppify.intelligence.review.prepare_batches_builders import (
     filter_batches_to_dimensions as _filter_batches_to_dimensions,
 )
 from desloppify.intelligence.review.prepare_holistic_orchestration import (

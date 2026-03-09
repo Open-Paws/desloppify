@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from desloppify.app.commands.plan.triage_playbook import TRIAGE_STAGE_DEPENDENCIES
+from desloppify.engine._plan.triage_playbook import TRIAGE_STAGE_DEPENDENCIES
 from desloppify.base.output.terminal import colorize
 from desloppify.engine.plan import TRIAGE_IDS, TRIAGE_STAGE_IDS
 

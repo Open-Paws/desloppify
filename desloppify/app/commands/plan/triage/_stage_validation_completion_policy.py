@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from desloppify.app.commands.plan.triage_playbook import TRIAGE_CMD_ORGANIZE
+from desloppify.engine._plan.triage_playbook import TRIAGE_CMD_ORGANIZE
 from desloppify.base.output.terminal import colorize
 from desloppify.engine.plan import extract_issue_citations
 

@@ -8,7 +8,7 @@ import os
 from importlib import metadata as importlib_metadata
 from pathlib import Path
 
-from desloppify.app.output.scorecard_parts.dimensions import (
+from desloppify.engine.planning.scorecard_dimensions import (
     collapse_elegance_dimensions,
     limit_scorecard_dimensions,
     prepare_scorecard_dimensions,

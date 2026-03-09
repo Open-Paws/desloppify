@@ -15,7 +15,7 @@ from desloppify.app.commands.status.strict_target import (
 from desloppify.base.output.fallbacks import log_best_effort_failure
 from desloppify.base.output.terminal import colorize
 from desloppify.engine._state.schema import StateModel
-from desloppify.engine.concerns import generate_concerns
+from desloppify.engine._concerns.generators import generate_concerns
 
 logger = logging.getLogger(__name__)
 
