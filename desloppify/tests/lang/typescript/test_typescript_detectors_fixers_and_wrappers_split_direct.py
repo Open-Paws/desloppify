@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import desloppify.languages.typescript._detectors as ts_detectors_mod
 import desloppify.languages.typescript._fixers as ts_fixers_mod
 import desloppify.languages.typescript.commands_wrappers as ts_cmds_mod
-import desloppify.languages.typescript.detectors.security_checks as ts_security_mod
+import desloppify.languages.typescript.detectors.security as ts_security_mod
 import desloppify.languages.typescript.detectors.smells_assets as ts_assets_mod
 import desloppify.languages.typescript.detectors.unused_fallback as ts_unused_mod
 from desloppify.languages._framework.base.types import DetectorPhase
