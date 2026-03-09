@@ -13,7 +13,7 @@ from .shared_phases import (
 from .types import DetectorPhase
 
 
-def _phase_factory(
+def _make_detector_phase_factory(
     label: str,
     run_fn,
     *,
@@ -32,27 +32,27 @@ def _phase_factory(
 
 
 SHARED_PHASE_FACTORIES = {
-    "test_coverage": _phase_factory(
+    "test_coverage": _make_detector_phase_factory(
         "Test coverage", phase_test_coverage,
         exclusive_detector="desloppify.engine.detectors.test_coverage",
     ),
-    "security": _phase_factory(
+    "security": _make_detector_phase_factory(
         "Security", phase_security,
         exclusive_detector="desloppify.engine.detectors.security",
     ),
-    "signature": _phase_factory(
+    "signature": _make_detector_phase_factory(
         "Signature analysis", phase_signature,
         exclusive_detector="desloppify.engine.detectors.signature",
     ),
-    "subjective_review": _phase_factory(
+    "subjective_review": _make_detector_phase_factory(
         "Subjective review", phase_subjective_review,
         exclusive_detector="desloppify.engine.detectors.review_coverage",
     ),
-    "duplicates": _phase_factory(
+    "duplicates": _make_detector_phase_factory(
         "Duplicates", phase_dupes, slow=True,
         exclusive_detector="desloppify.engine.detectors.dupes",
     ),
-    "boilerplate_duplication": _phase_factory(
+    "boilerplate_duplication": _make_detector_phase_factory(
         "Boilerplate duplication", phase_boilerplate_duplication, slow=True,
         exclusive_detector="desloppify.engine.detectors.jscpd_adapter",
     ),

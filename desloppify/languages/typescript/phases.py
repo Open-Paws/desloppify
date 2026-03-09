@@ -45,37 +45,37 @@ PhaseResult = tuple[list[Issue], PhasePotentialMap]
 PhaseWrapper = Callable[[Path, LangRuntimeContract], PhaseResult]
 
 
-def phase_logs(path: Path, lang: LangRuntimeContract) -> PhaseResult:
+def phase_logs(path: Path, lang: LangRuntimeContract) -> tuple[list[Issue], dict[str, int]]:
     """Run the logs phase using the shared typed phase wrapper signature."""
     return _phase_logs(path, lang)
 
 
-def phase_unused(path: Path, lang: LangRuntimeContract) -> PhaseResult:
+def phase_unused(path: Path, lang: LangRuntimeContract) -> tuple[list[Issue], dict[str, int]]:
     """Run the unused phase using the shared typed phase wrapper signature."""
     return _phase_unused(path, lang)
 
 
-def phase_exports(path: Path, lang: LangRuntimeContract) -> PhaseResult:
+def phase_exports(path: Path, lang: LangRuntimeContract) -> tuple[list[Issue], dict[str, int]]:
     """Run the dead-exports phase using the shared typed phase wrapper signature."""
     return _phase_exports(path, lang)
 
 
-def phase_deprecated(path: Path, lang: LangRuntimeContract) -> PhaseResult:
+def phase_deprecated(path: Path, lang: LangRuntimeContract) -> tuple[list[Issue], dict[str, int]]:
     """Run the deprecated API phase using the shared typed phase wrapper signature."""
     return _phase_deprecated(path, lang)
 
 
-def phase_structural(path: Path, lang: LangRuntimeContract) -> PhaseResult:
+def phase_structural(path: Path, lang: LangRuntimeContract) -> tuple[list[Issue], dict[str, int]]:
     """Run the structural phase using the shared typed phase wrapper signature."""
     return _phase_structural(path, lang)
 
 
-def phase_coupling(path: Path, lang: LangRuntimeContract) -> PhaseResult:
+def phase_coupling(path: Path, lang: LangRuntimeContract) -> tuple[list[Issue], dict[str, int]]:
     """Run the coupling phase using the shared typed phase wrapper signature."""
     return _phase_coupling(path, lang)
 
 
-def phase_smells(path: Path, lang: LangRuntimeContract) -> PhaseResult:
+def phase_smells(path: Path, lang: LangRuntimeContract) -> tuple[list[Issue], dict[str, int]]:
     """Run the smells phase using the shared typed phase wrapper signature."""
     return _phase_smells(path, lang)
 
