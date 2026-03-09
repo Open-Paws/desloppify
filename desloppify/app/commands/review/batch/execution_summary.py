@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from functools import partial
 from pathlib import Path
 
@@ -30,9 +31,9 @@ def build_run_summary_writer(
     logs_dir: Path,
     run_log_path: Path,
     batch_status: dict[str, dict[str, object]],
-    safe_write_text_fn,
-    colorize_fn,
-    append_run_log,
+    safe_write_text_fn: Callable[[Path, str], None],
+    colorize_fn: Callable[[str, str], str],
+    append_run_log: Callable[[str], None],
 ):
     """Create the bound write_run_summary callable for a run."""
     run_summary_path = run_dir / "run_summary.json"

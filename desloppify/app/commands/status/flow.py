@@ -50,11 +50,11 @@ _logger = logging.getLogger(__name__)
 
 
 def print_score_section(
-    state: dict,
-    scores,
+    state: state_mod.StateModel,
+    scores: state_mod.ScoreSnapshot,
     plan: dict,
     target_strict_score: float | None,
-    ctx=None,
+    ctx: object | None = None,
 ):
     """Print score header using live or frozen plan-start mode."""
     plan_start_strict = get_plan_start_strict(plan)

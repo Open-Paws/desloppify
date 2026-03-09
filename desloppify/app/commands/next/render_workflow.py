@@ -35,12 +35,17 @@ def render_workflow_stage(item: dict, *, colorize_fn, workflow_stage_name_fn) ->
         print(colorize_fn(f"\n  Action: {item.get('primary_command', '')}", "cyan"))
 
 
-def render_workflow_action(item: dict, *, colorize_fn) -> None:
+def _render_workflow_action(item: dict, *, colorize_fn) -> None:
     """Render a workflow action item (e.g. create-plan)."""
     print(colorize_fn("  (Workflow step)", "bold"))
     print(colorize_fn("  " + "─" * 60, "dim"))
     print(f"  {colorize_fn(item.get('summary', ''), 'yellow')}")
     print(colorize_fn(f"\n  Action: {item.get('primary_command', '')}", "cyan"))
+
+
+def render_workflow_action(item: dict, *, colorize_fn) -> None:
+    """Public compatibility wrapper for workflow-action rendering."""
+    _render_workflow_action(item, colorize_fn=colorize_fn)
 
 
 __all__ = ["render_workflow_action", "render_workflow_stage", "step_text"]

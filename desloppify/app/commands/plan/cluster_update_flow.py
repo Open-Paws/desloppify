@@ -247,7 +247,7 @@ def _apply_add_step(
     if request.issue_refs is not None:
         new_step["issue_refs"] = request.issue_refs
 
-    _warn_on_long_title(title=title, colorize_fn=colorize_fn)
+    _show_long_title_warning(title=title, colorize_fn=colorize_fn)
     current_steps.append(new_step)
     print(colorize_fn(f"  Added step {len(current_steps)}: {title}", "dim"))
 
@@ -268,7 +268,7 @@ def _apply_update_step(
     if request.add_step is not None:
         title = request.add_step
         updated["title"] = title
-        _warn_on_long_title(title=title, colorize_fn=colorize_fn)
+        _show_long_title_warning(title=title, colorize_fn=colorize_fn)
     if request.detail is not None:
         updated["detail"] = request.detail
     if request.effort is not None:
@@ -352,7 +352,7 @@ def _save_cluster_update(
     print(services.colorize_fn(f"  Updated cluster: {cluster_name}", "green"))
 
 
-def _warn_on_long_title(*, title: str, colorize_fn: ColorizeFn) -> None:
+def _show_long_title_warning(*, title: str, colorize_fn: ColorizeFn) -> None:
     if len(title) <= _MAX_STEP_TITLE:
         return
     print(
