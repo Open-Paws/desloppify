@@ -19,12 +19,26 @@ from desloppify.languages.typescript.phases_config import (
 )
 from desloppify.languages.typescript.phases_coupling import (
     detect_coupling_violations as _detect_coupling_violations_impl,
+)
+from desloppify.languages.typescript.phases_coupling import (
     detect_cross_tool_imports as _detect_cross_tool_imports_impl,
+)
+from desloppify.languages.typescript.phases_coupling import (
     detect_cycles_and_orphans as _detect_cycles_and_orphans_impl,
+)
+from desloppify.languages.typescript.phases_coupling import (
     detect_facades as _detect_facades_impl,
+)
+from desloppify.languages.typescript.phases_coupling import (
     detect_naming_inconsistencies as _detect_naming_inconsistencies_impl,
+)
+from desloppify.languages.typescript.phases_coupling import (
     detect_pattern_anomalies as _detect_pattern_anomalies_impl,
+)
+from desloppify.languages.typescript.phases_coupling import (
     detect_single_use as _detect_single_use_impl,
+)
+from desloppify.languages.typescript.phases_coupling import (
     make_boundary_issues_impl,
     orphaned_detector_mod,
     phase_coupling_impl,
@@ -44,23 +58,8 @@ def _detect_single_use(path: Path, graph: dict, lang: LangRuntimeContract):
     return _detect_single_use_impl(path, graph, lang)
 
 
-def _detect_coupling_violations(
-    path: Path,
-    graph: dict,
-    lang: LangRuntimeContract,
-    shared_prefix: str,
-    tools_prefix: str,
-):
-    return _detect_coupling_violations_impl(path, graph, lang, shared_prefix, tools_prefix)
-
-
-def _detect_cross_tool_imports(
-    path: Path,
-    graph: dict,
-    lang: LangRuntimeContract,
-    tools_prefix: str,
-):
-    return _detect_cross_tool_imports_impl(path, graph, lang, tools_prefix)
+_detect_coupling_violations = _detect_coupling_violations_impl
+_detect_cross_tool_imports = _detect_cross_tool_imports_impl
 
 
 def _detect_cycles_and_orphans(path: Path, graph: dict, lang: LangRuntimeContract):

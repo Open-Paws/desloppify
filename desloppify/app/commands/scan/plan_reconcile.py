@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from desloppify.app.commands.scan.workflow import ScanRuntime
+from typing import Any
 
 from desloppify import state as state_mod
 from desloppify.base.config import DEFAULT_TARGET_STRICT_SCORE
@@ -154,7 +151,7 @@ def _clear_plan_start_scores_if_queue_empty(
 
 
 def _subjective_policy_context(
-    runtime: ScanRuntime,
+    runtime: Any,
     plan: dict[str, object],
 ) -> tuple[float, object, bool]:
     from desloppify.base.config import target_strict_score_from_config

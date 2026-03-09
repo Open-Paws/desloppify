@@ -815,10 +815,9 @@ class TestEntriesToIssues:
         assert "coverage_gap" in results[0]["id"]
 
     def test_include_zone(self):
-        from enum import Enum
-
-        class _FakeZone(Enum):
-            TEST = "test"
+        class _FakeZone:
+            def __init__(self, value: str):
+                self.value = value
 
         entries = [
             {
@@ -828,7 +827,7 @@ class TestEntriesToIssues:
                 "summary": "In test zone",
             },
         ]
-        zone_map = {"tests/foo.py": _FakeZone.TEST}
+        zone_map = {"tests/foo.py": _FakeZone("test")}
         results = shared_phases_mod._entries_to_issues(
             "security",
             entries,

@@ -7,7 +7,7 @@ instead of maintaining their own lists.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator, Set
 from dataclasses import dataclass
 
 from desloppify.base.registry_catalog_entries import DETECTORS as _CATALOG_DETECTORS
@@ -41,13 +41,22 @@ _RUNTIME = _RegistryRuntime(
 DETECTORS = _RUNTIME.detectors
 _DISPLAY_ORDER = _RUNTIME.display_order
 _on_register_callbacks = _RUNTIME.callbacks
-JUDGMENT_DETECTORS: set[str] = set(_RUNTIME.judgment_detectors)
 
 
-def _sync_judgment_detectors_alias() -> None:
-    """Keep exported JUDGMENT_DETECTORS aligned with runtime state."""
-    JUDGMENT_DETECTORS.clear()
-    JUDGMENT_DETECTORS.update(_RUNTIME.judgment_detectors)
+class _JudgmentDetectorsView(Set[str]):
+    """Live read-only set view over runtime judgment detector names."""
+
+    def __contains__(self, item: object) -> bool:
+        return isinstance(item, str) and item in _RUNTIME.judgment_detectors
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(_RUNTIME.judgment_detectors)
+
+    def __len__(self) -> int:
+        return len(_RUNTIME.judgment_detectors)
+
+
+JUDGMENT_DETECTORS: Set[str] = _JudgmentDetectorsView()
 
 
 def on_detector_registered(callback: Callable[[], None]) -> None:
@@ -64,7 +73,6 @@ def register_detector(meta: DetectorMeta) -> None:
         name for name, current_meta in _RUNTIME.detectors.items()
         if current_meta.needs_judgment
     )
-    _sync_judgment_detectors_alias()
     for callback in tuple(_RUNTIME.callbacks):
         callback()
 
@@ -76,7 +84,6 @@ def reset_registered_detectors() -> None:
     _RUNTIME.display_order.clear()
     _RUNTIME.display_order.extend(_BASE_DISPLAY_ORDER)
     _RUNTIME.judgment_detectors = _BASE_JUDGMENT_DETECTORS
-    _sync_judgment_detectors_alias()
     for callback in tuple(_RUNTIME.callbacks):
         callback()
 

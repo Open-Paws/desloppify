@@ -312,7 +312,7 @@ def _apply_done_toggle(
     step["done"] = done
     current_steps[idx] = step
     state = "done" if done else "not done"
-    print(colorize_fn(f"  Marked step {step_number} as {state}: {step.get('title', '')}", "dim"))
+    print(colorize_fn(f"  Marked step {step_number} as {state}.", "dim"))
     return True
 
 

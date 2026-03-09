@@ -3,52 +3,8 @@
 from __future__ import annotations
 
 from desloppify.app.commands.helpers.display import short_issue_id
-from desloppify.app.commands.plan.triage.helpers import manual_clusters_with_issues
-from desloppify.app.commands.plan.triage.stage_helpers import (
-    triage_coverage,
-    unenriched_clusters,
-)
-from desloppify.engine._plan.triage_playbook import (
-    TRIAGE_CMD_CLUSTER_ENRICH_COMPACT,
-    TRIAGE_STAGE_DEPENDENCIES,
-    TRIAGE_STAGE_LABELS,
-)
+from desloppify.app.commands.plan.triage.stage_helpers import triage_coverage
 from desloppify.base.output.terminal import colorize
-
-
-def _print_stage_progress(stages: dict, plan: dict | None = None) -> None:
-    """Print the 4-stage progress indicator."""
-    print(colorize("  Stages:", "dim"))
-    for stage_name, label in TRIAGE_STAGE_LABELS:
-        if stage_name in stages:
-            print(colorize(f"    \u2713 {label}", "green"))
-        elif TRIAGE_STAGE_DEPENDENCIES[stage_name].issubset(stages):
-            print(colorize(f"    \u2192 {label} (current)", "yellow"))
-        else:
-            print(colorize(f"    \u25cb {label}", "dim"))
-
-    if plan and "reflect" in stages and "organize" not in stages:
-        gaps = unenriched_clusters(plan)
-        manual = manual_clusters_with_issues(plan)
-        if not manual:
-            print(
-                colorize(
-                    "\n    No manual clusters yet. Create clusters and enrich them.",
-                    "yellow",
-                )
-            )
-        elif gaps:
-            print(colorize(f"\n    {len(gaps)} cluster(s) need enrichment:", "yellow"))
-            for name, missing in gaps:
-                print(colorize(f"      {name}: missing {', '.join(missing)}", "yellow"))
-            print(
-                colorize(
-                    f"      Fix: {TRIAGE_CMD_CLUSTER_ENRICH_COMPACT}",
-                    "dim",
-                )
-            )
-        else:
-            print(colorize(f"\n    All {len(manual)} manual cluster(s) enriched.", "green"))
 
 
 def _print_progress(plan: dict, open_issues: dict) -> None:

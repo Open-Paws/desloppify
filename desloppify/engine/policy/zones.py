@@ -159,7 +159,7 @@ class FileZoneMap:
         if self._rel_fn is not None:
             try:
                 rel_path = self._rel_fn(path)
-            except Exception:
+            except (OSError, TypeError, ValueError):
                 rel_path = path
             rel_zone = self._rel_map.get(rel_path)
             if rel_zone is not None:
