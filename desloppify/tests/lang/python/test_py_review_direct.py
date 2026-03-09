@@ -21,3 +21,8 @@ def test_python_review_api_surface_is_empty_dict():
     surface = py_review_mod.api_surface({"a.py": "def run():\n    return 1\n"})
     assert isinstance(surface, dict)
     assert surface == {}
+
+
+def test_python_auth_guidance_has_matching_dimension():
+    assert py_review_mod.REVIEW_GUIDANCE["auth"]
+    assert "authorization_consistency" in py_review_mod.HOLISTIC_REVIEW_DIMENSIONS

@@ -29,6 +29,7 @@ HOLISTIC_REVIEW_DIMENSIONS = [
     "error_consistency",
     "abstraction_fitness",
     "dependency_health",
+    "authorization_consistency",
     "test_strategy",
     "ai_generated_debt",
     "package_organization",
