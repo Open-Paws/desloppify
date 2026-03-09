@@ -4,13 +4,44 @@ from __future__ import annotations
 
 import os
 import re
+from typing import TypedDict
 
 from desloppify.base.discovery.source import read_file_text as _read_file_text
 from desloppify.base.discovery.paths import get_project_root
+from desloppify.base.runtime_state import current_runtime_context
+
+
+class ReadDiagnostic(TypedDict):
+    filepath: str
+    abs_path: str
+    error_kind: str
+
+
+def _record_unreadable_file(
+    diagnostics: list[ReadDiagnostic] | None,
+    *,
+    filepath: str,
+    abs_path: str,
+) -> None:
+    if diagnostics is None:
+        return
+    runtime = current_runtime_context()
+    error_kind = runtime.file_text_cache.last_error_kind(abs_path) or "unknown"
+    diagnostics.append(
+        {
+            "filepath": filepath,
+            "abs_path": abs_path,
+            "error_kind": error_kind,
+        }
+    )
 
 
 def grep_files(
-    pattern: str, file_list: list[str], *, flags: int = 0
+    pattern: str,
+    file_list: list[str],
+    *,
+    flags: int = 0,
+    diagnostics: list[ReadDiagnostic] | None = None,
 ) -> list[tuple[str, int, str]]:
     """Search files for a regex pattern. Returns (filepath, lineno, line_text)."""
     compiled = re.compile(pattern, flags)
@@ -19,6 +50,11 @@ def grep_files(
         abs_path = filepath if os.path.isabs(filepath) else str(get_project_root() / filepath)
         content = _read_file_text(abs_path)
         if content is None:
+            _record_unreadable_file(
+                diagnostics,
+                filepath=filepath,
+                abs_path=abs_path,
+            )
             continue
         for lineno, line in enumerate(content.splitlines(), 1):
             if compiled.search(line):
@@ -27,7 +63,11 @@ def grep_files(
 
 
 def grep_files_containing(
-    names: set[str], file_list: list[str], *, word_boundary: bool = True
+    names: set[str],
+    file_list: list[str],
+    *,
+    word_boundary: bool = True,
+    diagnostics: list[ReadDiagnostic] | None = None,
 ) -> dict[str, set[str]]:
     r"""Find which files contain which names. Returns {name: set(filepaths)}."""
     if not names:
@@ -45,6 +85,11 @@ def grep_files_containing(
         abs_path = filepath if os.path.isabs(filepath) else str(get_project_root() / filepath)
         content = _read_file_text(abs_path)
         if content is None:
+            _record_unreadable_file(
+                diagnostics,
+                filepath=filepath,
+                abs_path=abs_path,
+            )
             continue
         found = set(combined.findall(content))
         for name in found & names:
@@ -53,7 +98,11 @@ def grep_files_containing(
 
 
 def grep_count_files(
-    name: str, file_list: list[str], *, word_boundary: bool = True
+    name: str,
+    file_list: list[str],
+    *,
+    word_boundary: bool = True,
+    diagnostics: list[ReadDiagnostic] | None = None,
 ) -> list[str]:
     """Return list of files containing name."""
     if word_boundary:
@@ -65,6 +114,11 @@ def grep_count_files(
         abs_path = filepath if os.path.isabs(filepath) else str(get_project_root() / filepath)
         content = _read_file_text(abs_path)
         if content is None:
+            _record_unreadable_file(
+                diagnostics,
+                filepath=filepath,
+                abs_path=abs_path,
+            )
             continue
         if pat.search(content):
             matching.append(filepath)
@@ -72,6 +126,7 @@ def grep_count_files(
 
 
 __all__ = [
+    "ReadDiagnostic",
     "grep_count_files",
     "grep_files",
     "grep_files_containing",

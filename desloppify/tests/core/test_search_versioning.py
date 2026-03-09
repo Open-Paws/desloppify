@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from unittest.mock import patch
+from types import SimpleNamespace
 
 import pytest
 
@@ -144,6 +145,28 @@ def test_grep_count_files_skips_unreadable(fake_read):
     fake_read({"/a.py": None, "/b.py": "target"})
     result = grep_count_files("target", ["/a.py", "/b.py"])
     assert result == ["/b.py"]
+
+
+def test_grep_count_files_collects_unreadable_diagnostics(fake_read, monkeypatch):
+    """Unreadable files are surfaced via optional diagnostics output."""
+    fake_read({"/a.py": None, "/b.py": "target"})
+    fake_runtime = SimpleNamespace(
+        file_text_cache=SimpleNamespace(
+            last_error_kind=lambda path: "PermissionError" if path == "/a.py" else None
+        )
+    )
+    monkeypatch.setattr(search_mod, "current_runtime_context", lambda: fake_runtime)
+
+    diagnostics: list[dict[str, str]] = []
+    result = grep_count_files("target", ["/a.py", "/b.py"], diagnostics=diagnostics)
+    assert result == ["/b.py"]
+    assert diagnostics == [
+        {
+            "filepath": "/a.py",
+            "abs_path": "/a.py",
+            "error_kind": "PermissionError",
+        }
+    ]
 
 
 # ── compute_tool_hash ────────────────────────────────────────

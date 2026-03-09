@@ -14,7 +14,7 @@ from desloppify.base.discovery.file_paths import (
 from desloppify.base.discovery.file_paths import (
     safe_relpath as _safe_relpath,
 )
-from desloppify.base.runtime_state import current_runtime_context
+from desloppify.base.runtime_state import FileTextReadResult, current_runtime_context
 from desloppify.base.discovery.paths import get_project_root
 
 # Directories that are never useful to scan — always pruned during traversal.
@@ -92,6 +92,11 @@ def is_file_cache_enabled() -> bool:
 def read_file_text(filepath: str) -> str | None:
     """Read a file as text, with optional caching."""
     return current_runtime_context().file_text_cache.read(filepath)
+
+
+def read_file_text_result(filepath: str) -> FileTextReadResult:
+    """Read a file as text and include read-status metadata."""
+    return current_runtime_context().file_text_cache.read_result(filepath)
 
 
 def clear_source_file_cache_for_tests() -> None:
@@ -206,6 +211,7 @@ __all__ = [
     "file_cache_scope",
     "is_file_cache_enabled",
     "read_file_text",
+    "read_file_text_result",
     "clear_source_file_cache_for_tests",
     "find_source_files",
     "find_ts_files",

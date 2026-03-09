@@ -8,32 +8,63 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 
+@dataclass(frozen=True)
+class FileTextReadResult:
+    """Structured text-read outcome for cached file access."""
+
+    content: str | None
+    error_kind: str | None = None
+
+    @property
+    def ok(self) -> bool:
+        return self.error_kind is None
+
+
 class FileTextCache:
     """Optional read-through file-text cache used by scan/review passes."""
 
     def __init__(self) -> None:
         self._enabled = False
-        self._values: dict[str, str | None] = {}
+        self._values: dict[str, FileTextReadResult] = {}
+        self._last_result: tuple[str, FileTextReadResult] | None = None
 
     def enable(self) -> None:
         self._enabled = True
         self._values.clear()
+        self._last_result = None
 
     def disable(self) -> None:
         self._enabled = False
         self._values.clear()
+        self._last_result = None
 
-    def read(self, filepath: str) -> str | None:
+    def read_result(self, filepath: str) -> FileTextReadResult:
         if self._enabled and filepath in self._values:
-            return self._values[filepath]
+            result = self._values[filepath]
+            self._last_result = (filepath, result)
+            return result
 
         try:
-            content = Path(filepath).read_text(errors="replace")
-        except OSError:
-            content = None
+            result = FileTextReadResult(
+                content=Path(filepath).read_text(errors="replace"),
+                error_kind=None,
+            )
+        except OSError as exc:
+            result = FileTextReadResult(content=None, error_kind=exc.__class__.__name__)
+        self._last_result = (filepath, result)
         if self._enabled:
-            self._values[filepath] = content
-        return content
+            self._values[filepath] = result
+        return result
+
+    def read(self, filepath: str) -> str | None:
+        return self.read_result(filepath).content
+
+    def last_error_kind(self, filepath: str) -> str | None:
+        if self._last_result and self._last_result[0] == filepath:
+            return self._last_result[1].error_kind
+        if self._enabled and filepath in self._values:
+            return self._values[filepath].error_kind
+        return None
 
 
 class SourceFileCache:
@@ -103,6 +134,7 @@ def runtime_scope(runtime: RuntimeContext | None = None):
 
 
 __all__ = [
+    "FileTextReadResult",
     "FileTextCache",
     "RuntimeContext",
     "SourceFileCache",

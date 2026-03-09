@@ -52,3 +52,26 @@ def test_source_file_cache_is_scoped():
     assert runtime_state.current_runtime_context().source_file_cache.get(key) == (
         "global.py",
     )
+
+
+def test_file_text_cache_read_result_success(tmp_path):
+    file_path = tmp_path / "ok.py"
+    file_path.write_text("print('ok')\n")
+    cache = runtime_state.FileTextCache()
+
+    result = cache.read_result(str(file_path))
+    assert result.ok is True
+    assert result.content == "print('ok')\n"
+    assert result.error_kind is None
+    assert cache.last_error_kind(str(file_path)) is None
+
+
+def test_file_text_cache_read_result_tracks_error_kind(tmp_path):
+    missing_path = tmp_path / "missing.py"
+    cache = runtime_state.FileTextCache()
+
+    result = cache.read_result(str(missing_path))
+    assert result.ok is False
+    assert result.content is None
+    assert result.error_kind == "FileNotFoundError"
+    assert cache.last_error_kind(str(missing_path)) == "FileNotFoundError"
