@@ -91,6 +91,39 @@ def test_organize_exits_when_reflect_requirement_not_met(monkeypatch) -> None:
     flow_mod._cmd_stage_organize(_args(report="organized"), services=services)
 
 
+def test_organize_records_zero_issue_noop_batch(monkeypatch) -> None:
+    plan = {
+        "epic_triage_meta": {
+            "triage_stages": {
+                "reflect": {
+                    "report": "x" * 150,
+                    "confirmed_at": "2026-03-10T00:00:00Z",
+                    "timestamp": "2026-03-10T00:00:00Z",
+                }
+            }
+        },
+        "clusters": {},
+    }
+    services, saved, logs = _services(plan, state={"issues": {}})
+    monkeypatch.setattr(flow_mod, "has_triage_in_queue", lambda _plan: True)
+    monkeypatch.setattr(flow_mod, "_require_reflect_stage_for_organize", lambda _stages: True)
+    monkeypatch.setattr(flow_mod, "_auto_confirm_reflect_for_organize", lambda **_kwargs: True)
+
+    flow_mod._cmd_stage_organize(
+        _args(
+            report=(
+                "Organize remained intentionally empty for this batch because the current triage "
+                "state has zero open review issues, zero skip candidates, and no review work to cluster."
+            )
+        ),
+        services=services,
+    )
+
+    assert saved
+    assert "organize" in plan["epic_triage_meta"]["triage_stages"]
+    assert any(action == "triage_organize" for action, _kwargs in logs)
+
+
 def test_public_wrappers_delegate_to_private(monkeypatch) -> None:
     called: list[str] = []
     monkeypatch.setattr(flow_mod, "_cmd_stage_observe", lambda *args, **kwargs: called.append("observe"))

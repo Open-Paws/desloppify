@@ -50,7 +50,10 @@ from .enrich_checks import (
     _underspecified_steps,
 )
 from ..confirmations.basic import MIN_ATTESTATION_LEN, validate_attestation
-from ..helpers import manual_clusters_with_issues, observe_dimension_breakdown
+from ..helpers import (
+    manual_clusters_with_issues,
+    observe_dimension_breakdown,
+)
 from ..stages.helpers import unclustered_review_issues, unenriched_clusters
 
 
@@ -335,10 +338,16 @@ def _auto_confirm_reflect_for_organize(
     )
 
 
-def _manual_clusters_or_error(plan: dict) -> list[str] | None:
+def _manual_clusters_or_error(
+    plan: dict,
+    *,
+    open_review_ids: set[str] | None = None,
+) -> list[str] | None:
     manual_clusters = manual_clusters_with_issues(plan)
     if manual_clusters:
         return manual_clusters
+    if open_review_ids is not None and not open_review_ids:
+        return []
     any_clusters = [name for name, cluster in plan.get("clusters", {}).items() if cluster.get("issue_ids")]
     if any_clusters:
         print(colorize("  Cannot organize: only auto-clusters exist.", "red"))

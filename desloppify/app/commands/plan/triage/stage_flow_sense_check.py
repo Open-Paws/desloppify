@@ -17,7 +17,7 @@ from .validation.enrich_checks import (
     _steps_without_effort,
     _underspecified_steps,
 )
-from .helpers import has_triage_in_queue, print_cascade_clear_feedback
+from .helpers import has_triage_in_queue, open_review_ids_from_state, print_cascade_clear_feedback
 from .services import TriageServices, default_triage_services
 from .stage_flow_enrich import ColorizeFn
 
@@ -52,6 +52,7 @@ def run_stage_sense_check(
 
     resolved_services = services or resolved_deps.default_triage_services()
     plan = resolved_services.load_plan()
+    state = resolved_services.command_runtime(args).state
 
     if not resolved_deps.has_triage_in_queue(plan):
         print(resolved_deps.colorize("  No planning stages in the queue — nothing to sense-check.", "yellow"))
@@ -131,14 +132,17 @@ def run_stage_sense_check(
     from .helpers import manual_clusters_with_issues
 
     sc_evidence_failures: list[EvidenceFailure] = []
-    path_failures = validate_report_has_file_paths(report)
-    if path_failures:
-        sc_evidence_failures.extend(path_failures)
+    has_open_review_work = bool(open_review_ids_from_state(state))
+    if has_open_review_work:
+        path_failures = validate_report_has_file_paths(report)
+        if path_failures:
+            sc_evidence_failures.extend(path_failures)
 
     cluster_names = manual_clusters_with_issues(plan)
-    cluster_failures = validate_report_references_clusters(report, cluster_names)
-    if cluster_failures:
-        sc_evidence_failures.extend(cluster_failures)
+    if cluster_names:
+        cluster_failures = validate_report_references_clusters(report, cluster_names)
+        if cluster_failures:
+            sc_evidence_failures.extend(cluster_failures)
 
     blocking_ev = [f for f in sc_evidence_failures if f.blocking]
     advisory_ev = [f for f in sc_evidence_failures if not f.blocking]

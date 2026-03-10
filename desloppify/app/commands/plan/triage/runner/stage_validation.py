@@ -25,7 +25,12 @@ from ..validation.core import (
     _steps_without_effort,
     _underspecified_steps,
 )
-from ..helpers import count_log_activity_since, manual_clusters_with_issues, observe_dimension_breakdown
+from ..helpers import (
+    count_log_activity_since,
+    manual_clusters_with_issues,
+    observe_dimension_breakdown,
+    open_review_ids_from_state,
+)
 from ..stages.helpers import unclustered_review_issues, unenriched_clusters
 
 
@@ -210,7 +215,13 @@ def _validate_organize_stage(plan: dict, state: dict, stages: dict) -> tuple[boo
     """Validate recorded organize-stage content."""
     if "organize" not in stages:
         return False, "Organize stage not recorded."
+    open_review_ids = open_review_ids_from_state(state)
     manual = manual_clusters_with_issues(plan)
+    if not open_review_ids and not manual:
+        report = stages["organize"].get("report", "")
+        if len(report) < 100:
+            return False, f"Organize report too short ({len(report)} chars, need 100+)."
+        return True, ""
     if not manual:
         return False, "No manual clusters with issues exist."
     gaps = unenriched_clusters(plan)
@@ -254,13 +265,20 @@ def _validate_enrich_stage(plan: dict, repo_root: Path, stages: dict) -> tuple[b
     return True, ""
 
 
-def _validate_sense_check_stage(plan: dict, repo_root: Path, stages: dict) -> tuple[bool, str]:
+def _validate_sense_check_stage(
+    plan: dict,
+    state: dict,
+    repo_root: Path,
+    stages: dict,
+) -> tuple[bool, str]:
     """Validate recorded sense-check-stage content."""
     if "sense-check" not in stages:
         return False, "Sense-check stage not recorded."
     report = stages["sense-check"].get("report", "")
     if len(report) < 100:
         return False, f"Sense-check report too short ({len(report)} chars, need 100+)."
+    if not open_review_ids_from_state(state) and not manual_clusters_with_issues(plan):
+        return True, ""
     failures = run_enrich_quality_checks(
         plan,
         repo_root,
@@ -299,7 +317,7 @@ def validate_stage(
         "reflect": lambda: _validate_reflect_stage(stages),
         "organize": lambda: _validate_organize_stage(plan, state, stages),
         "enrich": lambda: _validate_enrich_stage(plan, repo_root, stages),
-        "sense-check": lambda: _validate_sense_check_stage(plan, repo_root, stages),
+        "sense-check": lambda: _validate_sense_check_stage(plan, state, repo_root, stages),
     }
     validator = validators.get(stage)
     if validator is None:
@@ -354,7 +372,10 @@ def validate_completion(
     if not ok:
         return ok, message
 
+    open_review_ids = open_review_ids_from_state(state)
     manual = manual_clusters_with_issues(plan)
+    if not open_review_ids and not manual:
+        return True, ""
     if not manual:
         return False, "No manual clusters with issues."
 
@@ -407,6 +428,11 @@ def build_auto_attestation(
 
     if stage == "organize":
         cluster_names = manual_clusters_with_issues(plan)
+        if not cluster_names:
+            return (
+                "I verified there are zero open review issues in this organize batch, "
+                "so no manual clusters or issue assignments were needed before continuing."
+            )
         names_str = ", ".join(cluster_names[:3])
         return (
             f"I have organized all review issues into clusters including "
@@ -416,6 +442,11 @@ def build_auto_attestation(
 
     if stage == "enrich":
         cluster_names = manual_clusters_with_issues(plan)
+        if not cluster_names:
+            return (
+                "I verified there are zero open review issues in this enrich batch, "
+                "so there were no action steps to elaborate before advancing."
+            )
         names_str = ", ".join(cluster_names[:3])
         return (
             f"Steps in clusters including {names_str} are executor-ready with "
@@ -425,6 +456,11 @@ def build_auto_attestation(
 
     if stage == "sense-check":
         cluster_names = manual_clusters_with_issues(plan)
+        if not cluster_names:
+            return (
+                "I verified there are zero open review issues in this sense-check batch, "
+                "so no cluster content or file-path evidence needed additional review."
+            )
         names_str = ", ".join(cluster_names[:3])
         return (
             f"Content and structure verified for clusters including {names_str}. "

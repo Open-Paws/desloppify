@@ -35,6 +35,7 @@ from .helpers import (
     count_log_activity_since,
     has_triage_in_queue,
     inject_triage_stages,
+    open_review_ids_from_state,
     print_cascade_clear_feedback,
 )
 from .services import TriageServices, default_triage_services
@@ -63,10 +64,13 @@ def _enforce_cluster_activity_for_organize(
     plan: dict,
     stages: dict,
     manual_clusters: list[str],
+    open_review_ids: set[str],
     is_reuse: bool,
     attestation: str | None,
 ) -> bool:
     """Require enough cluster operations after reflect unless explicitly attested."""
+    if not open_review_ids:
+        return True
     reflect_ts = stages.get("reflect", {}).get("timestamp", "")
     if not reflect_ts or is_reuse:
         return True
@@ -404,6 +408,7 @@ def _cmd_stage_organize(
 
     runtime = resolved_services.command_runtime(args)
     state = runtime.state
+    open_review_ids = open_review_ids_from_state(state)
     triage_input = resolved_services.collect_triage_input(plan, state)
 
     if not _auto_confirm_reflect_for_organize(
@@ -417,7 +422,7 @@ def _cmd_stage_organize(
     ):
         return
 
-    manual_clusters = _manual_clusters_or_error(plan)
+    manual_clusters = _manual_clusters_or_error(plan, open_review_ids=open_review_ids)
     if manual_clusters is None:
         return
 
@@ -431,6 +436,7 @@ def _cmd_stage_organize(
         plan=plan,
         stages=stages,
         manual_clusters=manual_clusters,
+        open_review_ids=open_review_ids,
         is_reuse=is_reuse,
         attestation=attestation,
     ):
@@ -459,7 +465,7 @@ def _cmd_stage_organize(
     cleared = record_organize_stage(
         stages,
         report=report,
-        issue_count=len(manual_clusters),
+        issue_count=len(open_review_ids),
         existing_stage=existing_stage,
         is_reuse=is_reuse,
     )

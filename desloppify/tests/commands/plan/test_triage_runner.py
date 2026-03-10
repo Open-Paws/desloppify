@@ -287,7 +287,8 @@ def test_validate_reflect_requires_full_issue_accounting(tmp_path: Path) -> None
 
 def test_validate_organize_no_clusters(tmp_path: Path) -> None:
     plan = _plan_with_stages(organize={"report": "x" * 150})
-    ok, msg = validate_stage("organize", plan, {}, tmp_path)
+    state = {"issues": {"review::a::b": {"status": "open", "detector": "review"}}}
+    ok, msg = validate_stage("organize", plan, state, tmp_path)
     assert not ok
     assert "No manual clusters" in msg
 
@@ -501,6 +502,13 @@ def test_auto_attestation_organize() -> None:
     assert "fix-naming" in att
 
 
+def test_auto_attestation_organize_zero_issue_batch() -> None:
+    si = _make_triage_input(0)
+    att = build_auto_attestation("organize", {"clusters": {}}, si)
+    assert len(att) >= 80
+    assert "zero open review issues" in att.lower()
+
+
 # ---------- Completion validation ----------
 
 
@@ -562,6 +570,33 @@ def test_validate_completion_surfaces_all_trivial_cluster_advisory(tmp_path: Pat
     assert ok
     assert msg.startswith("Advisory:")
     assert "all-trivial" in msg
+
+
+def test_validate_completion_allows_zero_issue_noop(tmp_path: Path) -> None:
+    plan = _plan_with_stages(
+        observe={"report": "x" * 150, "confirmed_at": "t"},
+        reflect={"report": "x" * 150, "confirmed_at": "t"},
+        organize={"report": "x" * 150, "confirmed_at": "t"},
+        enrich={"report": "x" * 150, "confirmed_at": "t"},
+        **{"sense-check": {"report": "x" * 150, "confirmed_at": "t"}},
+    )
+    ok, msg = validate_completion(plan, {"issues": {}}, tmp_path)
+    assert ok
+    assert msg == ""
+
+
+def test_validate_stage_organize_allows_zero_issue_noop(tmp_path: Path) -> None:
+    plan = _plan_with_stages(organize={"report": "x" * 150})
+    ok, msg = validate_stage("organize", plan, {"issues": {}}, tmp_path, triage_input=_make_triage_input(0))
+    assert ok
+    assert msg == ""
+
+
+def test_validate_stage_sense_check_allows_zero_issue_noop(tmp_path: Path) -> None:
+    plan = _plan_with_stages(**{"sense-check": {"report": "x" * 150}})
+    ok, msg = validate_stage("sense-check", plan, {"issues": {}}, tmp_path, triage_input=_make_triage_input(0))
+    assert ok
+    assert msg == ""
 
 
 # ---------- Sense-check prompts ----------

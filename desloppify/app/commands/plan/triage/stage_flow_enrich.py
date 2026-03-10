@@ -21,6 +21,7 @@ from .validation.enrich_checks import (
 from .helpers import (
     count_log_activity_since,
     has_triage_in_queue,
+    open_review_ids_from_state,
     print_cascade_clear_feedback,
 )
 from .services import TriageServices, default_triage_services
@@ -62,6 +63,7 @@ def run_stage_enrich(
 
     resolved_services = services or resolved_deps.default_triage_services()
     plan = resolved_services.load_plan()
+    state = resolved_services.command_runtime(args).state
 
     if not resolved_deps.has_triage_in_queue(plan):
         print(resolved_deps.colorize("  No planning stages in the queue — nothing to enrich.", "yellow"))
@@ -102,7 +104,7 @@ def run_stage_enrich(
         if organize_ts:
             activity = resolved_deps.count_log_activity_since(plan, organize_ts)
             update_ops = activity.get("cluster_update", 0)
-            if update_ops == 0:
+            if update_ops == 0 and open_review_ids_from_state(state):
                 if attestation and len(attestation.strip()) >= 40:
                     print(resolved_deps.colorize(
                         "  Note: 0 cluster_update ops logged since organize. "

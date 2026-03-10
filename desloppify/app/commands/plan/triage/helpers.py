@@ -231,6 +231,10 @@ def open_review_ids_from_state(state: StateModel) -> set[str]:
     return open_review_ids(state)
 
 
+def has_open_review_issues(state: StateModel | dict | None) -> bool:
+    return bool(open_review_ids_from_state(state or {}))
+
+
 def triage_coverage(
     plan: PlanModel,
     open_review_ids: set[str] | None = None,
@@ -373,6 +377,7 @@ __all__ = [
     "count_log_activity_since",
     "find_cluster_for",
     "group_issues_into_observe_batches",
+    "has_open_review_issues",
     "has_triage_in_queue",
     "inject_triage_stages",
     "manual_clusters_with_issues",

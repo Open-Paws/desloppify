@@ -7,11 +7,14 @@ from desloppify.base.output.terminal import colorize
 from desloppify.engine.plan_triage import extract_issue_citations
 
 from ..display.dashboard import show_plan_summary
-from ..helpers import manual_clusters_with_issues
+from ..helpers import manual_clusters_with_issues, open_review_ids_from_state
 from ..stages.helpers import unclustered_review_issues, unenriched_clusters
 
 
 def _completion_clusters_valid(plan: dict, state: dict | None = None) -> bool:
+    if state is not None and not open_review_ids_from_state(state):
+        return True
+
     manual_clusters = manual_clusters_with_issues(plan)
     if not manual_clusters:
         any_clusters = [name for name, cluster in plan.get("clusters", {}).items() if cluster.get("issue_ids")]
