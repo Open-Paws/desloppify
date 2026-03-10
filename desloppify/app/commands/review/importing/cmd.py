@@ -181,8 +181,6 @@ def _has_refreshable_scorecard_context(state: dict) -> bool:
     fixtures or pre-scan workflows). Refreshing the badge from those states can
     overwrite scorecard.png with a misleading partial card.
     """
-    if not isinstance(state, dict):
-        return False
     if not state.get("last_scan"):
         return False
 
