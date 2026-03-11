@@ -10,6 +10,22 @@ import pytest
 import desloppify.app.commands.next.queue_flow as queue_flow_mod
 
 
+def _args(**overrides):
+    base = {
+        "count": 1,
+        "scope": None,
+        "status": "open",
+        "group": "item",
+        "explain": False,
+        "cluster": None,
+        "include_skipped": False,
+        "output": None,
+        "format": "terminal",
+    }
+    base.update(overrides)
+    return argparse.Namespace(**base)
+
+
 def test_build_next_payload_includes_scores_and_subjective_rows(monkeypatch) -> None:
     monkeypatch.setattr(
         queue_flow_mod.state_mod,
@@ -38,10 +54,41 @@ def test_build_next_payload_includes_scores_and_subjective_rows(monkeypatch) -> 
         plan_data=None,
     )
 
+    assert payload["command"] == "next"
     assert payload["overall_score"] == 91.0
     assert payload["objective_score"] == 93.5
     assert payload["strict_score"] == 90.2
-    assert payload["subjective_measures"] == [{"name": "Naming quality", "subjective": True}]
+    assert len(payload["scorecard_dimensions"]) == 2
+    assert payload["scorecard_dimensions"][0]["name"] == "Test health"
+    assert payload["scorecard_dimensions"][1]["name"] == "Naming quality"
+    assert payload["subjective_measures"] == [
+        {"name": "Naming quality", "subjective": True}
+    ]
+
+
+def test_emit_requested_output_supports_json_and_markdown(capsys) -> None:
+    payload = {"command": "next", "items": []}
+    items = [
+        {
+            "id": "smells::a.py::x",
+            "kind": "issue",
+            "confidence": "medium",
+            "summary": "Fix x",
+            "primary_command": "desloppify plan resolve x",
+        }
+    ]
+
+    json_opts = queue_flow_mod.NextOptions(output_file=None, output_format="json")
+    assert queue_flow_mod._emit_requested_output(json_opts, payload, items) is True
+    json_out = capsys.readouterr().out
+    assert '"command": "next"' in json_out
+    assert '"items": []' in json_out
+
+    md_opts = queue_flow_mod.NextOptions(output_file=None, output_format="md")
+    assert queue_flow_mod._emit_requested_output(md_opts, payload, items) is True
+    md_out = capsys.readouterr().out
+    assert "# Desloppify Execution Queue" in md_out
+    assert "| issue | medium | Fix x | desloppify plan resolve x |" in md_out
 
 
 def test_emit_requested_output_raises_when_output_file_write_fails(monkeypatch) -> None:
@@ -56,268 +103,108 @@ def test_emit_requested_output_raises_when_output_file_write_fails(monkeypatch) 
         queue_flow_mod._emit_requested_output(opts, payload={}, items=[])
 
 
-def _args(**overrides):
-    base = {
-        "count": 1,
-        "scope": None,
-        "status": "open",
-        "group": "item",
-        "explain": False,
-        "cluster": None,
-        "include_skipped": False,
-        "output": None,
-        "format": "terminal",
+def test_write_next_payload_adds_guardrail_warnings(monkeypatch) -> None:
+    written: list[dict] = []
+    monkeypatch.setattr(
+        queue_flow_mod,
+        "_build_next_payload",
+        lambda **_k: {"command": "next", "items": []},
+    )
+
+    payload = queue_flow_mod._write_next_payload(
+        queue={"items": []},
+        items=[],
+        state={},
+        narrative={},
+        plan_data=None,
+        guardrail_warnings=["triage pending"],
+        write_query_fn=lambda data: written.append(data),
+        command_name="next",
+    )
+
+    assert payload["command"] == "next"
+    assert payload["items"] == []
+    assert payload["warnings"] == ["triage pending"]
+    assert written == [payload]
+
+
+def test_build_and_render_execution_queue_renders_real_issue_and_payload(capsys) -> None:
+    written: list[dict] = []
+    item = {
+        "id": "smells::a.py::x",
+        "detector": "smells",
+        "file": "a.py",
+        "summary": "Fix x",
+        "primary_command": 'desloppify plan resolve "smells::a.py::x" --note "fixed" --confirm',
     }
-    base.update(overrides)
-    return argparse.Namespace(**base)
-
-
-def test_build_and_render_queue_empty_queue_writes_payload(monkeypatch) -> None:
-    written: list[dict] = []
-    monkeypatch.setattr(queue_flow_mod, "triage_guardrail_messages", lambda **_k: ["guard"])
-    monkeypatch.setattr(queue_flow_mod, "target_strict_score_from_config", lambda _cfg: 95.0)
-    monkeypatch.setattr(queue_flow_mod, "queue_context", lambda *_a, **_k: SimpleNamespace())
-    monkeypatch.setattr(queue_flow_mod, "_resolve_cluster_focus", lambda *_a, **_k: None)
-    monkeypatch.setattr(queue_flow_mod, "_render_queue_header", lambda *_a, **_k: None)
-    monkeypatch.setattr(queue_flow_mod, "_show_empty_queue", lambda *_a, **_k: False)
-    monkeypatch.setattr(queue_flow_mod, "_plan_queue_context", lambda **_k: (None, None))
-    monkeypatch.setattr(
-        queue_flow_mod,
-        "_build_next_payload",
-        lambda **_k: {"command": "next"},
-    )
-    monkeypatch.setattr(
-        queue_flow_mod.state_mod,
-        "score_snapshot",
-        lambda _state: SimpleNamespace(strict=88.0),
-    )
-
-    queue_flow_mod.build_and_render_queue(
-        _args(),
-        state={"issues": {}, "dimension_scores": {}, "scan_path": "."},
-        config={},
-        load_plan_fn=lambda: {},
-        build_work_queue_fn=lambda *_a, **_k: {"items": [], "total": 0},
-        write_query_fn=lambda payload: written.append(payload),
-    )
-
-    assert written and written[0]["warnings"] == ["guard"]
-
-
-def test_build_and_render_queue_non_terminal_path_renders_items(monkeypatch) -> None:
-    rendered_items: list[list[dict]] = []
-    user_messages: list[str] = []
-    written: list[dict] = []
-    monkeypatch.setattr(queue_flow_mod, "triage_guardrail_messages", lambda **_k: [])
-    monkeypatch.setattr(queue_flow_mod, "target_strict_score_from_config", lambda _cfg: 95.0)
-    monkeypatch.setattr(queue_flow_mod, "queue_context", lambda *_a, **_k: SimpleNamespace())
-    monkeypatch.setattr(queue_flow_mod, "_resolve_cluster_focus", lambda *_a, **_k: None)
-    monkeypatch.setattr(queue_flow_mod, "_render_queue_header", lambda *_a, **_k: None)
-    monkeypatch.setattr(queue_flow_mod, "_show_empty_queue", lambda *_a, **_k: False)
-    monkeypatch.setattr(
-        queue_flow_mod,
-        "_plan_queue_context",
-        lambda **_k: (80.0, SimpleNamespace(queue_total=1)),
-    )
-    monkeypatch.setattr(
-        queue_flow_mod,
-        "_build_next_payload",
-        lambda **_k: {"command": "next"},
-    )
-    monkeypatch.setattr(queue_flow_mod, "compute_narrative", lambda *_a, **_k: {"narrative": 1})
-    monkeypatch.setattr(
-        queue_flow_mod.state_mod,
-        "score_snapshot",
-        lambda _state: SimpleNamespace(strict=88.0),
-    )
-    monkeypatch.setattr(
-        queue_flow_mod.state_mod,
-        "path_scoped_issues",
-        lambda issues, _scan_path: issues,
-    )
-    monkeypatch.setattr(
-        queue_flow_mod.next_render_mod,
-        "render_terminal_items",
-        lambda items, *_a, **_k: rendered_items.append(items),
-    )
-    monkeypatch.setattr(
-        queue_flow_mod.next_nudges_mod,
-        "render_single_item_resolution_hint",
-        lambda *_a, **_k: None,
-    )
-    monkeypatch.setattr(
-        queue_flow_mod.next_nudges_mod,
-        "render_uncommitted_reminder",
-        lambda *_a, **_k: None,
-    )
-    monkeypatch.setattr(
-        queue_flow_mod.next_nudges_mod,
-        "render_followup_nudges",
-        lambda *_a, **_k: None,
-    )
-    monkeypatch.setattr(queue_flow_mod, "print_user_message", lambda msg: user_messages.append(msg))
-    monkeypatch.setattr(
-        queue_flow_mod,
-        "_emit_requested_output",
-        lambda *_a, **_k: False,
-    )
-
-    item = {"id": "smells::a.py::x", "detector": "smells"}
-    queue_flow_mod.build_and_render_queue(
-        _args(),
-        state={"issues": {"x": {}}, "dimension_scores": {}, "scan_path": "."},
-        config={},
-        resolve_lang_fn=lambda _args: SimpleNamespace(name="python"),
-        load_plan_fn=lambda: {"queue_order": ["x"]},
-        build_work_queue_fn=lambda *_a, **_k: {"items": [item], "total": 1},
-        write_query_fn=lambda payload: written.append(payload),
-    )
-
-    assert written and written[0]["command"] == "next"
-    assert rendered_items == [[item]]
-    assert user_messages
-
-
-def test_build_and_render_execution_queue_passes_queue_context_plan(monkeypatch) -> None:
-    captured: dict[str, object] = {}
-    monkeypatch.setattr(queue_flow_mod, "triage_guardrail_messages", lambda **_k: [])
-    monkeypatch.setattr(queue_flow_mod, "target_strict_score_from_config", lambda _cfg: 95.0)
-    monkeypatch.setattr(
-        queue_flow_mod,
-        "queue_context",
-        lambda *_a, **_k: SimpleNamespace(plan={"queue_order": ["x"]}),
-    )
-    monkeypatch.setattr(queue_flow_mod, "_resolve_cluster_focus", lambda *_a, **_k: None)
-    monkeypatch.setattr(queue_flow_mod, "_render_queue_header", lambda *_a, **_k: None)
-    monkeypatch.setattr(queue_flow_mod, "_show_empty_queue", lambda *_a, **_k: False)
-    monkeypatch.setattr(
-        queue_flow_mod,
-        "_plan_queue_context",
-        lambda **_k: (80.0, SimpleNamespace(queue_total=1)),
-    )
-    monkeypatch.setattr(
-        queue_flow_mod,
-        "_build_next_payload",
-        lambda **_k: {"command": "next"},
-    )
-    monkeypatch.setattr(queue_flow_mod, "compute_narrative", lambda *_a, **_k: {"narrative": 1})
-    monkeypatch.setattr(
-        queue_flow_mod.state_mod,
-        "score_snapshot",
-        lambda _state: SimpleNamespace(strict=88.0),
-    )
-    monkeypatch.setattr(
-        queue_flow_mod.state_mod,
-        "path_scoped_issues",
-        lambda issues, _scan_path: issues,
-    )
-    monkeypatch.setattr(
-        queue_flow_mod.next_render_mod,
-        "render_terminal_items",
-        lambda *_a, **_k: None,
-    )
-    monkeypatch.setattr(
-        queue_flow_mod.next_nudges_mod,
-        "render_single_item_resolution_hint",
-        lambda *_a, **_k: None,
-    )
-    monkeypatch.setattr(
-        queue_flow_mod.next_nudges_mod,
-        "render_uncommitted_reminder",
-        lambda *_a, **_k: None,
-    )
-    monkeypatch.setattr(
-        queue_flow_mod.next_nudges_mod,
-        "render_followup_nudges",
-        lambda *_a, **_k: None,
-    )
-    monkeypatch.setattr(queue_flow_mod, "print_user_message", lambda _msg: None)
-    monkeypatch.setattr(
-        queue_flow_mod,
-        "_emit_requested_output",
-        lambda *_a, **_k: False,
-    )
 
     def _build_queue(_state, *, options):
-        captured["plan"] = options.context.plan
-        return {"items": [{"id": "smells::a.py::x", "detector": "smells"}], "total": 1}
+        assert options.context is not None
+        assert options.status == "open"
+        assert options.include_subjective is True
+        return {"items": [item], "total": 1}
 
     queue_flow_mod.build_and_render_execution_queue(
         _args(),
-        state={"issues": {"x": {}}, "dimension_scores": {}, "scan_path": "."},
+        state={
+            "issues": {"x": {"status": "open"}},
+            "dimension_scores": {},
+            "scan_path": ".",
+            "potentials": {},
+            "scan_count": 0,
+        },
         config={},
         resolve_lang_fn=lambda _args: SimpleNamespace(name="python"),
-        load_plan_fn=lambda: {"queue_order": ["x"]},
+        load_plan_fn=lambda: {},
         build_work_queue_fn=_build_queue,
-        write_query_fn=lambda _payload: None,
+        write_query_fn=lambda payload: written.append(payload),
     )
 
-    assert captured["plan"] == {"queue_order": ["x"]}
+    out = capsys.readouterr().out
+    assert "Queue: 1 item" in out
+    assert "Fix x" in out
+    assert "Resolve with:" in out
+    assert 'desloppify plan resolve "smells::a.py::x"' in out
+    assert "Start planning: `desloppify plan`" in out
+    assert written[0]["command"] == "next"
+    assert written[0]["queue"]["mode"] == "execution"
+    assert written[0]["items"][0]["summary"] == "Fix x"
+    assert written[0]["items"][0]["file"] == "a.py"
 
 
-def test_build_and_render_queue_backlog_mode_hides_plan_prompt(monkeypatch) -> None:
+def test_build_and_render_backlog_queue_hides_execution_prompt(capsys) -> None:
     written: list[dict] = []
-    user_messages: list[str] = []
-    monkeypatch.setattr(queue_flow_mod, "triage_guardrail_messages", lambda **_k: [])
-    monkeypatch.setattr(queue_flow_mod, "target_strict_score_from_config", lambda _cfg: 95.0)
-    monkeypatch.setattr(queue_flow_mod, "queue_context", lambda *_a, **_k: SimpleNamespace())
-    monkeypatch.setattr(queue_flow_mod, "_resolve_cluster_focus", lambda *_a, **_k: None)
-    monkeypatch.setattr(queue_flow_mod, "_render_queue_header", lambda *_a, **_k: None)
-    monkeypatch.setattr(queue_flow_mod, "_show_empty_queue", lambda *_a, **_k: False)
-    monkeypatch.setattr(queue_flow_mod, "compute_narrative", lambda *_a, **_k: {"narrative": 1})
-    monkeypatch.setattr(
-        queue_flow_mod.state_mod,
-        "score_snapshot",
-        lambda _state: SimpleNamespace(strict=88.0),
-    )
-    monkeypatch.setattr(
-        queue_flow_mod.state_mod,
-        "path_scoped_issues",
-        lambda issues, _scan_path: issues,
-    )
-    monkeypatch.setattr(
-        queue_flow_mod.next_render_mod,
-        "render_terminal_items",
-        lambda *_a, **_k: None,
-    )
-    monkeypatch.setattr(
-        queue_flow_mod.next_nudges_mod,
-        "render_single_item_resolution_hint",
-        lambda *_a, **_k: None,
-    )
-    monkeypatch.setattr(
-        queue_flow_mod.next_nudges_mod,
-        "render_uncommitted_reminder",
-        lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("plan reminder should be hidden")),
-    )
-    monkeypatch.setattr(
-        queue_flow_mod.next_nudges_mod,
-        "render_followup_nudges",
-        lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("plan nudges should be hidden")),
-    )
-    monkeypatch.setattr(queue_flow_mod, "print_user_message", lambda msg: user_messages.append(msg))
-    monkeypatch.setattr(
-        queue_flow_mod,
-        "_emit_requested_output",
-        lambda *_a, **_k: False,
-    )
+    item = {
+        "id": "smells::b.py::y",
+        "detector": "smells",
+        "file": "b.py",
+        "summary": "Backlog item",
+        "primary_command": 'desloppify plan resolve "smells::b.py::y" --note "fixed" --confirm',
+    }
 
-    queue_flow_mod.build_and_render_queue(
+    queue_flow_mod.build_and_render_backlog_queue(
         _args(),
-        state={"issues": {"x": {}}, "dimension_scores": {}, "scan_path": "."},
+        state={
+            "issues": {"y": {"status": "open"}},
+            "dimension_scores": {},
+            "scan_path": ".",
+            "potentials": {},
+            "scan_count": 0,
+        },
         config={},
         resolve_lang_fn=lambda _args: SimpleNamespace(name="python"),
-        load_plan_fn=lambda: {"queue_order": ["smells::a.py::planned"]},
-        build_work_queue_fn=lambda *_a, **_k: {
-            "items": [{"id": "smells::b.py::unplanned", "detector": "smells"}],
+        load_plan_fn=lambda: {"queue_order": ["smells::planned"]},
+        build_work_queue_fn=lambda _state, *, options: {
+            "items": [item],
             "total": 1,
         },
         write_query_fn=lambda payload: written.append(payload),
-        command_name="backlog",
-        show_plan_context=False,
-        collapse_plan_clusters=False,
-        show_execution_prompt=False,
     )
 
-    assert written and written[0]["command"] == "backlog"
-    assert not user_messages
+    out = capsys.readouterr().out
+    assert "Backlog item" in out
+    assert "Start working on the task above." not in out
+    assert "Queue: 1 item" in out
+    assert written[0]["command"] == "backlog"
+    assert written[0]["queue"]["mode"] == "backlog"
+    assert "plan" not in written[0]
