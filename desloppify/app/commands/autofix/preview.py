@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import random
 from pathlib import Path
 
 from desloppify.base.discovery.file_paths import rel
@@ -14,9 +13,8 @@ _logger = logging.getLogger(__name__)
 
 def show_fix_dry_run_samples(entries: list[dict], results: list[dict]) -> None:
     """Print sampled before/after context for fix --dry-run."""
-    random.seed(42)
     print(colorize("\n  ── Sample changes (before → after) ──", "cyan"))
-    for result in random.sample(results, min(5, len(results))):
+    for result in results[:5]:
         _print_fix_file_sample(result, entries)
     removed_count = sum(len(r["removed"]) for r in results)
     if len(entries) > removed_count:

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import subprocess
+import subprocess  # nosec B404
 import sys
 from pathlib import Path
+from shutil import which
 from typing import TYPE_CHECKING
 
 from desloppify.base.discovery.file_paths import rel
@@ -33,9 +34,15 @@ def _resolve_fixer_results(
 
 
 def _warn_uncommitted_changes() -> None:
+    git_executable = which("git") or "git"
     try:
+        # Static git argv only; no shell expansion or user-provided executable path.
         result = subprocess.run(
-            ["git", "status", "--porcelain"], capture_output=True, text=True, timeout=5
+            [git_executable, "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            shell=False,  # nosec B603
         )
         if result.stdout.strip():
             print(colorize("\n  ⚠ You have uncommitted changes. Consider running:", "yellow"))

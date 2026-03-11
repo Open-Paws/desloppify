@@ -251,7 +251,7 @@ class TestGetProjectName:
             meta.subprocess,
             "check_output",
             lambda cmd, **kw: "owner/repo\n"
-            if "gh" in cmd
+            if str(cmd[0]).endswith("gh")
             else (_ for _ in ()).throw(FileNotFoundError),
         )
         assert resolve_project_name(get_project_root()) == "owner/repo"
@@ -260,7 +260,7 @@ class TestGetProjectName:
         import desloppify.app.output.scorecard_parts.meta as meta
 
         def mock_check_output(cmd, **kw):
-            if "gh" in cmd:
+            if str(cmd[0]).endswith("gh"):
                 raise FileNotFoundError
             return "git@github.com:myuser/myrepo.git\n"
 
@@ -271,7 +271,7 @@ class TestGetProjectName:
         import desloppify.app.output.scorecard_parts.meta as meta
 
         def mock_check_output(cmd, **kw):
-            if "gh" in cmd:
+            if str(cmd[0]).endswith("gh"):
                 raise FileNotFoundError
             return "https://github.com/owner/repo.git\n"
 
@@ -292,7 +292,7 @@ class TestGetProjectName:
         import desloppify.app.output.scorecard_parts.meta as meta
 
         def mock_check_output(cmd, **kw):
-            if "gh" in cmd:
+            if str(cmd[0]).endswith("gh"):
                 raise FileNotFoundError
             return "https://TOKEN@github.com/owner/repo.git\n"
 

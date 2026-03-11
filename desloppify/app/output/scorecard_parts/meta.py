@@ -4,24 +4,41 @@ from __future__ import annotations
 
 import logging
 import re
-import subprocess
+import subprocess  # nosec B404
 from collections.abc import Callable
 from pathlib import Path
+from shutil import which
 
 from desloppify.base.output.fallbacks import log_best_effort_failure
 
 logger = logging.getLogger(__name__)
 
 
+def _resolve_cli_executable(name: str) -> str:
+    """Return an absolute CLI path when available."""
+    return which(name) or name
+
+
 def resolve_project_name(project_root: Path) -> str:
     """Resolve owner/repo display name from GitHub CLI, git remote, or folder."""
+    gh_cli = _resolve_cli_executable("gh")
     try:
+        # Static gh argv only; no shell expansion and executable path is resolved first.
         name = subprocess.check_output(
-            ["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
+            [
+                gh_cli,
+                "repo",
+                "view",
+                "--json",
+                "nameWithOwner",
+                "-q",
+                ".nameWithOwner",
+            ],
             cwd=str(project_root),
             stderr=subprocess.DEVNULL,
             text=True,
             timeout=5,
+            shell=False,  # nosec B603
         ).strip()
         if "/" in name:
             return name
@@ -33,12 +50,15 @@ def resolve_project_name(project_root: Path) -> str:
         logger.debug("gh repo view failed, falling back to git remote: %s", exc)
 
     try:
+        git_cli = _resolve_cli_executable("git")
+        # Static git argv only; no shell expansion and executable path is resolved first.
         url = subprocess.check_output(
-            ["git", "config", "--get", "remote.origin.url"],
+            [git_cli, "config", "--get", "remote.origin.url"],
             cwd=str(project_root),
             stderr=subprocess.DEVNULL,
             text=True,
             timeout=5,
+            shell=False,  # nosec B603
         ).strip()
         if url.startswith("git@") and ":" in url:
             path = url.split(":")[-1]

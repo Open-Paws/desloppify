@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import secrets
 import shlex
-import subprocess
+import subprocess  # nosec B404
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
