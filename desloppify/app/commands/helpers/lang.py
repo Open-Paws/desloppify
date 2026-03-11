@@ -32,6 +32,22 @@ class LangResolutionError(CommandError):
         super().__init__(message, exit_code=1)
 
 
+def load_lang_config(lang_name: str):
+    """Load one language config with explicit broken-plugin signaling."""
+    try:
+        return lang_api.get_lang(lang_name)
+    except ValueError as exc:
+        langs = lang_api.available_langs()
+        langs_str = ", ".join(langs) if langs else "registered language plugins"
+        raise LangResolutionError(
+            f"{exc}\n  Hint: use --lang to select manually (available: {langs_str})"
+        ) from exc
+    except (ImportError, TypeError, AttributeError) as exc:
+        raise LangResolutionError(
+            f"Language plugin '{lang_name}' failed to load: {exc}"
+        ) from exc
+
+
 EXTRA_ROOT_MARKERS = (
     "package.json",
     "pyproject.toml",
@@ -54,13 +70,7 @@ def _lang_config_markers() -> tuple[str, ...]:
     markers = set(EXTRA_ROOT_MARKERS)
 
     for lang_name in lang_api.available_langs():
-        try:
-            cfg = lang_api.get_lang(lang_name)
-        except (ImportError, ValueError, TypeError, AttributeError) as exc:
-            logger.debug(
-                "Skipping language marker collection for %s: %s", lang_name, exc
-            )
-            continue
+        cfg = load_lang_config(lang_name)
         for marker in getattr(cfg, "detect_markers", []) or []:
             if not isinstance(marker, str):
                 continue
@@ -115,14 +125,7 @@ def resolve_lang(args: object) -> LangConfig | None:
         lang_name = auto_detect_lang_name(args)
     if lang_name is None:
         return None
-    try:
-        return lang_api.get_lang(lang_name)
-    except ValueError as exc:
-        langs = lang_api.available_langs()
-        langs_str = ", ".join(langs) if langs else "registered language plugins"
-        raise LangResolutionError(
-            f"{exc}\n  Hint: use --lang to select manually (available: {langs_str})"
-        ) from exc
+    return load_lang_config(lang_name)
 
 
 def resolve_lang_settings(config: dict, lang: LangConfig) -> dict[str, object]:

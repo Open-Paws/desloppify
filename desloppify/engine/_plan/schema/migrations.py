@@ -126,51 +126,96 @@ def _execution_log_cluster_members(
     members: dict[str, list[str]] = {}
     hash_lookup: dict[str, str] = {}
 
-    def _append(cluster_name: str, issue_ids: list[str]) -> None:
-        bucket = members.setdefault(cluster_name, [])
-        seen = set(bucket)
-        for issue_id in issue_ids:
-            if issue_id in seen:
-                continue
-            seen.add(issue_id)
-            bucket.append(issue_id)
-            parts = issue_id.split("::")
-            if parts and _HEX_SUFFIX_RE.fullmatch(parts[-1]):
-                hash_lookup[parts[-1]] = issue_id
-
     for entry in plan.get("execution_log", []):
-        if not isinstance(entry, dict):
+        cluster_entry = _execution_log_cluster_entry(entry)
+        if cluster_entry is None:
             continue
-        cluster_name = entry.get("cluster_name")
-        if not isinstance(cluster_name, str) or not cluster_name.strip():
-            continue
-        cluster_name = cluster_name.strip()
-        action = entry.get("action")
+        cluster_name, action, normalized_issue_ids = cluster_entry
         if action == "cluster_delete":
             members.pop(cluster_name, None)
             continue
-
-        normalized_issue_ids = [
-            issue_id
-            for raw_id in entry.get("issue_ids", [])
-            if (issue_id := _normalize_cluster_issue_id(raw_id)) is not None
-        ]
         if not normalized_issue_ids:
             continue
-
-        if action == "cluster_remove":
-            bucket = members.get(cluster_name, [])
-            if bucket:
-                remove_set = set(normalized_issue_ids)
-                members[cluster_name] = [
-                    issue_id for issue_id in bucket if issue_id not in remove_set
-                ]
-            continue
-
-        if action in {"cluster_add", "cluster_create", "cluster_update"}:
-            _append(cluster_name, normalized_issue_ids)
+        _apply_execution_log_cluster_action(
+            members,
+            hash_lookup,
+            cluster_name=cluster_name,
+            action=action,
+            issue_ids=normalized_issue_ids,
+        )
 
     return members, hash_lookup
+
+
+def _execution_log_cluster_entry(
+    entry: object,
+) -> tuple[str, object, list[str]] | None:
+    if not isinstance(entry, dict):
+        return None
+    cluster_name = entry.get("cluster_name")
+    if not isinstance(cluster_name, str) or not cluster_name.strip():
+        return None
+    return (
+        cluster_name.strip(),
+        entry.get("action"),
+        _normalized_execution_log_issue_ids(entry),
+    )
+
+
+def _normalized_execution_log_issue_ids(entry: dict[str, Any]) -> list[str]:
+    return [
+        issue_id
+        for raw_id in entry.get("issue_ids", [])
+        if (issue_id := _normalize_cluster_issue_id(raw_id)) is not None
+    ]
+
+
+def _apply_execution_log_cluster_action(
+    members: dict[str, list[str]],
+    hash_lookup: dict[str, str],
+    *,
+    cluster_name: str,
+    action: object,
+    issue_ids: list[str],
+) -> None:
+    if action == "cluster_remove":
+        bucket = members.get(cluster_name, [])
+        if bucket:
+            remove_set = set(issue_ids)
+            members[cluster_name] = [
+                issue_id for issue_id in bucket if issue_id not in remove_set
+            ]
+        return
+    if action in {"cluster_add", "cluster_create", "cluster_update"}:
+        _append_execution_log_members(
+            members,
+            hash_lookup,
+            cluster_name=cluster_name,
+            issue_ids=issue_ids,
+        )
+
+
+def _append_execution_log_members(
+    members: dict[str, list[str]],
+    hash_lookup: dict[str, str],
+    *,
+    cluster_name: str,
+    issue_ids: list[str],
+) -> None:
+    bucket = members.setdefault(cluster_name, [])
+    seen = set(bucket)
+    for issue_id in issue_ids:
+        if issue_id in seen:
+            continue
+        seen.add(issue_id)
+        bucket.append(issue_id)
+        _record_execution_log_hash(hash_lookup, issue_id)
+
+
+def _record_execution_log_hash(hash_lookup: dict[str, str], issue_id: str) -> None:
+    parts = issue_id.split("::")
+    if parts and _HEX_SUFFIX_RE.fullmatch(parts[-1]):
+        hash_lookup[parts[-1]] = issue_id
 
 
 def normalize_cluster_defaults(plan: dict[str, Any]) -> None:

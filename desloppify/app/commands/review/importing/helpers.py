@@ -27,8 +27,11 @@ from .output import (
     print_skipped_validation_details,
 )
 from .parse import (
+    ImportParseOptions,
+    ImportPayloadLoadError as ParseImportPayloadLoadError,
     _validate_assessment_feedback,
     _validate_holistic_issues_schema,
+    load_import_issues_data as parse_load_import_issues_data,
     resolve_override_context,
 )
 from .policy import (
@@ -392,21 +395,23 @@ def load_import_issues_data(
     *,
     config: ImportLoadConfig,
 ) -> ReviewImportPayload:
-    """Load and normalize review import payload to object format.
-
-    Raises ``ImportPayloadLoadError`` when validation fails.
-    """
-    data, errors = _parse_and_validate_import(
-        import_file,
-        config=config,
+    """Load and normalize review import payload via the canonical parse pipeline."""
+    parse_options = ImportParseOptions(
+        lang_name=config.lang_name,
+        allow_partial=config.allow_partial,
+        trusted_assessment_source=config.trusted_assessment_source,
+        trusted_assessment_label=config.trusted_assessment_label,
+        attested_external=config.attested_external,
+        manual_override=config.manual_override,
+        manual_attest=config.manual_attest,
     )
-    if errors:
-        raise ImportPayloadLoadError(errors)
-    if data is None:
-        raise ValueError(
-            "import payload missing after parse completed without validation errors"
+    try:
+        return parse_load_import_issues_data(
+            import_file,
+            options=parse_options,
         )
-    return data
+    except ParseImportPayloadLoadError as exc:
+        raise ImportPayloadLoadError(exc.errors) from exc
 
 
 def print_assessment_policy_notice(

@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import logging
+
 from desloppify.languages import get_lang
 from .parser_groups_admin_review import _add_review_parser  # noqa: F401 (re-export)
+
+logger = logging.getLogger(__name__)
 
 
 def _add_detect_parser(sub, detector_names: list[str]) -> None:
@@ -91,8 +95,12 @@ def _fixer_help_lines(langs: list[str]) -> list[str]:
     for lang_name in langs:
         try:
             fixer_names = sorted(get_lang(lang_name).fixers.keys())
-        except (ImportError, ValueError, TypeError, AttributeError):
-            fixer_names = []
+        except (ImportError, ValueError, TypeError, AttributeError) as exc:
+            logger.debug("Failed to load fixer metadata for %s: %s", lang_name, exc)
+            fixer_help_lines.append(
+                f"fixers ({lang_name}): language plugin failed to load ({exc})"
+            )
+            continue
         fixer_list = ", ".join(fixer_names) if fixer_names else "none yet"
         fixer_help_lines.append(f"fixers ({lang_name}): {fixer_list}")
     return fixer_help_lines

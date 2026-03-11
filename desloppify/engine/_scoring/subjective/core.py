@@ -110,6 +110,130 @@ def _extract_components(assessment: dict) -> tuple[list[str], dict[str, float]]:
     return components, component_scores
 
 
+def _normalized_allowed_dimensions(
+    allowed_dimensions: set[str] | None,
+) -> set[str] | None:
+    if allowed_dimensions is None:
+        return None
+    return {_normalize_dimension_key(name) for name in allowed_dimensions}
+
+
+def _default_dimensions(allowed: set[str] | None) -> list[str]:
+    default_dimensions: list[str] = []
+    for raw_dim in default_dimension_keys():
+        dim = _normalize_dimension_key(raw_dim)
+        if not dim:
+            continue
+        if allowed is not None and dim not in allowed:
+            continue
+        default_dimensions.append(dim)
+    return default_dimensions
+
+
+def _placeholder_assessment(payload: object) -> bool:
+    return isinstance(payload, dict) and (
+        payload.get("placeholder") is True
+        or payload.get("source") == "scan_reset_subjective"
+        or payload.get("reset_by") == "scan_reset_subjective"
+    )
+
+
+def _normalized_assessments(
+    assessments: dict | None,
+    *,
+    allowed: set[str] | None,
+) -> dict[str, dict]:
+    assessed: dict[str, dict] = {}
+    for raw_dim, payload in (assessments or {}).items():
+        dim = _normalize_dimension_key(raw_dim)
+        if not dim:
+            continue
+        if _placeholder_assessment(payload) and allowed is not None and dim not in allowed:
+            continue
+        assessed[dim] = payload
+    return assessed
+
+
+def _all_dimension_keys(
+    default_dimensions: list[str],
+    assessed: dict[str, dict],
+) -> list[str]:
+    all_dims = list(default_dimensions)
+    for dim_name in assessed:
+        if dim_name not in default_dimensions:
+            all_dims.append(dim_name)
+    return all_dims
+
+
+def _subjective_issue_count(
+    issues: dict,
+    *,
+    failure_set: frozenset[str],
+    dim_name: str,
+) -> int:
+    return sum(
+        1
+        for issue in issues.values()
+        if issue.get("detector") in ("review", "concerns")
+        and issue.get("status") in failure_set
+        and _normalize_dimension_key(issue.get("detail", {}).get("dimension")) == dim_name
+    )
+
+
+def _subjective_dimension_display(
+    dim_name: str,
+    *,
+    lang_name: str | None,
+    existing_lower: set[str],
+) -> str:
+    display = _dimension_display_name(dim_name, lang_name=lang_name)
+    if display.lower() in existing_lower:
+        return f"{display} (subjective)"
+    return display
+
+
+def _subjective_dimension_entry(
+    *,
+    dim_name: str,
+    lang_name: str | None,
+    assessment: dict | None,
+    has_assessment: bool,
+    issue_count: int,
+) -> dict:
+    score, pass_rate, assessment_score = _compute_dimension_score(
+        assessment,
+        has_assessment,
+    )
+    reset_pending = _placeholder_assessment(assessment)
+    components: list[str] = []
+    component_scores: dict[str, float] = {}
+    if isinstance(assessment, dict):
+        components, component_scores = _extract_components(assessment)
+    return {
+        "score": round(float(score), 1),
+        "tier": 4,
+        "checks": SUBJECTIVE_CHECKS,
+        "failing": issue_count,
+        "detectors": {
+            "subjective_assessment": {
+                "potential": SUBJECTIVE_CHECKS,
+                "pass_rate": round(pass_rate, 4),
+                "failing": issue_count,
+                "weighted_failures": round(SUBJECTIVE_CHECKS * (1 - pass_rate), 4),
+                "assessment_score": round(assessment_score, 1),
+                "placeholder": reset_pending or not has_assessment,
+                "dimension_key": dim_name,
+                "configured_weight": round(
+                    _dimension_weight(dim_name, lang_name=lang_name),
+                    6,
+                ),
+                "components": components,
+                **({"component_scores": component_scores} if component_scores else {}),
+            }
+        },
+    }
+
+
 def append_subjective_dimensions(
     results: dict,
     issues: dict,
@@ -123,114 +247,34 @@ def append_subjective_dimensions(
     determine pass-rate, while imported assessment scores are retained as
     metadata for transparency.
     """
-    raw_defaults = default_dimension_keys()
-    allowed = (
-        {_normalize_dimension_key(name) for name in allowed_dimensions}
-        if allowed_dimensions is not None
-        else None
-    )
-
-    default_dimensions = []
-    for raw_dim in raw_defaults:
-        dim = _normalize_dimension_key(raw_dim)
-        if not dim:
-            continue
-        if allowed is not None and dim not in allowed:
-            continue
-        default_dimensions.append(dim)
-
-    assessed: dict[str, dict] = {}
-    for raw_dim, payload in (assessments or {}).items():
-        dim = _normalize_dimension_key(raw_dim)
-        if not dim:
-            continue
-        # Real assessments (from review imports) always count regardless of
-        # allowed_dimensions — they were deliberately imported and should not
-        # be silently discarded.  However, system-generated placeholders
-        # (scan_reset_subjective) are not real assessments and should respect
-        # the allowed_dimensions scope like defaults.
-        is_placeholder = isinstance(payload, dict) and (
-            payload.get("placeholder") is True
-            or payload.get("source") == "scan_reset_subjective"
-            or payload.get("reset_by") == "scan_reset_subjective"
-        )
-        if is_placeholder and allowed is not None and dim not in allowed:
-            continue
-        assessed[dim] = payload
+    allowed = _normalized_allowed_dimensions(allowed_dimensions)
+    default_dimensions = _default_dimensions(allowed)
+    assessed = _normalized_assessments(assessments, allowed=allowed)
     existing_lower = {k.lower() for k in results}
     lang_name = _primary_lang_from_issues(issues)
-
-    all_dims = list(default_dimensions)
-    for dim_name in assessed:
-        if dim_name not in default_dimensions:
-            all_dims.append(dim_name)
-
-    for dim_name in all_dims:
+    for dim_name in _all_dimension_keys(default_dimensions, assessed):
         is_default = dim_name in default_dimensions
         assessment = assessed.get(dim_name)
         has_assessment = isinstance(assessment, dict)
         if not is_default and not assessment:
             continue
-
-        display = _dimension_display_name(dim_name, lang_name=lang_name)
-        if display.lower() in existing_lower:
-            display = f"{display} (subjective)"
-
-        # Count open review/concern issues for display (work queue), but
-        # these do NOT drive the dimension score — only assessment scores do.
-        issue_count = sum(
-            1
-            for issue in issues.values()
-            if issue.get("detector") in ("review", "concerns")
-            and issue.get("status") in failure_set
-            and _normalize_dimension_key(
-                issue.get("detail", {}).get("dimension")
-            )
-            == dim_name
+        display = _subjective_dimension_display(
+            dim_name,
+            lang_name=lang_name,
+            existing_lower=existing_lower,
         )
-
-        score, pass_rate, assessment_score = _compute_dimension_score(
-            assessment, has_assessment,
+        issue_count = _subjective_issue_count(
+            issues,
+            failure_set=failure_set,
+            dim_name=dim_name,
         )
-        reset_pending = bool(
-            isinstance(assessment, dict)
-            and (
-                assessment.get("reset_by") == "scan_reset_subjective"
-                or assessment.get("source") == "scan_reset_subjective"
-                or assessment.get("placeholder") is True
-            )
+        results[display] = _subjective_dimension_entry(
+            dim_name=dim_name,
+            lang_name=lang_name,
+            assessment=assessment,
+            has_assessment=has_assessment,
+            issue_count=issue_count,
         )
-        components: list[str] = []
-        component_scores: dict[str, float] = {}
-        if isinstance(assessment, dict):
-            components, component_scores = _extract_components(assessment)
-
-        results[display] = {
-            "score": round(float(score), 1),
-            "tier": 4,
-            "checks": SUBJECTIVE_CHECKS,
-            "failing": issue_count,
-            "detectors": {
-                "subjective_assessment": {
-                    "potential": SUBJECTIVE_CHECKS,
-                    "pass_rate": round(pass_rate, 4),
-                    "failing": issue_count,
-                    "weighted_failures": round(SUBJECTIVE_CHECKS * (1 - pass_rate), 4),
-                    "assessment_score": round(assessment_score, 1),
-                    "placeholder": reset_pending or not has_assessment,
-                    "dimension_key": dim_name,
-                    "configured_weight": round(
-                        _dimension_weight(dim_name, lang_name=lang_name), 6
-                    ),
-                    "components": components,
-                    **(
-                        {"component_scores": component_scores}
-                        if component_scores
-                        else {}
-                    ),
-                }
-            },
-        }
 
 
 __all__ = [

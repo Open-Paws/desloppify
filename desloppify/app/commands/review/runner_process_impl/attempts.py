@@ -73,88 +73,20 @@ def _run_via_popen(
     stall_seconds: int,
 ) -> _ExecutionResult:
     with _managed_live_writer(state, ctx, interval):
-        try:
-            process = deps.subprocess_popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1,
-            )
-        except OSError as exc:
-            return _runner_error_result(
-                ctx=ctx,
-                heading="RUNNER ERROR",
-                exc=exc,
-                exit_code=127,
-            )
-        except (
-            RuntimeError,
-            ValueError,
-            TypeError,
-            subprocess.SubprocessError,
-        ) as exc:  # pragma: no cover - defensive boundary
-            return _runner_error_result(
-                ctx=ctx,
-                heading="UNEXPECTED RUNNER ERROR",
-                exc=exc,
-                exit_code=1,
-            )
-
-        stdout_thread = threading.Thread(
-            target=_drain_stream,
-            args=(process.stdout, state.stdout_chunks, state),
-            daemon=True,
+        process_or_error = _start_runner_process(cmd, deps, ctx)
+        if isinstance(process_or_error, _ExecutionResult):
+            return process_or_error
+        process = process_or_error
+        stdout_thread, stderr_thread = _start_stream_threads(process, state)
+        timed_out, stalled, recovered_from_stall = _monitor_runner_process(
+            process,
+            deps=deps,
+            state=state,
+            ctx=ctx,
+            interval=interval,
+            stall_seconds=stall_seconds,
         )
-        stderr_thread = threading.Thread(
-            target=_drain_stream,
-            args=(process.stderr, state.stderr_chunks, state),
-            daemon=True,
-        )
-        stdout_thread.start()
-        stderr_thread.start()
-
-        timed_out = False
-        stalled = False
-        recovered_from_stall = False
-        output_signature: tuple[int, int] | None = None
-        output_stable_since: float | None = None
-
-        while process.poll() is None:
-            now_monotonic = time.monotonic()
-            elapsed = int(max(0.0, now_monotonic - ctx.started_monotonic))
-            if elapsed >= deps.timeout_seconds:
-                with state.lock:
-                    state.runner_note = f"timeout after {deps.timeout_seconds}s"
-                timed_out = True
-                _terminate_process(process)
-                break
-            if stall_seconds > 0:
-                with state.lock:
-                    last_activity = state.last_stream_activity
-                stalled, output_signature, output_stable_since = _check_stall(
-                    ctx.output_file,
-                    output_signature,
-                    output_stable_since,
-                    now_monotonic,
-                    last_activity,
-                    stall_seconds,
-                )
-                if stalled:
-                    with state.lock:
-                        state.runner_note = (
-                            f"stall recovery triggered after {stall_seconds}s "
-                            "with stable output state"
-                        )
-                    recovered_from_stall = _output_file_has_json_payload(ctx.output_file)
-                    _terminate_process(process)
-                    break
-            deps.sleep_fn(min(interval, 1.0))
-
-        if process.poll() is None:
-            _terminate_process(process)
-        stdout_thread.join(timeout=2)
-        stderr_thread.join(timeout=2)
+        _finalize_runner_process(process, stdout_thread, stderr_thread)
         _write_live_snapshot(state, ctx)
         return _ExecutionResult(
             code=int(process.returncode or 0),
@@ -164,6 +96,156 @@ def _run_via_popen(
             stalled=stalled,
             recovered_from_stall=recovered_from_stall,
         )
+
+
+def _start_runner_process(
+    cmd: list[str],
+    deps: CodexBatchRunnerDeps,
+    ctx: _AttemptContext,
+) -> subprocess.Popen[str] | _ExecutionResult:
+    try:
+        return deps.subprocess_popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
+    except OSError as exc:
+        return _runner_error_result(
+            ctx=ctx,
+            heading="RUNNER ERROR",
+            exc=exc,
+            exit_code=127,
+        )
+    except (
+        RuntimeError,
+        ValueError,
+        TypeError,
+        subprocess.SubprocessError,
+    ) as exc:  # pragma: no cover - defensive boundary
+        return _runner_error_result(
+            ctx=ctx,
+            heading="UNEXPECTED RUNNER ERROR",
+            exc=exc,
+            exit_code=1,
+        )
+
+
+def _start_stream_threads(
+    process: subprocess.Popen[str],
+    state: _RunnerState,
+) -> tuple[threading.Thread, threading.Thread]:
+    stdout_thread = threading.Thread(
+        target=_drain_stream,
+        args=(process.stdout, state.stdout_chunks, state),
+        daemon=True,
+    )
+    stderr_thread = threading.Thread(
+        target=_drain_stream,
+        args=(process.stderr, state.stderr_chunks, state),
+        daemon=True,
+    )
+    stdout_thread.start()
+    stderr_thread.start()
+    return stdout_thread, stderr_thread
+
+
+def _timed_out_runner_attempt(
+    process: subprocess.Popen[str],
+    *,
+    deps: CodexBatchRunnerDeps,
+    state: _RunnerState,
+    ctx: _AttemptContext,
+) -> bool:
+    elapsed = int(max(0.0, time.monotonic() - ctx.started_monotonic))
+    if elapsed < deps.timeout_seconds:
+        return False
+    with state.lock:
+        state.runner_note = f"timeout after {deps.timeout_seconds}s"
+    _terminate_process(process)
+    return True
+
+
+def _check_runner_stall(
+    process: subprocess.Popen[str],
+    *,
+    state: _RunnerState,
+    ctx: _AttemptContext,
+    stall_seconds: int,
+    output_signature: tuple[int, int] | None,
+    output_stable_since: float | None,
+) -> tuple[bool, bool, tuple[int, int] | None, float | None]:
+    with state.lock:
+        last_activity = state.last_stream_activity
+    stalled, output_signature, output_stable_since = _check_stall(
+        ctx.output_file,
+        output_signature,
+        output_stable_since,
+        time.monotonic(),
+        last_activity,
+        stall_seconds,
+    )
+    if not stalled:
+        return False, False, output_signature, output_stable_since
+    with state.lock:
+        state.runner_note = (
+            f"stall recovery triggered after {stall_seconds}s "
+            "with stable output state"
+        )
+    recovered_from_stall = _output_file_has_json_payload(ctx.output_file)
+    _terminate_process(process)
+    return True, recovered_from_stall, output_signature, output_stable_since
+
+
+def _monitor_runner_process(
+    process: subprocess.Popen[str],
+    *,
+    deps: CodexBatchRunnerDeps,
+    state: _RunnerState,
+    ctx: _AttemptContext,
+    interval: float,
+    stall_seconds: int,
+) -> tuple[bool, bool, bool]:
+    timed_out = False
+    stalled = False
+    recovered_from_stall = False
+    output_signature: tuple[int, int] | None = None
+    output_stable_since: float | None = None
+
+    while process.poll() is None:
+        if _timed_out_runner_attempt(process, deps=deps, state=state, ctx=ctx):
+            timed_out = True
+            break
+        if stall_seconds > 0:
+            (
+                stalled,
+                recovered_from_stall,
+                output_signature,
+                output_stable_since,
+            ) = _check_runner_stall(
+                process,
+                state=state,
+                ctx=ctx,
+                stall_seconds=stall_seconds,
+                output_signature=output_signature,
+                output_stable_since=output_stable_since,
+            )
+            if stalled:
+                break
+        deps.sleep_fn(min(interval, 1.0))
+    return timed_out, stalled, recovered_from_stall
+
+
+def _finalize_runner_process(
+    process: subprocess.Popen[str],
+    stdout_thread: threading.Thread,
+    stderr_thread: threading.Thread,
+) -> None:
+    if process.poll() is None:
+        _terminate_process(process)
+    stdout_thread.join(timeout=2)
+    stderr_thread.join(timeout=2)
 
 
 def _run_via_subprocess(

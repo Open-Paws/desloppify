@@ -512,7 +512,7 @@ class TestFixerHelpLines:
         mock_get_lang.side_effect = ImportError("no such lang")
 
         lines = parser_admin_mod._fixer_help_lines(["bogus"])
-        assert "none yet" in lines[0]
+        assert "failed to load" in lines[0]
 
 
 class TestFixParser:
@@ -877,4 +877,3 @@ class TestLogPhaseSummary:
         assert "security" in msg
         assert "clean" in msg
         assert "100 files scanned" in msg
-

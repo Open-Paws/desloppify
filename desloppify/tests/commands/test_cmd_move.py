@@ -88,6 +88,27 @@ class TestDetectLangFromExt:
     def test_full_path(self):
         assert detect_lang_from_ext("/src/components/Button.tsx") == "typescript"
 
+    def test_raises_when_registered_plugin_fails_to_load(self, monkeypatch):
+        import desloppify.app.commands.move.language as move_lang_mod
+
+        move_lang_mod._ext_to_lang_map.cache_clear()
+        monkeypatch.setattr(
+            move_lang_mod.lang_mod,
+            "available_langs",
+            lambda: ["broken_lang"],
+        )
+        monkeypatch.setattr(
+            move_lang_mod,
+            "load_lang_config",
+            lambda _name: (_ for _ in ()).throw(CommandError("broken plugin")),
+        )
+
+        with pytest.raises(CommandError) as exc:
+            detect_lang_from_ext("foo.py")
+
+        assert "broken plugin" in str(exc.value)
+        move_lang_mod._ext_to_lang_map.cache_clear()
+
 
 # ---------------------------------------------------------------------------
 # detect_lang_from_dir

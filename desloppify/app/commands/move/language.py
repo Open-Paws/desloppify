@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import importlib
 import logging
+from functools import lru_cache
 from pathlib import Path
 from types import ModuleType
 
 from desloppify import languages as lang_mod
-from desloppify.app.commands.helpers.lang import resolve_lang
+from desloppify.app.commands.helpers.lang import load_lang_config, resolve_lang
 from desloppify.base.exception_sets import CommandError
 
 logger = logging.getLogger(__name__)
@@ -18,19 +19,21 @@ def _build_ext_to_lang_map() -> dict[str, str]:
     """Build extension→language map from registered language configs."""
     ext_map: dict[str, str] = {}
     for lang_name in lang_mod.available_langs():
-        cfg = lang_mod.get_lang(lang_name)
+        cfg = load_lang_config(lang_name)
         for ext in cfg.extensions:
             ext_map.setdefault(ext, lang_name)
     return ext_map
 
 
-_EXT_TO_LANG = _build_ext_to_lang_map()
+@lru_cache(maxsize=1)
+def _ext_to_lang_map() -> dict[str, str]:
+    return _build_ext_to_lang_map()
 
 
 def detect_lang_from_ext(source: str) -> str | None:
     """Detect language from file extension."""
     ext = Path(source).suffix
-    return _EXT_TO_LANG.get(ext)
+    return _ext_to_lang_map().get(ext)
 
 
 def detect_lang_from_dir(source_dir: str) -> str | None:
@@ -66,7 +69,7 @@ def resolve_lang_for_file_move(source_abs: str, args: object) -> str | None:
 
 def supported_ext_hint() -> str:
     """Return a display string for known source extensions."""
-    exts = ", ".join(sorted(_EXT_TO_LANG))
+    exts = ", ".join(sorted(_ext_to_lang_map()))
     return exts or "<none>"
 
 

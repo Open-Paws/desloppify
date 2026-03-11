@@ -876,6 +876,20 @@ class TestResolveLang:
 
         lang_helpers_mod._lang_config_markers.cache_clear()
 
+    def test_lang_config_markers_raises_for_broken_plugin(self, monkeypatch):
+        lang_helpers_mod._lang_config_markers.cache_clear()
+        monkeypatch.setattr("desloppify.languages.available_langs", lambda: ["dummy"])
+        monkeypatch.setattr(
+            "desloppify.languages.get_lang",
+            lambda _name: (_ for _ in ()).throw(ImportError("broken plugin")),
+        )
+
+        with pytest.raises(lang_helpers_mod.LangResolutionError) as exc:
+            lang_helpers_mod._lang_config_markers()
+
+        assert "failed to load" in str(exc.value)
+        lang_helpers_mod._lang_config_markers.cache_clear()
+
     def test_resolve_detection_root_uses_plugin_marker(self, tmp_path, monkeypatch):
         cwd_root = tmp_path / "cwd_project"
         cwd_root.mkdir()

@@ -131,40 +131,89 @@ def _print_cluster_list_verbose(
     active: str | None,
 ) -> None:
     """Print the verbose table view of the cluster list."""
-    name_width = max(20, min(35, max(len(n) for n, _ in sorted_clusters)))
+    name_width = _cluster_list_name_width(sorted_clusters)
     total = len(sorted_clusters)
     has_dep = any(c.get("dependency_order") is not None for _, c in sorted_clusters)
     print(colorize(f"  Clusters ({total} total, sorted by priority/queue position):", "bold"))
     print()
-    dep_header = f"  {'Dep':>3}" if has_dep else ""
-    header = f"  {'#pos':<5}  {'Pri':>3}{dep_header}  {'Name':<{name_width}}  {'Items':>5}  {'Steps':>5}  {'Type':<6}  Description"
-    dep_sep = f"  {'─'*3}" if has_dep else ""
-    sep = f"  {'─'*4}  {'─'*3}{dep_sep}  {'─'*name_width}  {'─'*5}  {'─'*5}  {'─'*6}  {'─'*40}"
+    header, sep = _cluster_list_verbose_header(name_width, has_dep)
     print(colorize(header, "dim"))
     print(colorize(sep, "dim"))
     for name, cluster in sorted_clusters:
-        min_p = min_pos_cache[name]
-        member_count = len(cluster.get("issue_ids", []))
-        desc = cluster.get("description") or ""
-        if not desc and min_p == 999_999 and not member_count:
-            desc = "(no queue position — no members)"
-        pos_str = f"#{min_p}" if min_p < 999_999 else "—"
-        priority = cluster.get("priority")
-        pri_str = str(priority) if priority is not None else "—"
-        dep_order = cluster.get("dependency_order")
-        if has_dep:
-            dep_token = dep_order if dep_order is not None else "—"
-            dep_str = f"  {dep_token:>3}"
-        else:
-            dep_str = ""
-        steps = cluster.get("action_steps") or []
-        steps_str = str(len(steps)) if steps else "—"
-        type_str = "auto" if cluster.get("auto") else "manual"
-        desc_truncated = (desc[:39] + "…") if len(desc) > 40 else desc
-        name_display = (name[: name_width - 1] + "…") if len(name) > name_width else name
-        focused = " *" if name == active else ""
-        print(f"  {pos_str:>5}  {pri_str:>3}{dep_str}  {name_display:<{name_width}}  {member_count:>5}  {steps_str:>5}  {type_str:<6}  {desc_truncated}{focused}")
+        print(
+            _cluster_list_verbose_row(
+                name,
+                cluster,
+                min_pos_cache[name],
+                name_width=name_width,
+                has_dep=has_dep,
+                active=active,
+            )
+        )
     print()
+
+
+def _cluster_list_name_width(sorted_clusters: list[tuple[str, dict]]) -> int:
+    return max(20, min(35, max(len(name) for name, _ in sorted_clusters)))
+
+
+def _cluster_list_verbose_header(name_width: int, has_dep: bool) -> tuple[str, str]:
+    dep_header = f"  {'Dep':>3}" if has_dep else ""
+    header = (
+        f"  {'#pos':<5}  {'Pri':>3}{dep_header}  {'Name':<{name_width}}"
+        f"  {'Items':>5}  {'Steps':>5}  {'Type':<6}  Description"
+    )
+    dep_sep = f"  {'─'*3}" if has_dep else ""
+    sep = (
+        f"  {'─'*4}  {'─'*3}{dep_sep}  {'─'*name_width}"
+        f"  {'─'*5}  {'─'*5}  {'─'*6}  {'─'*40}"
+    )
+    return header, sep
+
+
+def _cluster_list_description(desc: str, *, min_pos: int, member_count: int) -> str:
+    if not desc and min_pos == 999_999 and not member_count:
+        return "(no queue position — no members)"
+    return desc
+
+
+def _cluster_dependency_token(cluster: dict, *, has_dep: bool) -> str:
+    if not has_dep:
+        return ""
+    dep_order = cluster.get("dependency_order")
+    dep_token = dep_order if dep_order is not None else "—"
+    return f"  {dep_token:>3}"
+
+
+def _cluster_list_verbose_row(
+    name: str,
+    cluster: dict,
+    min_pos: int,
+    *,
+    name_width: int,
+    has_dep: bool,
+    active: str | None,
+) -> str:
+    member_count = len(cluster.get("issue_ids", []))
+    desc = _cluster_list_description(
+        cluster.get("description") or "",
+        min_pos=min_pos,
+        member_count=member_count,
+    )
+    pos_str = f"#{min_pos}" if min_pos < 999_999 else "—"
+    priority = cluster.get("priority")
+    pri_str = str(priority) if priority is not None else "—"
+    dep_str = _cluster_dependency_token(cluster, has_dep=has_dep)
+    steps = cluster.get("action_steps") or []
+    steps_str = str(len(steps)) if steps else "—"
+    type_str = "auto" if cluster.get("auto") else "manual"
+    desc_truncated = (desc[:39] + "…") if len(desc) > 40 else desc
+    name_display = (name[: name_width - 1] + "…") if len(name) > name_width else name
+    focused = " *" if name == active else ""
+    return (
+        f"  {pos_str:>5}  {pri_str:>3}{dep_str}  {name_display:<{name_width}}"
+        f"  {member_count:>5}  {steps_str:>5}  {type_str:<6}  {desc_truncated}{focused}"
+    )
 
 
 def _print_missing_steps(gaps: list[tuple[str, list[str]]]) -> None:

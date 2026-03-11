@@ -23,8 +23,10 @@ from desloppify.engine._plan.persistence import (
     save_plan,
 )
 from desloppify.engine._plan.policy.project import (
+    PolicyLoadResult,
     add_rule,
     load_policy,
+    load_policy_result,
     remove_rule,
     render_policy_block,
     save_policy,
@@ -57,6 +59,7 @@ __all__ = [
     "ItemOverride",
     "PLAN_FILE",
     "PLAN_VERSION",
+    "PolicyLoadResult",
     "PlanModel",
     "SkipEntry",
     "SupersededEntry",
@@ -75,6 +78,7 @@ __all__ = [
     "has_living_plan",
     "load_plan",
     "load_policy",
+    "load_policy_result",
     "plan_lock",
     "plan_path_for_state",
     "purge_uncommitted_ids",
