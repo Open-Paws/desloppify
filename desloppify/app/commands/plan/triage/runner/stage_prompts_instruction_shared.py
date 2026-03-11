@@ -112,6 +112,7 @@ _CLI_REFERENCE_TEMPLATE = """\
 {cli_command} plan skip --permanent <pattern> --note "<reason>" --attest "I have reviewed this triage skip against the code and I am not gaming the score by suppressing a real defect."
 ```
 **Important:** The --attest value MUST contain the words "reviewed" and "not gaming" (exact phrases required by validation).
+Every review issue in the active triage run must end up either in a manual cluster or permanently skipped. Leaving issues unassigned is an invalid triage result.
 
 ### Effort tags
 Valid values: trivial, small, medium, large. Set on steps via --effort flag.

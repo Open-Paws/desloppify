@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import desloppify.app.commands.plan.triage.display.dashboard as display_mod
 import desloppify.app.commands.plan.triage.display.layout as layout_mod
 import desloppify.app.commands.plan.triage.display.primitives as primitives_mod
+import desloppify.engine.plan_triage as triage_mod
 
 
 def test_print_stage_progress_shows_enrichment_gap(monkeypatch, capsys) -> None:
@@ -139,3 +140,17 @@ def test_action_guidance_shows_resolved_count_after_completion(monkeypatch, caps
     out = capsys.readouterr().out
     assert "Triage complete" in out
     assert "2 issue(s) resolved" in out
+
+
+def test_triage_phase_banner_reports_recovery_gap() -> None:
+    plan = {
+        "queue_order": [],
+        "epic_triage_meta": {
+            "undispositioned_issue_count": 3,
+        },
+    }
+
+    banner = triage_mod.triage_phase_banner(plan, state=None)
+
+    assert "TRIAGE RECOVERY NEEDED" in banner
+    assert "3 review issue(s)" in banner

@@ -195,6 +195,35 @@ def resolve_ocaml_import(import_text: str, source_file: str, scan_path: str) -> 
     return None
 
 
+def resolve_julia_include(import_text: str, source_file: str, scan_path: str) -> str | None:
+    """Resolve Julia ``include("...")`` to local files.
+
+    Resolves relative to the directory of the *including* file first,
+    then falls back to ``src/`` and the scan root.
+    """
+    if not import_text:
+        return None
+
+    text = import_text.strip('"').strip("'")
+    if not text.endswith(".jl"):
+        return None
+
+    # 1. Relative to the source file's directory.
+    base = os.path.dirname(source_file)
+    candidate = os.path.normpath(os.path.join(base, text))
+    if os.path.isfile(candidate):
+        return candidate
+
+    # 2. Relative to src/.
+    candidate = os.path.join(scan_path, "src", text)
+    if os.path.isfile(candidate):
+        return candidate
+
+    # 3. Relative to scan root.
+    candidate = os.path.join(scan_path, text)
+    return candidate if os.path.isfile(candidate) else None
+
+
 _FSHARP_STDLIB_PREFIXES = ("System", "Microsoft", "FSharp")
 
 

@@ -25,6 +25,7 @@ from .functional import (
     ERLANG_SPEC,
     FSHARP_SPEC,
     HASKELL_SPEC,
+    JULIA_SPEC,
     OCAML_SPEC,
 )
 from .scripting import (
@@ -59,6 +60,7 @@ TREESITTER_SPECS = {
     "fsharp": FSHARP_SPEC,
     "haskell": HASKELL_SPEC,
     "javascript": JS_SPEC,
+    "julia": JULIA_SPEC,
     "typescript": TYPESCRIPT_SPEC,
     "bash": BASH_SPEC,
     "lua": LUA_SPEC,
@@ -86,6 +88,7 @@ __all__ = [
     "GO_SPEC",
     "HASKELL_SPEC",
     "JAVA_SPEC",
+    "JULIA_SPEC",
     "JS_SPEC",
     "KOTLIN_SPEC",
     "LUA_SPEC",

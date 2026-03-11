@@ -5,7 +5,7 @@ from __future__ import annotations
 from desloppify.base.output.terminal import colorize
 from desloppify.engine.plan_triage import TRIAGE_IDS
 
-from ..helpers import cluster_issue_ids
+from ..helpers import active_triage_issue_ids, cluster_issue_ids
 
 
 def _require_triage_pending(plan: dict, *, action: str) -> bool:
@@ -94,13 +94,17 @@ def unclustered_review_issues(plan: dict, state: dict | None = None) -> list[str
     }
 
     if state is not None:
-        # Only count actual review/concerns issues — not subjective_review
-        # placeholders (unreviewed files). Matches collect_triage_input filter.
-        _TRIAGE_DETECTORS = ("review", "concerns")
         review_ids = [
-            fid for fid, f in state.get("issues", {}).items()
-            if f.get("status") == "open" and f.get("detector") in _TRIAGE_DETECTORS
+            fid for fid, finding in state.get("issues", {}).items()
+            if finding.get("status") == "open"
+            and finding.get("detector") in ("review", "concerns")
         ]
+        frozen_ids = (plan.get("epic_triage_meta", {}) or {}).get("active_triage_issue_ids")
+        if isinstance(frozen_ids, list) and frozen_ids:
+            frozen_id_set = active_triage_issue_ids(plan, state)
+            review_ids = [fid for fid in review_ids if fid in frozen_id_set]
+            missing_frozen = [fid for fid in frozen_ids if isinstance(fid, str) and fid not in set(review_ids)]
+            review_ids.extend(missing_frozen)
     else:
         review_ids = [
             fid for fid in plan.get("queue_order", [])

@@ -30,6 +30,9 @@ from desloppify.state_io import utc_now
 from .services import TriageServices, default_triage_services
 
 _STAGE_ORDER = ["observe", "reflect", "organize", "enrich", "sense-check"]
+_ACTIVE_TRIAGE_ISSUE_IDS_KEY = "active_triage_issue_ids"
+_UNDISPOSITIONED_TRIAGE_ISSUES_KEY = "undispositioned_issue_ids"
+_UNDISPOSITIONED_TRIAGE_COUNT_KEY = "undispositioned_issue_count"
 
 
 def _queue_order(plan: PlanModel) -> list[str]:
@@ -118,6 +121,83 @@ def _effective_completion_strategy_summary(
         return _truncate_summary_text(summary)
 
     return existing_strategy
+
+
+def _normalized_issue_id_list(raw_ids: object) -> list[str]:
+    if not isinstance(raw_ids, list):
+        return []
+    return [issue_id for issue_id in raw_ids if isinstance(issue_id, str)]
+
+
+def active_triage_issue_ids(
+    plan: PlanModel,
+    state: StateModel | None = None,
+) -> set[str]:
+    """Return the frozen review issue set for the current triage run.
+
+    Falls back to current open review IDs when no active set has been frozen yet.
+    """
+    meta = _triage_meta(plan)
+    active_ids = _normalized_issue_id_list(meta.get(_ACTIVE_TRIAGE_ISSUE_IDS_KEY))
+    if active_ids:
+        return set(active_ids)
+    if state is None:
+        return set()
+    return _coverage_open_ids(plan, state)
+
+
+def ensure_active_triage_issue_ids(
+    plan: PlanModel,
+    state: StateModel,
+) -> list[str]:
+    """Freeze the current triage issue set for validation across stage reruns."""
+    meta = _triage_meta(plan)
+    active_ids = sorted(_coverage_open_ids(plan, state))
+    meta[_ACTIVE_TRIAGE_ISSUE_IDS_KEY] = active_ids
+    meta.pop(_UNDISPOSITIONED_TRIAGE_ISSUES_KEY, None)
+    meta.pop(_UNDISPOSITIONED_TRIAGE_COUNT_KEY, None)
+    return active_ids
+
+
+def clear_active_triage_issue_tracking(meta: dict[str, Any]) -> None:
+    """Clear frozen triage coverage metadata after successful completion."""
+    meta.pop(_ACTIVE_TRIAGE_ISSUE_IDS_KEY, None)
+    meta.pop(_UNDISPOSITIONED_TRIAGE_ISSUES_KEY, None)
+    meta.pop(_UNDISPOSITIONED_TRIAGE_COUNT_KEY, None)
+
+
+def undispositioned_triage_issue_ids(
+    plan: PlanModel,
+    state: StateModel | None = None,
+) -> list[str]:
+    """Return frozen triage issues still lacking cluster/skip/dismiss coverage."""
+    target_ids = active_triage_issue_ids(plan, state)
+    if not target_ids:
+        return []
+    covered_ids: set[str] = set()
+    for cluster in _cluster_map(plan).values():
+        if cluster.get("auto"):
+            continue
+        covered_ids.update(cluster_issue_ids(cluster))
+    covered_ids.update(issue_id for issue_id in _skipped_map(plan) if isinstance(issue_id, str))
+    covered_ids.update(_normalized_issue_id_list(_triage_meta(plan).get("dismissed_ids")))
+    return sorted(issue_id for issue_id in target_ids if issue_id not in covered_ids)
+
+
+def sync_undispositioned_triage_meta(
+    plan: PlanModel,
+    state: StateModel | None = None,
+) -> list[str]:
+    """Persist the current undispositioned triage issue set for recovery UX."""
+    meta = _triage_meta(plan)
+    missing = undispositioned_triage_issue_ids(plan, state)
+    if missing:
+        meta[_UNDISPOSITIONED_TRIAGE_ISSUES_KEY] = missing
+        meta[_UNDISPOSITIONED_TRIAGE_COUNT_KEY] = len(missing)
+    else:
+        meta.pop(_UNDISPOSITIONED_TRIAGE_ISSUES_KEY, None)
+        meta.pop(_UNDISPOSITIONED_TRIAGE_COUNT_KEY, None)
+    return missing
 
 
 def has_triage_in_queue(plan: PlanModel) -> bool:
@@ -311,6 +391,9 @@ def _coverage_open_ids(
     plan: PlanModel,
     state: StateModel,
 ) -> set[str]:
+    active_ids = _normalized_issue_id_list(_triage_meta(plan).get(_ACTIVE_TRIAGE_ISSUE_IDS_KEY))
+    if active_ids:
+        return set(active_ids)
     has_completed_scan = bool(state.get("last_scan"))
     coverage_open_ids = open_review_ids_from_state(state)
     if not has_completed_scan and not coverage_open_ids:
@@ -383,6 +466,7 @@ def _archive_and_clear_triage_stages(
     meta.pop("triage_recommended", None)
     meta.pop("stage_refresh_required", None)
     meta.pop("stage_snapshot_hash", None)
+    clear_active_triage_issue_tracking(meta)
 
 
 def _print_completion_summary(
@@ -483,10 +567,13 @@ def count_log_activity_since(plan: PlanModel, since: str) -> dict[str, int]:
     return dict(counts)
 
 __all__ = [
+    "active_triage_issue_ids",
     "apply_completion",
     "cascade_clear_later_confirmations",
+    "clear_active_triage_issue_tracking",
     "cluster_issue_ids",
     "count_log_activity_since",
+    "ensure_active_triage_issue_ids",
     "find_cluster_for",
     "group_issues_into_observe_batches",
     "has_open_review_issues",
@@ -498,5 +585,7 @@ __all__ = [
     "plan_review_ids",
     "print_cascade_clear_feedback",
     "purge_triage_stage",
+    "sync_undispositioned_triage_meta",
     "triage_coverage",
+    "undispositioned_triage_issue_ids",
 ]

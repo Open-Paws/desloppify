@@ -15,7 +15,7 @@ from desloppify.engine.plan_triage import (
 from desloppify.base.output.terminal import colorize
 from desloppify.state_io import StateModel
 
-from .helpers import has_triage_in_queue, inject_triage_stages
+from .helpers import ensure_active_triage_issue_ids, has_triage_in_queue, inject_triage_stages
 from .services import TriageServices
 
 TriageStartStatus = Literal["started", "blocked", "already_active"]
@@ -85,6 +85,9 @@ def ensure_triage_started(
     meta = plan.setdefault("epic_triage_meta", {})
 
     if resolved_deps.has_triage_in_queue(plan):
+        if state is not None:
+            ensure_active_triage_issue_ids(plan, state)
+            services.save_plan(plan)
         meta.pop("triage_start_blocked", None)
         return TriageStartOutcome(status="already_active", reason="already_active")
 
@@ -103,6 +106,8 @@ def ensure_triage_started(
     resolved_deps.inject_triage_stages(plan)
     meta.pop("triage_start_blocked", None)
     meta.setdefault("triage_stages", {})
+    if state is not None:
+        ensure_active_triage_issue_ids(plan, state)
 
     if log_action:
         detail = dict(log_detail or {})

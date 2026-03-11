@@ -33,6 +33,7 @@ from ..helpers import (
     has_triage_in_queue,
     manual_clusters_with_issues,
     open_review_ids_from_state,
+    sync_undispositioned_triage_meta,
     triage_coverage,
 )
 from ..services import TriageServices, default_triage_services
@@ -66,6 +67,30 @@ def _print_completion_jump_back_guidance() -> None:
         )
     )
     print(colorize("  Pass --report to update, or omit to keep existing analysis.", "dim"))
+
+
+def _record_incomplete_recovery(
+    *,
+    plan: dict,
+    state: dict,
+    services: TriageServices,
+    reason: str,
+) -> list[str]:
+    """Persist the current missing-disposition set for recovery guidance."""
+    missing = sync_undispositioned_triage_meta(plan, state)
+    services.save_plan(plan)
+    if missing:
+        print(
+            colorize(
+                f"  Triage recovery blocked: {len(missing)} issue(s) still need cluster/skip dispositions ({reason}).",
+                "yellow",
+            )
+        )
+        for issue_id in missing[:5]:
+            print(colorize(f"    {issue_id}", "dim"))
+        if len(missing) > 5:
+            print(colorize(f"    ... and {len(missing) - 5} more", "dim"))
+    return missing
 
 
 def _resolve_confirm_existing_context(
@@ -183,6 +208,12 @@ def _cmd_triage_complete(
             return
 
     if not _completion_clusters_valid(plan, state):
+        _record_incomplete_recovery(
+            plan=plan,
+            state=state,
+            services=resolved_services,
+            reason="completion validation failed",
+        )
         return
 
     organized, total, _clusters = triage_coverage(plan, open_review_ids=review_ids)

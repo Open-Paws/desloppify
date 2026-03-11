@@ -7,6 +7,7 @@ from ..imports.resolvers_functional import (
     resolve_erlang_include,
     resolve_fsharp_import,
     resolve_haskell_import,
+    resolve_julia_include,
     resolve_ocaml_import,
 )
 from ..types import TreeSitterLangSpec
@@ -112,6 +113,34 @@ FSHARP_SPEC = TreeSitterLangSpec(
     resolve_import=resolve_fsharp_import,
     log_patterns=(
         r"^\s*(?:printfn |printf |eprintfn )",
+    ),
+)
+
+JULIA_SPEC = TreeSitterLangSpec(
+    grammar="julia",
+    function_query="""
+        (function_definition
+            (signature
+                (call_expression
+                    (identifier) @name))
+            (block) @body) @func
+    """,
+    comment_node_types=frozenset({"comment", "block_comment"}),
+    import_query="""
+        (call_expression
+            (identifier) @_fn
+            (#eq? @_fn "include")
+            (argument_list
+                (string_literal) @path)) @import
+    """,
+    resolve_import=resolve_julia_include,
+    class_query="""
+        (struct_definition
+            (type_head (identifier) @name)
+            (block) @body) @class
+    """,
+    log_patterns=(
+        r"^\s*(?:println\(|print\(|@info |@warn |@error |@debug )",
     ),
 )
 

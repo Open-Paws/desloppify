@@ -144,6 +144,35 @@ class TestApplyCompletionClearsTriageState:
 
         assert not is_triage_stale(plan, state)
 
+    def test_completion_uses_frozen_active_triage_issue_ids(self):
+        """Completion should record the frozen triage set, not a drifted live state snapshot."""
+        state = _state_with_review_issues("r1")
+        plan = _plan_with_triage_and_workflow("r1")
+        plan["epic_triage_meta"]["active_triage_issue_ids"] = ["r1", "r2", "r3"]
+        services = _make_services(state)
+        args = argparse.Namespace()
+
+        apply_completion(args, plan, "Test strategy", services=services)
+
+        assert set(plan["epic_triage_meta"]["triaged_ids"]) == {"r1", "r2", "r3"}
+
+    def test_completion_clears_active_triage_tracking(self):
+        """Successful completion must clear frozen active triage recovery metadata."""
+        state = _state_with_review_issues("r1")
+        plan = _plan_with_triage_and_workflow("r1")
+        plan["epic_triage_meta"]["active_triage_issue_ids"] = ["r1"]
+        plan["epic_triage_meta"]["undispositioned_issue_ids"] = ["r1"]
+        plan["epic_triage_meta"]["undispositioned_issue_count"] = 1
+        services = _make_services(state)
+        args = argparse.Namespace()
+
+        apply_completion(args, plan, "Test strategy", services=services)
+
+        meta = plan["epic_triage_meta"]
+        assert "active_triage_issue_ids" not in meta
+        assert "undispositioned_issue_ids" not in meta
+        assert "undispositioned_issue_count" not in meta
+
     def test_triage_stages_cleared(self):
         """triage_stages dict must be empty after completion."""
         state = _state_with_review_issues("r1")

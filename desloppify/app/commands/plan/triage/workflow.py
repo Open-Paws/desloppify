@@ -42,6 +42,7 @@ def _cmd_triage_start(
                 )
             )
             meta["triage_stages"] = {}
+            _helpers_mod.ensure_active_triage_issue_ids(plan, state)
             _helpers_mod.inject_triage_stages(plan)
             services.save_plan(plan)
             services.append_log_entry(
@@ -53,6 +54,7 @@ def _cmd_triage_start(
             services.save_plan(plan)
             print(colorize("  Stages cleared. Begin with observe:", "green"))
         else:
+            _helpers_mod.ensure_active_triage_issue_ids(plan, state)
             _helpers_mod.inject_triage_stages(plan)
             services.save_plan(plan)
             print(colorize("  Begin with observe:", "green"))

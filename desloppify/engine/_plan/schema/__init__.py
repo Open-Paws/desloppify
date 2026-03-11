@@ -137,7 +137,10 @@ class EpicTriageMeta(TypedDict, total=False):
     """Metadata persisted for the multi-stage triage flow."""
 
     triaged_ids: list[str]
+    active_triage_issue_ids: list[str]
     dismissed_ids: list[str]
+    undispositioned_issue_ids: list[str]
+    undispositioned_issue_count: int
     issue_snapshot_hash: str
     strategy_summary: str
     trigger: str
