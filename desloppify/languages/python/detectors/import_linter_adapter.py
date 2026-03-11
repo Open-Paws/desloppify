@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import logging
 import re
-import subprocess
+import subprocess  # nosec B404
 from pathlib import Path
+from shutil import which
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,11 @@ _BROKEN_CONTRACT_RE = re.compile(r"Broken contract '([^']+)'")
 _VIOLATION_IMPORTS_RE = re.compile(r"^\s+(\S+)\s+imports\s+(\S+)\s*$")
 # Also handle "  module.a -> module.b" format (arrow notation)
 _VIOLATION_ARROW_RE = re.compile(r"^\s+(\S+)\s+->\s+(\S+)\s*$")
+
+
+def _resolve_cli_executable(name: str) -> str:
+    """Return an absolute CLI path when available."""
+    return which(name) or name
 
 
 def _find_importlinter_root(path: Path) -> Path | None:
@@ -52,12 +58,14 @@ def detect_with_import_linter(path: Path) -> list[dict] | None:
         return None
 
     try:
+        # Static lint-imports argv only; no shell expansion and executable path is resolved first.
         result = subprocess.run(
-            ["lint-imports"],
+            [_resolve_cli_executable("lint-imports")],
             capture_output=True,
             text=True,
             cwd=config_dir,
             timeout=60,
+            shell=False,  # nosec B603
         )
     except FileNotFoundError:
         logger.debug("import-linter: lint-imports not found — skipping")

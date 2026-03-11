@@ -2,14 +2,20 @@
 
 import json
 import re
-import subprocess
+import subprocess  # nosec B404
 from pathlib import Path
+from shutil import which
 
 from desloppify.base.discovery.source import collect_exclude_dirs as _collect_exclude_dirs
 from desloppify.base.discovery.source import find_py_files
 from desloppify.base.discovery.source import get_exclusions as _get_exclusions
 from desloppify.base.discovery.file_paths import matches_exclusion as _matches_exclusion
 from desloppify.base.discovery.paths import get_project_root
+
+
+def _resolve_cli_executable(name: str) -> str:
+    """Return an absolute CLI path when available."""
+    return which(name) or name
 
 
 def _selected_codes(category: str) -> list[str]:
@@ -162,12 +168,14 @@ def _try_ruff(path: Path, category: str) -> list[dict] | None:
     cmd.append(str(path))
 
     try:
+        # Static ruff argv only; no shell expansion and executable path is resolved first.
         result = subprocess.run(
-            cmd,
+            [_resolve_cli_executable(cmd[0]), *cmd[1:]],
             capture_output=True,
             text=True,
             cwd=get_project_root(),
             timeout=60,
+            shell=False,  # nosec B603
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return None
@@ -189,12 +197,14 @@ def _try_ruff(path: Path, category: str) -> list[dict] | None:
 def _try_pyflakes(path: Path, category: str) -> list[dict] | None:
     """Fallback: try pyflakes for unused detection."""
     try:
+        # Static pyflakes argv only; no shell expansion and executable path is resolved first.
         result = subprocess.run(
-            ["pyflakes", str(path)],
+            [_resolve_cli_executable("pyflakes"), str(path)],
             capture_output=True,
             text=True,
             cwd=get_project_root(),
             timeout=60,
+            shell=False,  # nosec B603
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return None

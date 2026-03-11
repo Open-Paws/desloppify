@@ -13,7 +13,7 @@ import hashlib
 import json
 import logging
 import shutil
-import subprocess
+import subprocess  # nosec B404
 import tempfile
 from pathlib import Path
 
@@ -196,6 +196,7 @@ def detect_with_jscpd(path: Path) -> list[dict] | None:
 
     with tempfile.TemporaryDirectory() as tmpdir:
         try:
+            # Static jscpd argv only; command prefix is resolved before execution.
             subprocess.run(
                 [
                     *cmd_prefix,
@@ -216,6 +217,7 @@ def detect_with_jscpd(path: Path) -> list[dict] | None:
                 text=True,
                 timeout=120,
                 check=True,
+                shell=False,  # nosec B603
             )
         except FileNotFoundError:
             warn_best_effort(
