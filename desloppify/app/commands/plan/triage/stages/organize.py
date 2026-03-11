@@ -14,6 +14,7 @@ from ..helpers import (
 )
 from ..services import TriageServices, default_triage_services
 from ..validation.core import (
+    ReflectAutoConfirmDeps,
     _auto_confirm_reflect_for_organize,
     _clusters_enriched_or_error,
     _manual_clusters_or_error,
@@ -97,9 +98,11 @@ def _validate_organize_submission(
         plan=plan,
         stages=stages,
         attestation=attestation,
-        triage_input=triage_input,
-        detect_recurring_patterns_fn=services.detect_recurring_patterns,
-        save_plan_fn=services.save_plan,
+        deps=ReflectAutoConfirmDeps(
+            triage_input=triage_input,
+            detect_recurring_patterns_fn=services.detect_recurring_patterns,
+            save_plan_fn=services.save_plan,
+        ),
     ):
         return None
 

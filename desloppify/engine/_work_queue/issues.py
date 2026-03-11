@@ -20,7 +20,7 @@ __all__ = [
     "impact_label",
     "list_open_review_issues",
     "update_investigation",
-    "expire_stale_holistic",
+    "mark_stale_holistic",
 ]
 
 
@@ -68,8 +68,8 @@ def update_investigation(state: dict, issue_id: str, text: str) -> bool:
     return True
 
 
-def expire_stale_holistic(state: dict, max_age_days: int = 30) -> list[str]:
-    """Auto-resolve holistic review issues older than max_age_days."""
+def mark_stale_holistic(state: dict, max_age_days: int = 30) -> list[str]:
+    """Annotate stale holistic review issues without auto-resolving them."""
     now = datetime.now(UTC)
     expired: list[str] = []
 
@@ -98,9 +98,7 @@ def expire_stale_holistic(state: dict, max_age_days: int = 30) -> list[str]:
 
         age_days = (now - seen_dt).days
         if age_days > max_age_days:
-            issue["status"] = "auto_resolved"
-            issue["resolved_at"] = now.isoformat()
-            issue["note"] = "holistic review expired — re-run review to re-evaluate"
+            issue["note"] = "holistic review stale — re-run review to re-evaluate"
             expired.append(issue_id)
 
     return expired

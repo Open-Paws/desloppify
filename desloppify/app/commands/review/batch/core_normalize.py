@@ -258,12 +258,10 @@ def _normalize_issues(
     issues: list[NormalizedBatchIssue] = []
     errors: list[str] = []
     for idx, item in enumerate(raw_issues):
-        issue: ReviewIssuePayload | None
-        issue, issue_errors = validate_review_issue_payload(
+        issue, issue_errors = _validated_batch_issue(
             item,
-            label=f"issues[{idx}]",
-            allowed_dimensions=allowed_dims,
-            allow_dismissed=False,
+            idx=idx,
+            allowed_dims=allowed_dims,
         )
         if issue_errors:
             errors.extend(issue_errors)
@@ -290,11 +288,56 @@ def _normalize_issues(
     if len(issues) <= max_batch_issues:
         return issues
 
+    return _trim_normalized_issues(
+        issues,
+        max_batch_issues=max_batch_issues,
+        low_score_dimensions=low_score_dimensions,
+    )
+
+
+def _validated_batch_issue(
+    item: object,
+    *,
+    idx: int,
+    allowed_dims: set[str],
+) -> tuple[ReviewIssuePayload | None, list[str]]:
+    return validate_review_issue_payload(
+        item,
+        label=f"issues[{idx}]",
+        allowed_dimensions=allowed_dims,
+        allow_dismissed=False,
+    )
+
+
+def _trim_normalized_issues(
+    issues: list[NormalizedBatchIssue],
+    *,
+    max_batch_issues: int,
+    low_score_dimensions: set[str] | None,
+) -> list[NormalizedBatchIssue]:
     required_dims = set(low_score_dimensions or set())
     if not required_dims:
         return issues[:max_batch_issues]
 
-    # Preserve at least one issue per low-score dimension before trimming.
+    selected, selected_indexes = _select_required_dimension_issues(
+        issues,
+        max_batch_issues=max_batch_issues,
+        required_dims=required_dims,
+    )
+    return _fill_trimmed_issue_budget(
+        issues,
+        selected,
+        selected_indexes=selected_indexes,
+        max_batch_issues=max_batch_issues,
+    )
+
+
+def _select_required_dimension_issues(
+    issues: list[NormalizedBatchIssue],
+    *,
+    max_batch_issues: int,
+    required_dims: set[str],
+) -> tuple[list[NormalizedBatchIssue], set[int]]:
     selected: list[NormalizedBatchIssue] = []
     selected_indexes: set[int] = set()
     covered: set[str] = set()
@@ -307,7 +350,16 @@ def _normalize_issues(
         selected.append(issue)
         selected_indexes.add(idx)
         covered.add(dim)
+    return selected, selected_indexes
 
+
+def _fill_trimmed_issue_budget(
+    issues: list[NormalizedBatchIssue],
+    selected: list[NormalizedBatchIssue],
+    *,
+    selected_indexes: set[int],
+    max_batch_issues: int,
+) -> list[NormalizedBatchIssue]:
     for idx, issue in enumerate(issues):
         if len(selected) >= max_batch_issues:
             break

@@ -568,7 +568,7 @@ class TestMechanicalStaleness:
         assert "needs_review_refresh" not in dc or not dc.get("needs_review_refresh")
 
     def test_auto_resolved_detector_marks_its_dimensions_stale(self):
-        """Structural issue disappears → design_coherence IS marked stale."""
+        """Manually-resolved structural issue verified absent → design_coherence IS marked stale."""
         from desloppify.engine._state.merge import MergeScanOptions, merge_scan
         from desloppify.engine._state.schema import empty_state
 
@@ -587,7 +587,11 @@ class TestMechanicalStaleness:
         # Clear stale flag
         state["subjective_assessments"]["design_coherence"] = {"score": 75.0}
 
-        # Second scan: structural issue disappears
+        # Manually resolve the issue so verify_disappeared will process it
+        # (open issues are now user-controlled and skip verification)
+        state["issues"]["structural::big.py::large_file"]["status"] = "fixed"
+
+        # Second scan: structural issue absent → scan-verified, detector changed
         merge_scan(state, [], MergeScanOptions(force_resolve=True))
 
         dc = state["subjective_assessments"]["design_coherence"]

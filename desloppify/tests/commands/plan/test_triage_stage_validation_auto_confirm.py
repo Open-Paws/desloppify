@@ -95,7 +95,9 @@ def test_auto_confirm_reflect_for_organize_records_confirmation(monkeypatch) -> 
         plan=plan,
         stages=stages,
         attestation=attestation,
-        collect_triage_input_fn=lambda _plan, _state: _triage_input(),
+        deps=validation.ReflectAutoConfirmDeps(
+            collect_triage_input_fn=lambda _plan, _state: _triage_input(),
+        ),
     )
 
     assert ok is True
@@ -135,12 +137,14 @@ def test_auto_confirm_reflect_for_organize_blocks_incomplete_accounting(monkeypa
             "I have thoroughly reviewed the naming dimension and the strategy "
             "is consistent with current code evidence and priorities."
         ),
-        collect_triage_input_fn=lambda _plan, _state: SimpleNamespace(
-            open_issues={
-                "review::test.py::abc12345": {"detail": {"dimension": "naming"}},
-                "review::test.py::def45678": {"detail": {"dimension": "naming"}},
-            },
-            resolved_issues={},
+        deps=validation.ReflectAutoConfirmDeps(
+            collect_triage_input_fn=lambda _plan, _state: SimpleNamespace(
+                open_issues={
+                    "review::test.py::abc12345": {"detail": {"dimension": "naming"}},
+                    "review::test.py::def45678": {"detail": {"dimension": "naming"}},
+                },
+                resolved_issues={},
+            ),
         ),
     )
 

@@ -59,6 +59,8 @@ def _group_clusterable_issues(
 
         detector = issue.get("detector", "")
         meta = DETECTORS.get(detector)
+        if meta and meta.needs_judgment:
+            continue  # judgment-required → review evidence, not auto-task
         key = _grouping_key(issue, meta)
         if key is None:
             continue

@@ -1,4 +1,4 @@
-"""Issue upsert/auto-resolve helpers for scan merge."""
+"""Issue upsert/verification helpers for scan merge."""
 
 from __future__ import annotations
 
@@ -46,31 +46,28 @@ def find_suspect_detectors(
     return suspect
 
 
-def _mark_auto_resolved(
+def _mark_scan_verified(
     issue: dict,
     now: str,
     *,
     note: str,
     attestation_text: str,
-    attestation_kind: str = "scan_verified",
-    scan_verified: bool = True,
 ) -> None:
-    """Stamp a issue as auto-resolved with the given note and attestation."""
-    issue["status"] = "auto_resolved"
-    issue["resolved_at"] = now
+    """Record scan corroboration without changing the manual disposition."""
     issue["suppressed"] = False
     issue["suppressed_at"] = None
     issue["suppression_pattern"] = None
-    issue["resolution_attestation"] = {
-        "kind": attestation_kind,
-        "text": attestation_text,
-        "attested_at": now,
-        "scan_verified": scan_verified,
-    }
     issue["note"] = note
+    existing = issue.get("resolution_attestation")
+    if not isinstance(existing, dict):
+        existing = {}
+        issue["resolution_attestation"] = existing
+    existing["scan_verified"] = True
+    existing["scan_verified_at"] = now
+    existing["scan_verification_text"] = attestation_text
 
 
-def auto_resolve_disappeared(
+def verify_disappeared(
     existing: dict,
     current_ids: set[str],
     suspect_detectors: set[str],
@@ -80,17 +77,19 @@ def auto_resolve_disappeared(
     scan_path: str | None,
     exclude: tuple[str, ...] = (),
 ) -> tuple[int, int, int, set[str]]:
-    """Auto-resolve open/wontfix/fixed/false_positive issues absent from scan.
+    """Update scan corroboration for issues absent from scan.
 
-    Returns (resolved, skipped_other_lang, resolved_out_of_scope, resolved_detectors).
-    Out-of-scope issues are auto-resolved (not skipped) so they stop polluting
-    queue counts.  Re-scanning with a wider scan_path will reopen them via upsert.
+    Returns (resolved_count, skipped_other_lang, resolved_out_of_scope, changed_detectors).
+    Queue-tracked work stays user-controlled: disappearing from scan does not
+    change an open issue to resolved. Manually resolved items can be marked as
+    scan-verified when they remain absent.
     """
     resolved = skipped_other_lang = resolved_out_of_scope = 0
     resolved_detectors: set[str] = set()
 
     for issue_id, previous in existing.items():
-        if issue_id in current_ids or previous["status"] not in (
+        previous_status = previous.get("status")
+        if issue_id in current_ids or previous_status not in (
             "open",
             "wontfix",
             "fixed",
@@ -115,28 +114,34 @@ def auto_resolve_disappeared(
                 not previous["file"].startswith(prefix)
                 and previous["file"] != scan_path
             ):
-                scope_note = f"Out of current scan scope (scan_path: {scan_path})"
-                _mark_auto_resolved(
-                    previous, now, note=scope_note, attestation_text=scope_note,
-                    attestation_kind="out_of_scope", scan_verified=False,
-                )
-                resolved_detectors.add(previous.get("detector", "unknown"))
-                resolved_out_of_scope += 1
+                if previous_status != "open":
+                    scope_note = f"Still absent in current scan scope ({scan_path})"
+                    _mark_scan_verified(
+                        previous,
+                        now,
+                        note=scope_note,
+                        attestation_text=scope_note,
+                    )
+                    resolved_detectors.add(previous.get("detector", "unknown"))
+                    resolved_out_of_scope += 1
                 continue
 
         if exclude and any(matches_exclusion(previous["file"], ex) for ex in exclude):
             continue
 
-        previous_status = previous["status"]
-        _mark_auto_resolved(
+        if previous_status == "open":
+            continue
+
+        verification_note = (
+            "Still absent from scan after manual wontfix"
+            if previous_status == "wontfix"
+            else "Still absent from scan after manual resolution"
+        )
+        _mark_scan_verified(
             previous,
             now,
-            note=(
-                "Fixed despite wontfix — disappeared from scan (was wontfix)"
-                if previous_status == "wontfix"
-                else "Disappeared from scan — likely fixed"
-            ),
-            attestation_text="Disappeared from detector output",
+            note=verification_note,
+            attestation_text="Absent from detector output in latest scan",
         )
         resolved_detectors.add(previous.get("detector", "unknown"))
         resolved += 1
@@ -209,11 +214,11 @@ def upsert_issues(
 
         if previous["status"] in ("fixed", "auto_resolved", "false_positive"):
             # subjective_review issues are condition-based.  When just
-            # auto-resolved by an agent import, skip reopening to avoid a
+            # completed by an agent import, skip reopening to avoid a
             # resolve-then-reopen loop on the same scan cycle.
             if (
                 detector == "subjective_review"
-                and previous["status"] == "auto_resolved"
+                and previous["status"] in {"fixed", "auto_resolved"}
                 and (previous.get("resolution_attestation") or {}).get("kind") == "agent_import"
             ):
                 continue
@@ -235,7 +240,7 @@ def upsert_issues(
 
 
 __all__ = [
-    "auto_resolve_disappeared",
+    "verify_disappeared",
     "find_suspect_detectors",
     "upsert_issues",
 ]

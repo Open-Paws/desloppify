@@ -7,6 +7,7 @@ import logging
 import sys
 from collections.abc import Mapping
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from desloppify.app.cli_support.parser import create_parser as _create_parser
@@ -144,6 +145,68 @@ def _load_shared_runtime(args: argparse.Namespace) -> None:
     args.runtime = CommandRuntime(config=config, state=state, state_path=state_file)
 
 
+def _looks_like_desloppify_checkout(root: Path) -> bool:
+    """Return True when *root* appears to be the desloppify source checkout."""
+    package_dir = root / "desloppify"
+    pyproject = root / "pyproject.toml"
+    if not package_dir.is_dir() or not (package_dir / "__init__.py").is_file():
+        return False
+    if not pyproject.is_file():
+        return False
+    try:
+        text = pyproject.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return 'name = "desloppify"' in text or "name='desloppify'" in text
+
+
+def _running_installed_package_from_checkout(
+    *,
+    cwd_root: Path | None = None,
+    module_file: str | Path | None = None,
+) -> bool:
+    """Detect running an installed package while standing in a repo checkout."""
+    root = (cwd_root or get_project_root()).resolve()
+    if not _looks_like_desloppify_checkout(root):
+        return False
+    current_module = Path(module_file or __file__).resolve()
+    try:
+        current_module.relative_to(root)
+        return False
+    except ValueError:
+        return True
+
+
+def _warn_if_running_installed_package_from_checkout() -> None:
+    """Emit a warning when CLI resolution bypasses the current checkout."""
+    if not _running_installed_package_from_checkout():
+        return
+    root = get_project_root().resolve()
+    print(
+        colorize(
+            "  WARNING: running installed desloppify package while current directory "
+            "looks like the desloppify checkout.",
+            "yellow",
+        ),
+        file=sys.stderr,
+    )
+    print(
+        colorize(
+            f"  Current checkout: {root}",
+            "dim",
+        ),
+        file=sys.stderr,
+    )
+    print(
+        colorize(
+            "  Use `python -m desloppify ...` or `./.venv/bin/desloppify ...` here "
+            "to run the local checkout instead of the installed package.",
+            "dim",
+        ),
+        file=sys.stderr,
+    )
+
+
 def _resolve_handler(command: str) -> CommandHandler:
     """Resolve a CLI command name to its typed handler callable."""
     return get_command_handlers()[command]
@@ -184,6 +247,7 @@ def main() -> None:
 
     try:
         with runtime_scope():
+            _warn_if_running_installed_package_from_checkout()
             _resolve_default_path(args)
             _load_shared_runtime(args)
 

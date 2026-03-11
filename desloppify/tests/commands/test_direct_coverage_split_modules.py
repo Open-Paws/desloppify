@@ -31,7 +31,7 @@ def test_split_module_direct_coverage_smoke_signals():
     assert callable(scoring_subjective.append_subjective_dimensions)
 
     assert callable(merge_issues.upsert_issues)
-    assert callable(merge_issues.auto_resolve_disappeared)
+    assert callable(merge_issues.verify_disappeared)
     assert callable(merge_history._append_scan_history)
     assert callable(merge_history._build_merge_diff)
 

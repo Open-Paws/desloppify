@@ -76,6 +76,147 @@ def _subjective_dimension_weight(name: str, data: dict) -> float:
     )
 
 
+def _empty_health_breakdown() -> HealthBreakdown:
+    return {
+        "overall_score": 100.0,
+        "mechanical_fraction": 1.0,
+        "subjective_fraction": 0.0,
+        "mechanical_avg": 100.0,
+        "subjective_avg": None,
+        "entries": [],
+    }
+
+
+def _subjective_row(name: str, score: float, configured: float) -> dict[str, float | str]:
+    return {
+        "name": str(name),
+        "score": score,
+        "configured_weight": configured,
+        "effective_weight": configured,
+    }
+
+
+def _mechanical_row(name: str, score: float, data: dict) -> dict[str, float | str]:
+    checks = float(data.get("checks", 0) or 0)
+    sample_factor = min(1.0, checks / MIN_SAMPLE) if checks > 0 else 0.0
+    configured = max(0.0, _mechanical_dimension_weight(name))
+    effective = configured * sample_factor
+    return {
+        "name": str(name),
+        "score": score,
+        "checks": checks,
+        "sample_factor": sample_factor,
+        "configured_weight": configured,
+        "effective_weight": effective,
+    }
+
+
+def _categorize_dimension_row(
+    name: str,
+    data: dict,
+    *,
+    score_key: str,
+) -> tuple[str, dict[str, float | str]]:
+    score = float(data.get(score_key, data.get("score", 0.0)))
+    if "subjective_assessment" in data.get("detectors", {}):
+        configured = max(0.0, _subjective_dimension_weight(name, data))
+        return "subjective", _subjective_row(name, score, configured)
+    return "mechanical", _mechanical_row(name, score, data)
+
+
+def _pool_average(weighted_sum: float, total_weight: float, *, empty_default: float | None) -> float | None:
+    if total_weight <= 0:
+        return empty_default
+    return weighted_sum / total_weight
+
+
+def _pool_fractions(
+    mechanical_weight: float,
+    subjective_weight: float,
+    subjective_avg: float | None,
+) -> tuple[float, float]:
+    if subjective_avg is None:
+        return 1.0, 0.0
+    if mechanical_weight == 0:
+        return 0.0, 1.0
+    return MECHANICAL_WEIGHT_FRACTION, SUBJECTIVE_WEIGHT_FRACTION
+
+
+def _overall_health_score(
+    mechanical_avg: float,
+    subjective_avg: float | None,
+    *,
+    mechanical_fraction: float,
+    subjective_fraction: float,
+) -> float:
+    if subjective_avg is None:
+        return round(mechanical_avg, 1)
+    if mechanical_fraction == 0.0:
+        return round(subjective_avg, 1)
+    return round(
+        mechanical_avg * mechanical_fraction + subjective_avg * subjective_fraction,
+        1,
+    )
+
+
+def _breakdown_entry(
+    row: dict[str, float | str],
+    *,
+    pool: str,
+    total_weight: float,
+    pool_fraction: float,
+) -> HealthBreakdownEntry:
+    pool_share = float(row["effective_weight"]) / total_weight if total_weight > 0 else 0.0
+    per_point = pool_fraction * pool_share
+    score = float(row["score"])
+    checks = float(row["checks"]) if "checks" in row else 0.0
+    sample_factor = float(row["sample_factor"]) if "sample_factor" in row else 1.0
+    return {
+        "name": str(row["name"]),
+        "pool": pool,
+        "score": score,
+        "checks": checks,
+        "sample_factor": sample_factor,
+        "configured_weight": float(row["configured_weight"]),
+        "effective_weight": float(row["effective_weight"]),
+        "pool_share": pool_share,
+        "overall_per_point": per_point,
+        "overall_contribution": per_point * score,
+        "overall_drag": per_point * (100.0 - score),
+    }
+
+
+def _breakdown_entries(
+    mechanical_rows: list[dict[str, float | str]],
+    subjective_rows: list[dict[str, float | str]],
+    *,
+    mechanical_weight: float,
+    subjective_weight: float,
+    mechanical_fraction: float,
+    subjective_fraction: float,
+) -> list[HealthBreakdownEntry]:
+    entries: list[HealthBreakdownEntry] = []
+    for row in mechanical_rows:
+        entries.append(
+            _breakdown_entry(
+                row,
+                pool="mechanical",
+                total_weight=mechanical_weight,
+                pool_fraction=mechanical_fraction,
+            )
+        )
+    for row in subjective_rows:
+        entries.append(
+            _breakdown_entry(
+                row,
+                pool="subjective",
+                total_weight=subjective_weight,
+                pool_fraction=subjective_fraction,
+            )
+        )
+    return entries
+
+
 def compute_health_breakdown(
     dimension_scores: dict,
     *,
@@ -83,14 +224,7 @@ def compute_health_breakdown(
 ) -> HealthBreakdown:
     """Return pool averages and weighted contribution breakdown for score transparency."""
     if not dimension_scores:
-        return {
-            "overall_score": 100.0,
-            "mechanical_fraction": 1.0,
-            "subjective_fraction": 0.0,
-            "mechanical_avg": 100.0,
-            "subjective_avg": None,
-            "entries": [],
-        }
+        return _empty_health_breakdown()
 
     mech_sum = 0.0
     mech_weight = 0.0
@@ -100,103 +234,40 @@ def compute_health_breakdown(
     subjective_rows: list[dict[str, float | str]] = []
 
     for name, data in dimension_scores.items():
-        score = float(data.get(score_key, data.get("score", 0.0)))
-        is_subjective = "subjective_assessment" in data.get("detectors", {})
-        if is_subjective:
-            configured = max(0.0, _subjective_dimension_weight(name, data))
-            effective = configured
+        pool, row = _categorize_dimension_row(name, data, score_key=score_key)
+        score = float(row["score"])
+        effective = float(row["effective_weight"])
+        if pool == "subjective":
             subj_sum += score * effective
             subj_weight += effective
-            subjective_rows.append(
-                {
-                    "name": str(name),
-                    "score": score,
-                    "configured_weight": configured,
-                    "effective_weight": effective,
-                }
-            )
+            subjective_rows.append(row)
             continue
 
-        checks = float(data.get("checks", 0) or 0)
-        sample_factor = min(1.0, checks / MIN_SAMPLE) if checks > 0 else 0.0
-        configured = max(0.0, _mechanical_dimension_weight(name))
-        effective = configured * sample_factor
         mech_sum += score * effective
         mech_weight += effective
-        mechanical_rows.append(
-            {
-                "name": str(name),
-                "score": score,
-                "checks": checks,
-                "sample_factor": sample_factor,
-                "configured_weight": configured,
-                "effective_weight": effective,
-            }
-        )
+        mechanical_rows.append(row)
 
-    mech_avg = (mech_sum / mech_weight) if mech_weight > 0 else 100.0
-    subj_avg = (subj_sum / subj_weight) if subj_weight > 0 else None
-
-    if subj_avg is None:
-        mechanical_fraction = 1.0
-        subjective_fraction = 0.0
-        overall_score = round(mech_avg, 1)
-    elif mech_weight == 0:
-        mechanical_fraction = 0.0
-        subjective_fraction = 1.0
-        overall_score = round(subj_avg, 1)
-    else:
-        mechanical_fraction = MECHANICAL_WEIGHT_FRACTION
-        subjective_fraction = SUBJECTIVE_WEIGHT_FRACTION
-        overall_score = round(
-            mech_avg * mechanical_fraction + subj_avg * subjective_fraction,
-            1,
-        )
-
-    entries: list[HealthBreakdownEntry] = []
-    for row in mechanical_rows:
-        pool_share = (
-            float(row["effective_weight"]) / mech_weight if mech_weight > 0 else 0.0
-        )
-        per_point = mechanical_fraction * pool_share
-        score = float(row["score"])
-        entries.append(
-            {
-                "name": str(row["name"]),
-                "pool": "mechanical",
-                "score": score,
-                "checks": float(row["checks"]),
-                "sample_factor": float(row["sample_factor"]),
-                "configured_weight": float(row["configured_weight"]),
-                "effective_weight": float(row["effective_weight"]),
-                "pool_share": pool_share,
-                "overall_per_point": per_point,
-                "overall_contribution": per_point * score,
-                "overall_drag": per_point * (100.0 - score),
-            }
-        )
-
-    for row in subjective_rows:
-        pool_share = (
-            float(row["effective_weight"]) / subj_weight if subj_weight > 0 else 0.0
-        )
-        per_point = subjective_fraction * pool_share
-        score = float(row["score"])
-        entries.append(
-            {
-                "name": str(row["name"]),
-                "pool": "subjective",
-                "score": score,
-                "checks": 0.0,
-                "sample_factor": 1.0,
-                "configured_weight": float(row["configured_weight"]),
-                "effective_weight": float(row["effective_weight"]),
-                "pool_share": pool_share,
-                "overall_per_point": per_point,
-                "overall_contribution": per_point * score,
-                "overall_drag": per_point * (100.0 - score),
-            }
-        )
+    mech_avg = float(_pool_average(mech_sum, mech_weight, empty_default=100.0))
+    subj_avg = _pool_average(subj_sum, subj_weight, empty_default=None)
+    mechanical_fraction, subjective_fraction = _pool_fractions(
+        mech_weight,
+        subj_weight,
+        subj_avg,
+    )
+    overall_score = _overall_health_score(
+        mech_avg,
+        subj_avg,
+        mechanical_fraction=mechanical_fraction,
+        subjective_fraction=subjective_fraction,
+    )
+    entries = _breakdown_entries(
+        mechanical_rows,
+        subjective_rows,
+        mechanical_weight=mech_weight,
+        subjective_weight=subj_weight,
+        mechanical_fraction=mechanical_fraction,
+        subjective_fraction=subjective_fraction,
+    )
 
     return {
         "overall_score": overall_score,

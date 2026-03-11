@@ -186,7 +186,7 @@ def _cmd_plan_show(args: argparse.Namespace) -> None:
     if active:
         print(f"  Focus:            {active}")
     if superseded:
-        print(f"  Disappeared:      {superseded} (resolved or removed since last scan)")
+        print(f"  Scan drift:       {superseded} (no longer actionable in current state)")
 
     _print_commit_tracking(plan)
 

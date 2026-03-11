@@ -245,42 +245,34 @@ def _render_terminal_queue_view(
         )
 
 
-def _build_and_render_queue_view(
-    args: argparse.Namespace,
+def _plan_data_for_view(plan: dict, *, show_plan_context: bool) -> dict | None:
+    if not show_plan_context:
+        return None
+    if plan.get("queue_order") or plan.get("overrides") or plan.get("clusters"):
+        return plan
+    return None
+
+
+def _resolve_queue_items(
+    *,
     state: dict,
     config: dict,
-    *,
-    resolve_lang_fn=resolve_lang,
-    load_plan_fn=load_plan,
-    build_work_queue_fn=build_work_queue,
-    write_query_fn=write_query,
-    view: QueueViewConfig,
-) -> None:
-    """Build queue payload and render output for a queue surface."""
-    opts = NextOptions.from_args(args)
-    guardrail_warnings = triage_guardrail_messages(state=state)
-    target_strict = target_strict_score_from_config(config)
-
-    plan = load_plan_fn()
-    plan_for_queue = plan
-    plan_data: dict | None = None
-    if view.show_plan_context and (
-        plan.get("queue_order") or plan.get("overrides") or plan.get("clusters")
-    ):
-        plan_data = plan
-
+    opts: NextOptions,
+    plan_for_queue: dict,
+    target_strict: float,
+    build_work_queue_fn,
+) -> tuple[object, dict, list[dict], str | None]:
     ctx = queue_context(
         state,
+        target_strict=target_strict,
         config=config,
         plan=plan_for_queue,
-        target_strict=target_strict,
     )
     effective_cluster = _resolve_cluster_focus(
         plan_for_queue,
         cluster_arg=opts.cluster,
         scope=opts.scope,
     )
-
     queue = build_work_queue_fn(
         state,
         options=QueueBuildOptions(
@@ -294,39 +286,53 @@ def _build_and_render_queue_view(
             context=ctx,
         ),
     )
-    items = queue.get("items", [])
-    if view.collapse_plan_clusters and effective_cluster and plan_for_queue:
-        items = filter_cluster_focus(items, plan_for_queue, effective_cluster)
+    return ctx, queue, queue.get("items", []), effective_cluster
+
+
+def _apply_queue_view_transforms(
+    *,
+    items: list[dict],
+    queue: dict,
+    opts: NextOptions,
+    plan_for_queue: dict,
+    effective_cluster: str | None,
+    collapse_plan_clusters: bool,
+) -> list[dict]:
+    visible = items
+    if collapse_plan_clusters and effective_cluster and plan_for_queue:
+        visible = filter_cluster_focus(visible, plan_for_queue, effective_cluster)
     elif (
-        view.collapse_plan_clusters
+        collapse_plan_clusters
         and plan_for_queue
         and not effective_cluster
         and not plan_for_queue.get("active_cluster")
     ):
-        items = collapse_clusters(items, plan_for_queue)
+        visible = collapse_clusters(visible, plan_for_queue)
 
     if opts.count:
-        items = items[: opts.count]
-        queue["items"] = items
-        queue["total"] = len(items)
+        visible = visible[: opts.count]
+        queue["items"] = visible
+        queue["total"] = len(visible)
+    return visible
 
-    if not items:
-        _render_empty_queue_view(
-            queue=queue,
-            items=items,
-            state=state,
-            plan_for_queue=plan_for_queue,
-            plan_data=plan_data,
-            ctx=ctx,
-            target_strict=target_strict,
-            opts=opts,
-            guardrail_warnings=guardrail_warnings,
-            write_query_fn=write_query_fn,
-            command_name=view.command_name,
-            show_plan_context=view.show_plan_context,
-        )
-        return
 
+def _render_non_empty_queue(
+    *,
+    args: argparse.Namespace,
+    state: dict,
+    items: list[dict],
+    queue: dict,
+    plan_data: dict | None,
+    guardrail_warnings: list[str],
+    write_query_fn,
+    view: QueueViewConfig,
+    opts: NextOptions,
+    plan_for_queue: dict,
+    effective_cluster: str | None,
+    target_strict: float,
+    ctx,
+    resolve_lang_fn,
+) -> None:
     lang = resolve_lang_fn(args)
     lang_name = lang.name if lang else None
     narrative = compute_narrative(
@@ -359,6 +365,77 @@ def _build_and_render_queue_view(
         ctx=ctx,
         show_plan_context=view.show_plan_context,
         show_execution_prompt=view.show_execution_prompt,
+    )
+
+
+def _build_and_render_queue_view(
+    args: argparse.Namespace,
+    state: dict,
+    config: dict,
+    *,
+    resolve_lang_fn=resolve_lang,
+    load_plan_fn=load_plan,
+    build_work_queue_fn=build_work_queue,
+    write_query_fn=write_query,
+    view: QueueViewConfig,
+) -> None:
+    """Build queue payload and render output for a queue surface."""
+    opts = NextOptions.from_args(args)
+    guardrail_warnings = triage_guardrail_messages(state=state)
+    target_strict = target_strict_score_from_config(config)
+
+    plan = load_plan_fn()
+    plan_for_queue = plan
+    plan_data = _plan_data_for_view(plan, show_plan_context=view.show_plan_context)
+    ctx, queue, items, effective_cluster = _resolve_queue_items(
+        state=state,
+        config=config,
+        opts=opts,
+        plan_for_queue=plan_for_queue,
+        target_strict=target_strict,
+        build_work_queue_fn=build_work_queue_fn,
+    )
+    items = _apply_queue_view_transforms(
+        items=items,
+        queue=queue,
+        opts=opts,
+        plan_for_queue=plan_for_queue,
+        effective_cluster=effective_cluster,
+        collapse_plan_clusters=view.collapse_plan_clusters,
+    )
+
+    if not items:
+        _render_empty_queue_view(
+            queue=queue,
+            items=items,
+            state=state,
+            plan_for_queue=plan_for_queue,
+            plan_data=plan_data,
+            ctx=ctx,
+            target_strict=target_strict,
+            opts=opts,
+            guardrail_warnings=guardrail_warnings,
+            write_query_fn=write_query_fn,
+            command_name=view.command_name,
+            show_plan_context=view.show_plan_context,
+        )
+        return
+
+    _render_non_empty_queue(
+        args=args,
+        state=state,
+        items=items,
+        queue=queue,
+        plan_data=plan_data,
+        guardrail_warnings=guardrail_warnings,
+        write_query_fn=write_query_fn,
+        view=view,
+        opts=opts,
+        plan_for_queue=plan_for_queue,
+        effective_cluster=effective_cluster,
+        target_strict=target_strict,
+        ctx=ctx,
+        resolve_lang_fn=resolve_lang_fn,
     )
 
 

@@ -7,6 +7,8 @@ on which subjective IDs belong in ``queue_order``.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from desloppify.engine._plan.policy import stale as stale_policy_mod
 from desloppify.engine._plan.sync.context import (
     has_objective_backlog as _has_objective_backlog,
@@ -32,6 +34,16 @@ _UNSCORED_NAME = "auto/initial-review"
 _UNDER_TARGET_KEY = "subjective::under-target"
 _UNDER_TARGET_NAME = "auto/under-target-review"
 _MIN_UNSCORED_CLUSTER_SIZE = 1
+
+
+@dataclass(frozen=True)
+class SubjectiveClusterSpec:
+    cluster_key: str
+    cluster_name: str
+    member_ids: list[str]
+    description: str
+    action: str
+    optional: bool = False
 
 
 def _subjective_state_sets(
@@ -66,6 +78,120 @@ def _skipped_subjective_ids(plan: dict) -> set[str]:
     }
 
 
+def _subjective_cli_keys(issue_ids: list[str]) -> list[str]:
+    return [fid.removeprefix(SUBJECTIVE_PREFIX) for fid in issue_ids]
+
+
+def _subjective_action(issue_ids: list[str]) -> str:
+    return "desloppify review --prepare --dimensions " + ",".join(_subjective_cli_keys(issue_ids))
+
+
+def _sync_subjective_cluster(
+    *,
+    plan: dict,
+    clusters: dict,
+    existing_by_key: dict[str, str],
+    active_auto_keys: set[str],
+    cluster_key: str,
+    cluster_name: str,
+    member_ids: list[str],
+    description: str,
+    action: str,
+    now: str,
+    optional: bool = False,
+) -> int:
+    """Sync one subjective auto-cluster when it has enough members."""
+    min_size = _MIN_UNSCORED_CLUSTER_SIZE if cluster_key == _UNSCORED_KEY else _MIN_CLUSTER_SIZE
+    if len(member_ids) < min_size:
+        return 0
+    active_auto_keys.add(cluster_key)
+    sync_result = _sync_auto_cluster(
+        plan,
+        clusters,
+        existing_by_key,
+        cluster_key=cluster_key,
+        cluster_name=cluster_name,
+        member_ids=member_ids,
+        description=description,
+        action=action,
+        now=now,
+        optional=optional,
+    )
+    return int(sync_result.changed)
+
+
+def _queue_subjective_members(
+    order: list[str],
+    *,
+    stale_state_ids: set[str],
+    under_target_ids: set[str],
+    unscored_state_ids: set[str],
+) -> tuple[list[str], list[str], list[str]]:
+    all_subjective_ids = sorted(
+        fid
+        for fid in order
+        if fid.startswith(SUBJECTIVE_PREFIX)
+    )
+    unscored_queue_ids = sorted(
+        fid for fid in all_subjective_ids if fid in unscored_state_ids
+    )
+    stale_queue_ids = sorted(
+        fid
+        for fid in all_subjective_ids
+        if fid in stale_state_ids and fid not in unscored_state_ids
+    )
+    under_target_queue_ids = sorted(fid for fid in under_target_ids)
+    return unscored_queue_ids, stale_queue_ids, under_target_queue_ids
+
+
+def _subjective_cluster_specs(
+    *,
+    unscored_queue_ids: list[str],
+    stale_queue_ids: list[str],
+    under_target_queue_ids: list[str],
+    skipped_subjective_ids: set[str],
+    has_objective_items: bool,
+) -> list[SubjectiveClusterSpec]:
+    specs = [
+        SubjectiveClusterSpec(
+            cluster_key=_UNSCORED_KEY,
+            cluster_name=_UNSCORED_NAME,
+            member_ids=unscored_queue_ids,
+            description=(
+                f"Initial review of {len(unscored_queue_ids)} unscored subjective dimensions"
+            ),
+            action=_subjective_action(unscored_queue_ids),
+        ),
+        SubjectiveClusterSpec(
+            cluster_key=_STALE_KEY,
+            cluster_name=_STALE_NAME,
+            member_ids=stale_queue_ids,
+            description=f"Re-review {len(stale_queue_ids)} stale subjective dimensions",
+            action=_subjective_action(stale_queue_ids),
+        ),
+    ]
+    if has_objective_items:
+        return specs
+
+    filtered_under_target_ids = sorted(
+        fid for fid in under_target_queue_ids if fid not in skipped_subjective_ids
+    )
+    specs.append(
+        SubjectiveClusterSpec(
+            cluster_key=_UNDER_TARGET_KEY,
+            cluster_name=_UNDER_TARGET_NAME,
+            member_ids=filtered_under_target_ids,
+            description=(
+                f"Consider re-reviewing {len(filtered_under_target_ids)} "
+                f"dimensions under target score"
+            ),
+            action=_subjective_action(filtered_under_target_ids),
+            optional=True,
+        )
+    )
+    return specs
+
+
 def sync_subjective_clusters(
     plan: dict,
     state: StateModel,
@@ -87,90 +213,37 @@ def sync_subjective_clusters(
     skipped_subjective_ids = _skipped_subjective_ids(plan)
     order = plan.get("queue_order", [])
 
-    all_subjective_ids = sorted(
-        fid
-        for fid in order
-        if fid.startswith(SUBJECTIVE_PREFIX)
-    )
-
     stale_state_ids, under_target_ids, unscored_state_ids = _subjective_state_sets(
         state, policy=policy, target_strict=target_strict
     )
-
-    unscored_queue_ids = sorted(
-        fid for fid in all_subjective_ids if fid in unscored_state_ids
-    )
-    stale_queue_ids = sorted(
-        fid
-        for fid in all_subjective_ids
-        if fid in stale_state_ids and fid not in unscored_state_ids
-    )
-
-    if len(unscored_queue_ids) >= _MIN_UNSCORED_CLUSTER_SIZE:
-        active_auto_keys.add(_UNSCORED_KEY)
-        cli_keys = [fid.removeprefix(SUBJECTIVE_PREFIX) for fid in unscored_queue_ids]
-        description = (
-            f"Initial review of {len(unscored_queue_ids)} unscored subjective dimensions"
-        )
-        action = f"desloppify review --prepare --dimensions {','.join(cli_keys)}"
-        sync_result = _sync_auto_cluster(
-            plan,
-            clusters,
-            existing_by_key,
-            cluster_key=_UNSCORED_KEY,
-            cluster_name=_UNSCORED_NAME,
-            member_ids=unscored_queue_ids,
-            description=description,
-            action=action,
-            now=now,
-        )
-        changes += int(sync_result.changed)
-
-    if len(stale_queue_ids) >= _MIN_CLUSTER_SIZE:
-        active_auto_keys.add(_STALE_KEY)
-        cli_keys = [fid.removeprefix(SUBJECTIVE_PREFIX) for fid in stale_queue_ids]
-        description = f"Re-review {len(stale_queue_ids)} stale subjective dimensions"
-        action = "desloppify review --prepare --dimensions " + ",".join(cli_keys)
-        sync_result = _sync_auto_cluster(
-            plan,
-            clusters,
-            existing_by_key,
-            cluster_key=_STALE_KEY,
-            cluster_name=_STALE_NAME,
-            member_ids=stale_queue_ids,
-            description=description,
-            action=action,
-            now=now,
-        )
-        changes += int(sync_result.changed)
-
-    under_target_queue_ids = sorted(
-        fid for fid in under_target_ids if fid not in skipped_subjective_ids
+    unscored_queue_ids, stale_queue_ids, under_target_queue_ids = _queue_subjective_members(
+        order,
+        stale_state_ids=stale_state_ids,
+        under_target_ids=under_target_ids,
+        unscored_state_ids=unscored_state_ids,
     )
 
     has_objective_items = _has_objective_backlog(issues, policy)
-
-    if not has_objective_items and len(under_target_queue_ids) >= _MIN_CLUSTER_SIZE:
-        active_auto_keys.add(_UNDER_TARGET_KEY)
-        cli_keys = [fid.removeprefix(SUBJECTIVE_PREFIX) for fid in under_target_queue_ids]
-        description = (
-            f"Consider re-reviewing {len(under_target_queue_ids)} "
-            f"dimensions under target score"
-        )
-        action = "desloppify review --prepare --dimensions " + ",".join(cli_keys)
-        sync_result = _sync_auto_cluster(
-            plan,
-            clusters,
-            existing_by_key,
-            cluster_key=_UNDER_TARGET_KEY,
-            cluster_name=_UNDER_TARGET_NAME,
-            member_ids=under_target_queue_ids,
-            description=description,
-            action=action,
+    for spec in _subjective_cluster_specs(
+        unscored_queue_ids=unscored_queue_ids,
+        stale_queue_ids=stale_queue_ids,
+        under_target_queue_ids=under_target_queue_ids,
+        skipped_subjective_ids=skipped_subjective_ids,
+        has_objective_items=has_objective_items,
+    ):
+        changes += _sync_subjective_cluster(
+            plan=plan,
+            clusters=clusters,
+            existing_by_key=existing_by_key,
+            active_auto_keys=active_auto_keys,
+            cluster_key=spec.cluster_key,
+            cluster_name=spec.cluster_name,
+            member_ids=spec.member_ids,
+            description=spec.description,
+            action=spec.action,
             now=now,
-            optional=True,
+            optional=spec.optional,
         )
-        changes += int(sync_result.changed)
 
     return changes
 

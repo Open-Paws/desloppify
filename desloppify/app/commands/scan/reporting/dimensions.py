@@ -106,22 +106,7 @@ def show_scorecard_subjective_measures(state: dict) -> None:
     if not entries:
         return
 
-    unscored_subj = [e for e in entries if e.get("subjective") and e.get("placeholder")]
-    total_subj = [e for e in entries if e.get("subjective")]
-    if unscored_subj:
-        if len(unscored_subj) == len(total_subj):
-            print(colorize(
-                f"  Scorecard dimensions — all {len(unscored_subj)} subjective dimensions are [unassessed]:",
-                "yellow",
-            ))
-        else:
-            print(colorize(
-                f"  Scorecard dimensions — {len(unscored_subj)} of {len(total_subj)} "
-                f"subjective dimensions are [unassessed]:",
-                "yellow",
-            ))
-    else:
-        print(colorize("  Scorecard dimensions (matches scorecard.png):", "dim"))
+    print(colorize(_scorecard_heading(entries), _scorecard_heading_style(entries)))
     for entry in entries:
         if entry.get("not_scanned"):
             print(
@@ -131,35 +116,62 @@ def show_scorecard_subjective_measures(state: dict) -> None:
             )
             continue
         bar = _dimension_bar(entry["score"])
-        suffix = ""
-        if entry.get("carried_forward"):
-            suffix = colorize("  ⟲ prior scan", "dim")
-        elif entry.get("placeholder"):
-            suffix = colorize("  [unassessed]", "yellow")
-        elif entry.get("stale"):
-            suffix = colorize("  [stale — re-review]", "yellow")
         print(
             "  "
             + f"{entry['name']:<18} {bar} {entry['score']:5.1f}%  "
             + colorize(f"(strict {entry['strict']:5.1f}%)", "dim")
-            + suffix
+            + _scorecard_entry_suffix(entry)
         )
     stale_keys = [e["dimension_key"] for e in entries if e.get("stale")]
     has_open = any(
         f.get("status") == "open" and not f.get("suppressed")
         for f in (state.get("issues") or {}).values()
     )
-    if stale_keys and not has_open:
-        n = len(stale_keys)
-        dims_arg = ",".join(stale_keys)
-        print(
-            colorize(
-                f"  {n} stale subjective dimension{'s' if n != 1 else ''}"
-                f" — run `desloppify review --prepare --dimensions {dims_arg}` then follow your runner's review workflow",
-                "yellow",
-            )
-        )
+    stale_followup = _stale_subjective_followup(stale_keys, has_open=has_open)
+    if stale_followup:
+        print(colorize(stale_followup, "yellow"))
     print()
+
+
+def _scorecard_heading(entries: list[dict]) -> str:
+    unscored_subj = [e for e in entries if e.get("subjective") and e.get("placeholder")]
+    total_subj = [e for e in entries if e.get("subjective")]
+    if not unscored_subj:
+        return "  Scorecard dimensions (matches scorecard.png):"
+    if len(unscored_subj) == len(total_subj):
+        return (
+            f"  Scorecard dimensions — all {len(unscored_subj)} subjective dimensions "
+            "are [unassessed]:"
+        )
+    return (
+        f"  Scorecard dimensions — {len(unscored_subj)} of {len(total_subj)} "
+        "subjective dimensions are [unassessed]:"
+    )
+
+
+def _scorecard_heading_style(entries: list[dict]) -> str:
+    return "yellow" if any(e.get("subjective") and e.get("placeholder") for e in entries) else "dim"
+
+
+def _scorecard_entry_suffix(entry: dict) -> str:
+    if entry.get("carried_forward"):
+        return colorize("  ⟲ prior scan", "dim")
+    if entry.get("placeholder"):
+        return colorize("  [unassessed]", "yellow")
+    if entry.get("stale"):
+        return colorize("  [stale — re-review]", "yellow")
+    return ""
+
+
+def _stale_subjective_followup(stale_keys: list[str], *, has_open: bool) -> str:
+    if not stale_keys or has_open:
+        return ""
+    count = len(stale_keys)
+    dims_arg = ",".join(stale_keys)
+    return (
+        f"  {count} stale subjective dimension{'s' if count != 1 else ''}"
+        f" — run `desloppify review --prepare --dimensions {dims_arg}` then follow your runner's review workflow"
+    )
 
 
 def show_score_model_breakdown(state: dict, *, dim_scores: dict | None = None) -> None:

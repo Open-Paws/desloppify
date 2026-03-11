@@ -719,7 +719,7 @@ class TestImportHolisticIssues:
             diff = _call_import_holistic_issues(payload, state, "python", project_root=tmp_path)
 
         assert diff["auto_resolved"] >= 1
-        assert state["issues"][coverage_id]["status"] == "auto_resolved"
+        assert state["issues"][coverage_id]["status"] == "fixed"
 
     def test_holistic_potential_added(self):
         state = empty_state()
@@ -1613,5 +1613,4 @@ class TestFilterBatchesToDimensions:
         assert len(filtered) == 1
         assert filtered[0]["name"] == "low_level_elegance"
         assert filtered[0]["files_to_read"] == ["core.py"]
-
 

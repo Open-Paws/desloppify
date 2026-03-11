@@ -17,6 +17,67 @@ from desloppify.engine._state.schema import StateModel, utc_now
 # Repair
 # ---------------------------------------------------------------------------
 
+def _clear_missing_cluster_override(
+    override: dict,
+    clusters: dict,
+    now: str,
+) -> int:
+    cluster_name = override.get("cluster")
+    if not cluster_name or cluster_name in clusters:
+        return 0
+    override["cluster"] = None
+    override["updated_at"] = now
+    return 1
+
+
+def _canonical_cluster_membership(clusters: dict) -> dict[str, str]:
+    canonical: dict[str, str] = {}
+    for name, cluster in clusters.items():
+        for issue_id in cluster.get("issue_ids", []):
+            if issue_id not in canonical or not cluster.get("auto"):
+                canonical[issue_id] = name
+    return canonical
+
+
+def _sync_override_to_canonical_cluster(
+    issue_id: str,
+    cluster_name: str,
+    overrides: dict,
+    now: str,
+) -> int:
+    override = overrides.get(issue_id)
+    if override is None:
+        overrides[issue_id] = {
+            "issue_id": issue_id,
+            "cluster": cluster_name,
+            "created_at": now,
+            "updated_at": now,
+        }
+        return 1
+    if override.get("cluster") == cluster_name:
+        return 0
+    override["cluster"] = cluster_name
+    override["updated_at"] = now
+    return 1
+
+
+def _clear_stale_override_cluster_refs(
+    overrides: dict,
+    clusters: dict,
+    canonical: dict[str, str],
+    now: str,
+) -> int:
+    repaired = 0
+    for issue_id, override in overrides.items():
+        ref = override.get("cluster")
+        if not ref or ref not in clusters or issue_id in canonical:
+            continue
+        override["cluster"] = None
+        override["updated_at"] = now
+        repaired += 1
+    return repaired
+
+
 def _repair_ghost_cluster_refs(plan: PlanModel, now: str) -> int:
     """Cross-check cluster membership between cluster.issue_ids and overrides.
 
@@ -33,54 +94,54 @@ def _repair_ghost_cluster_refs(plan: PlanModel, now: str) -> int:
     overrides = plan.get("overrides", {})
     repaired = 0
 
-    # Direction 1: override → cluster that doesn't exist
     for override in overrides.values():
-        cluster_name = override.get("cluster")
-        if cluster_name and cluster_name not in clusters:
-            override["cluster"] = None
-            override["updated_at"] = now
-            repaired += 1
+        repaired += _clear_missing_cluster_override(override, clusters, now)
 
-    # Build authoritative map: issue_id → cluster_name from cluster.issue_ids.
-    # When an issue appears in multiple clusters, prefer manual (non-auto)
-    # clusters, matching the priority in collapse_clusters.
-    canonical: dict[str, str] = {}
-    for name, cluster in clusters.items():
-        for issue_id in cluster.get("issue_ids", []):
-            if issue_id not in canonical or not cluster.get("auto"):
-                canonical[issue_id] = name
+    canonical = _canonical_cluster_membership(clusters)
 
-    # Direction 2+3: ensure overrides agree with cluster.issue_ids
     for issue_id, cluster_name in canonical.items():
-        override = overrides.get(issue_id)
-        if override is None:
-            overrides[issue_id] = {
-                "issue_id": issue_id,
-                "cluster": cluster_name,
-                "created_at": now,
-                "updated_at": now,
-            }
-            repaired += 1
-        elif override.get("cluster") != cluster_name:
-            override["cluster"] = cluster_name
-            override["updated_at"] = now
-            repaired += 1
+        repaired += _sync_override_to_canonical_cluster(issue_id, cluster_name, overrides, now)
 
-    # Direction 2 (reverse): override says cluster X, but issue not in X.issue_ids.
-    # If the issue isn't in *any* cluster's issue_ids, clear the override ref.
-    for issue_id, override in overrides.items():
-        ref = override.get("cluster")
-        if not ref or ref not in clusters:
-            continue
-        if issue_id in canonical:
-            continue  # already handled above
-        # Override points to a real cluster, but issue is not in any
-        # cluster's issue_ids → stale ref, clear it.
-        override["cluster"] = None
-        override["updated_at"] = now
-        repaired += 1
+    repaired += _clear_stale_override_cluster_refs(overrides, clusters, canonical, now)
 
     return repaired
+
+
+def _existing_auto_cluster_keys(clusters: dict) -> dict[str, str]:
+    existing_by_key: dict[str, str] = {}
+    for name, cluster in list(clusters.items()):
+        if cluster.get("auto"):
+            cluster_key = cluster.get("cluster_key", "")
+            if cluster_key:
+                existing_by_key[cluster_key] = name
+    return existing_by_key
+
+
+def _sync_auto_clusters(
+    plan: PlanModel,
+    state: StateModel,
+    issues: dict,
+    clusters: dict,
+    existing_by_key: dict[str, str],
+    now: str,
+    *,
+    target_strict: float,
+    policy: SubjectiveVisibility | None,
+) -> int:
+    active_auto_keys: set[str] = set()
+    changes = 0
+    changes += _sync_issue_clusters(
+        plan, issues, clusters, existing_by_key, active_auto_keys, now,
+    )
+    changes += _sync_subjective_clusters(
+        plan, state, issues, clusters, existing_by_key, active_auto_keys, now,
+        target_strict=target_strict,
+        policy=policy,
+    )
+    changes += _prune_stale_clusters(
+        plan, issues, clusters, active_auto_keys, now,
+    )
+    return changes
 
 
 def auto_cluster_issues(
@@ -99,28 +160,16 @@ def auto_cluster_issues(
     issues = state.get("issues", {})
     clusters = plan.get("clusters", {})
 
-    # Map existing auto-clusters by cluster_key
-    existing_by_key: dict[str, str] = {}  # cluster_key → cluster_name
-    for name, cluster in list(clusters.items()):
-        if cluster.get("auto"):
-            ck = cluster.get("cluster_key", "")
-            if ck:
-                existing_by_key[ck] = name
-
     now = utc_now()
-    active_auto_keys: set[str] = set()
-    changes = 0
-
-    changes += _sync_issue_clusters(
-        plan, issues, clusters, existing_by_key, active_auto_keys, now,
-    )
-    changes += _sync_subjective_clusters(
-        plan, state, issues, clusters, existing_by_key, active_auto_keys, now,
+    changes = _sync_auto_clusters(
+        plan,
+        state,
+        issues,
+        clusters,
+        _existing_auto_cluster_keys(clusters),
+        now,
         target_strict=target_strict,
         policy=policy,
-    )
-    changes += _prune_stale_clusters(
-        plan, issues, clusters, active_auto_keys, now,
     )
     changes += _repair_ghost_cluster_refs(plan, now)
 

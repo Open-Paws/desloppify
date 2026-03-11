@@ -145,36 +145,30 @@ def _merge_issue_details(
     track_merged_from(primary_detail, duplicate.get("id", ""))
 
 
-def do_merge(args: argparse.Namespace) -> None:
-    """Merge conceptually duplicate open review issues."""
-    runtime = command_runtime(args)
-    state = runtime.state
-    state_file = runtime.state_path
-    narrative = compute_narrative(state, context=NarrativeContext(command="review"))
-    items: list[ReviewIssueStatePayload] = [
-        issue for issue in list_open_review_issues(state) if isinstance(issue, dict)
-    ]
-
-    if not items:
-        print(colorize("\n  No review issues open.\n", "dim"))
-        return
-
+def _similarity_threshold(args: argparse.Namespace) -> float:
     try:
         similarity = float(getattr(args, "similarity", 0.8))
     except (TypeError, ValueError):
         similarity = 0.8
-    similarity = max(0.0, min(1.0, similarity))
+    return max(0.0, min(1.0, similarity))
 
-    open_holistic = [
+
+def _open_holistic_review_issues(
+    items: list[ReviewIssueStatePayload],
+) -> list[ReviewIssueStatePayload]:
+    return [
         issue
         for issue in items
         if issue.get("detector") == "review"
         and issue.get("detail", {}).get("holistic")
     ]
-    if len(open_holistic) < 2:
-        print(colorize("\n  Not enough holistic review issues to merge.\n", "dim"))
-        return
 
+
+def _merge_groups(
+    open_holistic: list[ReviewIssueStatePayload],
+    *,
+    similarity_threshold: float,
+) -> list[list[ReviewIssueStatePayload]]:
     consumed: set[str] = set()
     merge_groups: list[list[ReviewIssueStatePayload]] = []
     for candidate in open_holistic:
@@ -190,25 +184,21 @@ def do_merge(args: argparse.Namespace) -> None:
             if _same_issue_concept(
                 candidate,
                 other,
-                similarity_threshold=similarity,
+                similarity_threshold=similarity_threshold,
             ):
                 consumed.add(other_id)
                 group.append(other)
         if len(group) > 1:
             merge_groups.append(group)
+    return merge_groups
 
-    if not merge_groups:
-        print(
-            colorize(
-                "\n  No duplicate issue concepts found at the current similarity threshold.\n",
-                "dim",
-            )
-        )
-        return
 
-    dry_run = bool(getattr(args, "dry_run", False))
-    prev = _score_snapshot(state)
-    timestamp = utc_now()
+def _apply_merge_groups(
+    merge_groups: list[list[ReviewIssueStatePayload]],
+    *,
+    dry_run: bool,
+    timestamp: str,
+) -> list[tuple[str, list[str]]]:
     merged_pairs: list[tuple[str, list[str]]] = []
     for group in merge_groups:
         ranked = sorted(
@@ -234,6 +224,47 @@ def do_merge(args: argparse.Namespace) -> None:
             }
         primary_detail = primary.setdefault("detail", {})
         primary_detail["merged_at"] = timestamp
+    return merged_pairs
+
+
+def do_merge(args: argparse.Namespace) -> None:
+    """Merge conceptually duplicate open review issues."""
+    runtime = command_runtime(args)
+    state = runtime.state
+    state_file = runtime.state_path
+    narrative = compute_narrative(state, context=NarrativeContext(command="review"))
+    items: list[ReviewIssueStatePayload] = [
+        issue for issue in list_open_review_issues(state) if isinstance(issue, dict)
+    ]
+
+    if not items:
+        print(colorize("\n  No review issues open.\n", "dim"))
+        return
+
+    similarity = _similarity_threshold(args)
+    open_holistic = _open_holistic_review_issues(items)
+    if len(open_holistic) < 2:
+        print(colorize("\n  Not enough holistic review issues to merge.\n", "dim"))
+        return
+
+    merge_groups = _merge_groups(open_holistic, similarity_threshold=similarity)
+    if not merge_groups:
+        print(
+            colorize(
+                "\n  No duplicate issue concepts found at the current similarity threshold.\n",
+                "dim",
+            )
+        )
+        return
+
+    dry_run = bool(getattr(args, "dry_run", False))
+    prev = _score_snapshot(state)
+    timestamp = utc_now()
+    merged_pairs = _apply_merge_groups(
+        merge_groups,
+        dry_run=dry_run,
+        timestamp=timestamp,
+    )
 
     print(
         colorize(

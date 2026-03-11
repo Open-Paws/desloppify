@@ -137,38 +137,47 @@ def write_status_query(request: StatusQueryRequest) -> None:
     )
 
 
+def _last_scan_suppression_line(suppression: dict) -> tuple[str, str] | None:
+    last_ignored = int(suppression.get("last_ignored", 0) or 0)
+    last_raw = int(suppression.get("last_raw_issues", 0) or 0)
+    last_pct = float(suppression.get("last_suppressed_pct", 0.0) or 0.0)
+    if last_raw > 0:
+        return (
+            f"  Ignore suppression (last scan): {last_ignored}/{last_raw} issues hidden ({last_pct:.1f}%)",
+            _suppression_style(last_pct),
+        )
+    if suppression.get("recent_scans", 0):
+        return ("  Ignore suppression (last scan): 0 issues hidden", "dim")
+    return None
+
+
+def _recent_suppression_line(suppression: dict) -> str | None:
+    recent_scans = int(suppression.get("recent_scans", 0) or 0)
+    recent_raw = int(suppression.get("recent_raw_issues", 0) or 0)
+    if recent_scans <= 1 or recent_raw <= 0:
+        return None
+    recent_ignored = int(suppression.get("recent_ignored", 0) or 0)
+    recent_pct = float(suppression.get("recent_suppressed_pct", 0.0) or 0.0)
+    return (
+        f"    Recent ({recent_scans} scans): {recent_ignored}/{recent_raw} issues hidden "
+        f"({recent_pct:.1f}%)"
+    )
+
+
 def show_ignore_summary(ignores: list[str], suppression: dict) -> None:
     """Show ignore list plus suppression accountability from recent scans."""
     print(colorize(f"\n  Ignore list ({len(ignores)}):", "dim"))
     for pattern in ignores[:10]:
         print(colorize(f"    {pattern}", "dim"))
 
-    last_ignored = int(suppression.get("last_ignored", 0) or 0)
-    last_raw = int(suppression.get("last_raw_issues", 0) or 0)
-    last_pct = float(suppression.get("last_suppressed_pct", 0.0) or 0.0)
+    last_scan_line = _last_scan_suppression_line(suppression)
+    if last_scan_line is not None:
+        text, style = last_scan_line
+        print(colorize(text, style))
 
-    if last_raw > 0:
-        style = _suppression_style(last_pct)
-        print(
-            colorize(
-                f"  Ignore suppression (last scan): {last_ignored}/{last_raw} issues hidden ({last_pct:.1f}%)",
-                style,
-            )
-        )
-    elif suppression.get("recent_scans", 0):
-        print(colorize("  Ignore suppression (last scan): 0 issues hidden", "dim"))
-
-    recent_scans = int(suppression.get("recent_scans", 0) or 0)
-    recent_raw = int(suppression.get("recent_raw_issues", 0) or 0)
-    if recent_scans > 1 and recent_raw > 0:
-        recent_ignored = int(suppression.get("recent_ignored", 0) or 0)
-        recent_pct = float(suppression.get("recent_suppressed_pct", 0.0) or 0.0)
-        print(
-            colorize(
-                f"    Recent ({recent_scans} scans): {recent_ignored}/{recent_raw} issues hidden ({recent_pct:.1f}%)",
-                "dim",
-            )
-        )
+    recent_line = _recent_suppression_line(suppression)
+    if recent_line is not None:
+        print(colorize(recent_line, "dim"))
 
 
 __all__ = [

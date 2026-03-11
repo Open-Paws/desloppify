@@ -142,74 +142,67 @@ def _prune_old_superseded(plan: PlanModel, now_dt: datetime) -> list[str]:
     return to_prune
 
 
-def reconcile_plan_after_scan(
-    plan: PlanModel,
-    state: StateModel,
-) -> ReconcileResult:
-    """Reconcile plan against current state after a scan.
-
-    Finds IDs referenced in the plan that no longer exist or are no longer
-    open, moves them to superseded, and prunes old superseded entries.
-    """
-    ensure_plan_defaults(plan)
-    result = ReconcileResult()
-    now = utc_now()
-    now_dt = datetime.now(UTC)
-
-    # Collect all issue IDs referenced by the plan
+def _referenced_plan_issue_ids(plan: PlanModel) -> set[str]:
     referenced_ids: set[str] = set()
     referenced_ids.update(plan.get("queue_order", []))
     referenced_ids.update(plan.get("skipped", {}).keys())
-    for override_id in plan.get("overrides", {}):
-        referenced_ids.add(override_id)
+    referenced_ids.update(plan.get("overrides", {}).keys())
     for cluster in plan.get("clusters", {}).values():
         referenced_ids.update(cluster.get("issue_ids", []))
-
-    # Exclude already-superseded IDs and synthetic IDs (managed by stale_dimensions)
     already_superseded = set(plan.get("superseded", {}).keys())
-    referenced_ids -= already_superseded
-    referenced_ids = {
-        fid for fid in referenced_ids
+    return {
+        fid for fid in referenced_ids - already_superseded
         if not any(fid.startswith(prefix) for prefix in SYNTHETIC_PREFIXES)
     }
 
-    # Snapshot non-epic cluster sizes before superseding so we can detect
-    # clusters that become empty (all issues resolved by scan).
-    clusters = plan.get("clusters", {})
-    pre_sizes: dict[str, int] = {
-        name: len(cluster.get("issue_ids", []))
-        for name, cluster in clusters.items()
-        if not name.startswith(EPIC_PREFIX)
-    }
 
-    # Check each referenced ID
+def _supersede_dead_references(
+    plan: PlanModel,
+    state: StateModel,
+    *,
+    referenced_ids: set[str],
+    now: str,
+    result: ReconcileResult,
+) -> None:
     for fid in sorted(referenced_ids):
-        if not _is_issue_alive(state, fid):
-            if _supersede_id(plan, state, fid, now):
-                result.superseded.append(fid)
-                result.changes += 1
-
-    # Detect manual clusters that just became empty (all issues auto-resolved).
-    # Log cluster_done so the plan tracks completion the same way as user resolves.
-    for name, prev_size in pre_sizes.items():
-        if prev_size == 0:
-            continue  # was already empty
-        cluster = clusters.get(name)
-        if cluster is None:
+        if _is_issue_alive(state, fid):
             continue
-        if len(cluster.get("issue_ids", [])) == 0:
-            result.clusters_completed.append(name)
-            append_log_entry(
-                plan,
-                "cluster_done",
-                issue_ids=[],
-                cluster_name=name,
-                actor="system",
-                detail={"reason": "all issues resolved by scan"},
-            )
+        if _supersede_id(plan, state, fid, now):
+            result.superseded.append(fid)
             result.changes += 1
 
-    # Reconcile epic clusters: remove dead issues, delete empty epics
+
+def _complete_empty_manual_clusters(
+    plan: PlanModel,
+    *,
+    pre_sizes: dict[str, int],
+    result: ReconcileResult,
+) -> None:
+    clusters = plan.get("clusters", {})
+    for name, prev_size in pre_sizes.items():
+        if prev_size == 0:
+            continue
+        cluster = clusters.get(name)
+        if cluster is None or len(cluster.get("issue_ids", [])) != 0:
+            continue
+        result.clusters_completed.append(name)
+        append_log_entry(
+            plan,
+            "cluster_done",
+            issue_ids=[],
+            cluster_name=name,
+            actor="system",
+            detail={"reason": "cluster members no longer actionable in state"},
+        )
+        result.changes += 1
+
+
+def _reconcile_epic_clusters(
+    plan: PlanModel,
+    state: StateModel,
+    *,
+    result: ReconcileResult,
+) -> None:
     clusters = plan.get("clusters", {})
     epic_names_to_delete: list[str] = []
     for name, cluster in list(clusters.items()):
@@ -225,6 +218,42 @@ def reconcile_plan_after_scan(
     for name in epic_names_to_delete:
         clusters.pop(name, None)
         result.changes += 1
+
+
+def reconcile_plan_after_scan(
+    plan: PlanModel,
+    state: StateModel,
+) -> ReconcileResult:
+    """Reconcile plan against current state after a scan.
+
+    Finds IDs referenced in the plan that no longer exist or are no longer
+    open, moves them to superseded, and prunes old superseded entries.
+    """
+    ensure_plan_defaults(plan)
+    result = ReconcileResult()
+    now = utc_now()
+    now_dt = datetime.now(UTC)
+
+    referenced_ids = _referenced_plan_issue_ids(plan)
+
+    # Snapshot non-epic cluster sizes before superseding so we can detect
+    # clusters that become empty after state reconciliation.
+    clusters = plan.get("clusters", {})
+    pre_sizes: dict[str, int] = {
+        name: len(cluster.get("issue_ids", []))
+        for name, cluster in clusters.items()
+        if not name.startswith(EPIC_PREFIX)
+    }
+
+    _supersede_dead_references(
+        plan,
+        state,
+        referenced_ids=referenced_ids,
+        now=now,
+        result=result,
+    )
+    _complete_empty_manual_clusters(plan, pre_sizes=pre_sizes, result=result)
+    _reconcile_epic_clusters(plan, state, result=result)
 
     clear_focus_if_cluster_empty(plan)
 

@@ -53,48 +53,20 @@ def _require_clustered_review_issues(plan: dict, state: dict) -> bool:
     return False
 
 
-def confirm_organize(
-    args: argparse.Namespace,
-    plan: dict,
-    stages: dict,
-    attestation: str | None,
-    *,
-    services: TriageServices | None = None,
-) -> None:
-    """Show full plan summary and record confirmation if attestation is valid."""
-    resolved_services = services or default_triage_services()
-    if not ensure_stage_is_confirmable(stages, stage="organize"):
-        return
-
-    runtime = resolved_services.command_runtime(args)
-    state = runtime.state
-
-    print(colorize("  Stage: ORGANIZE — Defer contradictions, cluster, & prioritize", "bold"))
-    print(colorize("  " + "─" * 63, "dim"))
-
-    # Reflect activity summary
+def _print_reflect_activity_summary(plan: dict, stages: dict) -> None:
     reflect_ts = stages.get("reflect", {}).get("timestamp", "")
-    if reflect_ts:
-        activity = count_log_activity_since(plan, reflect_ts)
-        if activity:
-            print("  Since reflect, you have:")
-            for action, count in sorted(activity.items()):
-                print(f"    {action}: {count}")
-        else:
-            print("  No logged plan operations since reflect.")
-
-    print(colorize("\n  Plan:", "bold"))
-    show_plan_summary(plan, state)
-
-    organize_clusters = [
-        name for name in plan.get("clusters", {}) if not plan["clusters"][name].get("auto")
-    ]
-    if not _require_enriched_clusters(plan):
+    if not reflect_ts:
         return
-    if not _require_clustered_review_issues(plan, state):
+    activity = count_log_activity_since(plan, reflect_ts)
+    if activity:
+        print("  Since reflect, you have:")
+        for action, count in sorted(activity.items()):
+            print(f"    {action}: {count}")
         return
+    print("  No logged plan operations since reflect.")
 
-    # Organize warnings
+
+def _print_cluster_shape_warnings(plan: dict) -> None:
     from ..validation.core import (  # noqa: PLC0415
         _cluster_file_overlaps,
         _clusters_with_directory_scatter,
@@ -117,25 +89,31 @@ def confirm_organize(
             print(colorize(f"    {name}: {steps} steps for {issues} issues ({ratio:.1f}x)", "yellow"))
         print(colorize("  Steps should consolidate changes to the same file. 1:1 means each issue is its own step.", "dim"))
 
-    overlaps = _cluster_file_overlaps(plan)
-    if overlaps:
-        clusters_dict = plan.get("clusters", {})
-        print(colorize(f"\n  Note: {len(overlaps)} cluster pair(s) reference the same files:", "yellow"))
-        for left, right, files in overlaps[:5]:
-            print(colorize(f"    {left} ↔ {right}: {len(files)} shared file(s)", "yellow"))
-        needs_dep = []
-        for left, right, files in overlaps:
-            left_deps = set(clusters_dict.get(left, {}).get("depends_on_clusters", []))
-            right_deps = set(clusters_dict.get(right, {}).get("depends_on_clusters", []))
-            if right not in left_deps and left not in right_deps:
-                needs_dep.append((left, right, files))
-        if needs_dep:
-            print(colorize("  These pairs have no dependency relationship — add one to prevent merge conflicts:", "dim"))
-            for left, right, _files in needs_dep[:5]:
-                print(colorize(f"    desloppify plan cluster update {right} --depends-on {left}", "dim"))
-                print(colorize(f"    # or: desloppify plan cluster update {left} --depends-on {right}", "dim"))
+    _print_cluster_overlap_notes(plan, _cluster_file_overlaps(plan))
 
-    all_clusters = plan.get("clusters", {})
+
+def _print_cluster_overlap_notes(plan: dict, overlaps: list[tuple[str, str, list[str]]]) -> None:
+    if not overlaps:
+        return
+    clusters_dict = plan.get("clusters", {})
+    print(colorize(f"\n  Note: {len(overlaps)} cluster pair(s) reference the same files:", "yellow"))
+    for left, right, files in overlaps[:5]:
+        print(colorize(f"    {left} ↔ {right}: {len(files)} shared file(s)", "yellow"))
+    needs_dep = []
+    for left, right, files in overlaps:
+        left_deps = set(clusters_dict.get(left, {}).get("depends_on_clusters", []))
+        right_deps = set(clusters_dict.get(right, {}).get("depends_on_clusters", []))
+        if right not in left_deps and left not in right_deps:
+            needs_dep.append((left, right, files))
+    if not needs_dep:
+        return
+    print(colorize("  These pairs have no dependency relationship — add one to prevent merge conflicts:", "dim"))
+    for left, right, _files in needs_dep[:5]:
+        print(colorize(f"    desloppify plan cluster update {right} --depends-on {left}", "dim"))
+        print(colorize(f"    # or: desloppify plan cluster update {left} --depends-on {right}", "dim"))
+
+
+def _print_orphaned_cluster_notes(all_clusters: dict) -> None:
     for name, cluster in all_clusters.items():
         deps = cluster.get("depends_on_clusters", [])
         if name in deps:
@@ -146,11 +124,49 @@ def confirm_organize(
         for name, cluster in all_clusters.items()
         if not cluster.get("auto") and not cluster_issue_ids(cluster) and cluster.get("action_steps")
     ]
-    if orphaned:
-        print(colorize(f"\n  Note: {len(orphaned)} cluster(s) have steps but no issues:", "yellow"))
-        for name, step_count in orphaned:
-            print(colorize(f"    {name}: {step_count} steps, 0 issues", "yellow"))
-        print(colorize("  These may need issues added, or may be leftover from resolved work.", "dim"))
+    if not orphaned:
+        return
+    print(colorize(f"\n  Note: {len(orphaned)} cluster(s) have steps but no issues:", "yellow"))
+    for name, step_count in orphaned:
+        print(colorize(f"    {name}: {step_count} steps, 0 issues", "yellow"))
+    print(colorize("  These may need issues added, or may be leftover from resolved work.", "dim"))
+
+
+def confirm_organize(
+    args: argparse.Namespace,
+    plan: dict,
+    stages: dict,
+    attestation: str | None,
+    *,
+    services: TriageServices | None = None,
+) -> None:
+    """Show full plan summary and record confirmation if attestation is valid."""
+    resolved_services = services or default_triage_services()
+    if not ensure_stage_is_confirmable(stages, stage="organize"):
+        return
+
+    runtime = resolved_services.command_runtime(args)
+    state = runtime.state
+
+    print(colorize("  Stage: ORGANIZE — Defer contradictions, cluster, & prioritize", "bold"))
+    print(colorize("  " + "─" * 63, "dim"))
+
+    _print_reflect_activity_summary(plan, stages)
+
+    print(colorize("\n  Plan:", "bold"))
+    show_plan_summary(plan, state)
+
+    organize_clusters = [
+        name for name in plan.get("clusters", {}) if not plan["clusters"][name].get("auto")
+    ]
+    if not _require_enriched_clusters(plan):
+        return
+    if not _require_clustered_review_issues(plan, state):
+        return
+
+    _print_cluster_shape_warnings(plan)
+    all_clusters = plan.get("clusters", {})
+    _print_orphaned_cluster_notes(all_clusters)
 
     organized, total, _ = triage_coverage(plan, open_review_ids=open_review_ids_from_state(state))
     if not finalize_stage_confirmation(

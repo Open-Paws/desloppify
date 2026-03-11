@@ -19,7 +19,7 @@ from desloppify.engine._state.merge_history import (
     _record_scan_metadata,
 )
 from desloppify.engine._state.merge_issues import (
-    auto_resolve_disappeared,
+    verify_disappeared,
     find_suspect_detectors,
     upsert_issues,
 )
@@ -175,7 +175,7 @@ def merge_scan(
         resolved_options.force_resolve,
         ran_detectors,
     )
-    auto_resolved, skipped_other_lang, resolved_out_of_scope, resolve_changed = auto_resolve_disappeared(
+    auto_resolved, skipped_other_lang, resolved_out_of_scope, resolve_changed = verify_disappeared(
         existing,
         current_ids,
         suspect_detectors,

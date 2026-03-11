@@ -62,22 +62,40 @@ def _print_review_import_sync(
     new_ids = result.new_ids
     stale_pruned = result.stale_pruned_from_queue
     print()
-    if new_ids:
-        print(colorize(
-            f"  Plan updated: {len(new_ids)} new review issue(s) added to queue.",
-            "bold",
-        ))
-        issues = state.get("issues", {})
-        for finding_id in sorted(new_ids)[:10]:
-            finding = issues.get(finding_id, {})
-            print(f"    * [{short_issue_id(finding_id)}] {finding.get('summary', '')}")
-        if len(new_ids) > 10:
-            print(colorize(f"    ... and {len(new_ids) - 10} more", "dim"))
-    if stale_pruned:
-        print(colorize(
-            f"  Plan updated: {len(stale_pruned)} stale review issue(s) removed from queue.",
-            "bold",
-        ))
+    _print_new_review_items(state, new_ids)
+    _print_stale_review_prunes(stale_pruned)
+    _print_review_import_footer(result, workflow_injected=workflow_injected)
+
+
+def _print_new_review_items(state: dict, new_ids: list[str]) -> None:
+    if not new_ids:
+        return
+    print(colorize(
+        f"  Plan updated: {len(new_ids)} new review issue(s) added to queue.",
+        "bold",
+    ))
+    issues = state.get("issues", {})
+    for finding_id in sorted(new_ids)[:10]:
+        finding = issues.get(finding_id, {})
+        print(f"    * [{short_issue_id(finding_id)}] {finding.get('summary', '')}")
+    if len(new_ids) > 10:
+        print(colorize(f"    ... and {len(new_ids) - 10} more", "dim"))
+
+
+def _print_stale_review_prunes(stale_pruned: list[str]) -> None:
+    if not stale_pruned:
+        return
+    print(colorize(
+        f"  Plan updated: {len(stale_pruned)} stale review issue(s) removed from queue.",
+        "bold",
+    ))
+
+
+def _print_review_import_footer(
+    result: plan_queue_mod.ReviewImportSyncResult,
+    *,
+    workflow_injected: bool,
+) -> None:
     print()
     print(colorize(
         "  Review queue sync completed. Workflow follow-up may be front-loaded.",
@@ -97,6 +115,23 @@ def _print_review_import_sync(
     print(colorize(
         "  (Follow the queue in order; score communication and planning come before triage.)",
         "dim",
+    ))
+
+
+def _review_delta_present(diff: dict) -> bool:
+    return any(
+        int(diff.get(key, 0) or 0) > 0
+        for key in ("new", "reopened", "auto_resolved")
+    )
+
+
+def _print_workflow_injected_message(workflow_injected_ids: list[str]) -> None:
+    if not workflow_injected_ids:
+        return
+    injected_parts = [f"`{workflow_id}`" for workflow_id in workflow_injected_ids]
+    print(colorize(
+        f"  Plan: {' and '.join(injected_parts)} queued. Run `desloppify next`.",
+        "cyan",
     ))
 
 
@@ -136,7 +171,6 @@ def sync_plan_after_import(
             verified=snapshot.verified,
         )
         trusted_score_import = assessment_mode in {"trusted_internal", "attested_external"}
-
         communicate_result = plan_queue_mod.sync_communicate_score_needed(
             plan,
             state,
@@ -148,11 +182,7 @@ def sync_plan_after_import(
             dirty = True
             workflow_injected_ids.append("workflow::communicate-score")
 
-        has_review_issue_delta = (
-            int(diff.get("new", 0) or 0) > 0
-            or int(diff.get("reopened", 0) or 0) > 0
-            or int(diff.get("auto_resolved", 0) or 0) > 0
-        )
+        has_review_issue_delta = _review_delta_present(diff)
         assessment_keys = (
             imported_assessment_keys(import_payload)
             if isinstance(import_payload, dict)
@@ -166,10 +196,6 @@ def sync_plan_after_import(
         stale_sync_result = None
         auto_cluster_changes = 0
 
-        injected_parts: list[str] = []
-        if communicate_result.changes:
-            injected_parts.append("`workflow::communicate-score`")
-
         import_scores_result = plan_queue_mod.sync_import_scores_needed(
             plan,
             state,
@@ -181,7 +207,6 @@ def sync_plan_after_import(
             dirty = True
             if import_scores_result.injected:
                 workflow_injected_ids.append("workflow::import-scores")
-                injected_parts.append("`workflow::import-scores`")
 
         create_plan_result = plan_queue_mod.sync_create_plan_needed(
             plan,
@@ -191,7 +216,6 @@ def sync_plan_after_import(
         if create_plan_result.changes:
             dirty = True
             workflow_injected_ids.append("workflow::create-plan")
-            injected_parts.append("`workflow::create-plan`")
 
         if has_review_issue_delta:
             import_result = plan_queue_mod.sync_plan_after_review_import(
@@ -300,11 +324,7 @@ def sync_plan_after_import(
                 import_result,
                 workflow_injected=bool(workflow_injected_ids),
             )
-        if injected_parts:
-            print(colorize(
-                f"  Plan: {' and '.join(injected_parts)} queued. Run `desloppify next`.",
-                "cyan",
-            ))
+        _print_workflow_injected_message(workflow_injected_ids)
     except PLAN_LOAD_EXCEPTIONS as exc:
         print(
             colorize(

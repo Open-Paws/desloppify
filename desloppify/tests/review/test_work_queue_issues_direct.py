@@ -61,7 +61,7 @@ def test_update_investigation_returns_false_for_missing_or_closed_issue() -> Non
     assert issues_mod.update_investigation(state, "review::closed", "x") is False
 
 
-def test_expire_stale_holistic_auto_resolves_old_entries_only() -> None:
+def test_mark_stale_holistic_marks_old_entries_stale_only() -> None:
     stale = (datetime.now(UTC) - timedelta(days=45)).isoformat()
     fresh = (datetime.now(UTC) - timedelta(days=5)).isoformat()
     state = {
@@ -93,12 +93,11 @@ def test_expire_stale_holistic_auto_resolves_old_entries_only() -> None:
         }
     }
 
-    expired = issues_mod.expire_stale_holistic(state, max_age_days=30)
+    expired = issues_mod.mark_stale_holistic(state, max_age_days=30)
 
     assert expired == ["review::stale"]
     stale_issue = state["issues"]["review::stale"]
-    assert stale_issue["status"] == "auto_resolved"
-    assert "resolved_at" in stale_issue
-    assert stale_issue["note"].startswith("holistic review expired")
+    assert stale_issue["status"] == "open"
+    assert stale_issue["note"].startswith("holistic review stale")
     assert state["issues"]["review::fresh"]["status"] == "open"
     assert state["issues"]["review::bad-time"]["status"] == "open"

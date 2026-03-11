@@ -79,6 +79,15 @@ class StagePrerequisite:
     require_confirmation: bool = False
 
 
+@dataclass(frozen=True)
+class ReflectAutoConfirmDeps:
+    triage_input: object | None = None
+    command_runtime_fn: object | None = None
+    collect_triage_input_fn: object = collect_triage_input
+    detect_recurring_patterns_fn: object = detect_recurring_patterns
+    save_plan_fn: object | None = None
+
+
 _STAGE_PREREQUISITES = {
     "organize": (
         StagePrerequisite("observe"),
@@ -363,21 +372,18 @@ def _auto_confirm_reflect_for_organize(
     plan: dict,
     stages: dict,
     attestation: str | None,
-    triage_input=None,
-    command_runtime_fn=None,
-    collect_triage_input_fn=collect_triage_input,
-    detect_recurring_patterns_fn=detect_recurring_patterns,
-    save_plan_fn=None,
+    deps: ReflectAutoConfirmDeps | None = None,
 ) -> bool:
     reflect_stage = stages.get("reflect")
     if reflect_stage is None:
         return False
 
-    resolved_triage_input = triage_input
+    deps = deps or ReflectAutoConfirmDeps()
+    resolved_triage_input = deps.triage_input
     if resolved_triage_input is None:
-        runtime_factory = command_runtime_fn or command_runtime
+        runtime_factory = deps.command_runtime_fn or command_runtime
         runtime = runtime_factory(args)
-        resolved_triage_input = collect_triage_input_fn(plan, runtime.state)
+        resolved_triage_input = deps.collect_triage_input_fn(plan, runtime.state)
 
     valid_ids = set(resolved_triage_input.open_issues.keys())
     accounting_ok, cited_ids, missing_ids, duplicate_ids = _validate_reflect_issue_accounting(
@@ -390,7 +396,7 @@ def _auto_confirm_reflect_for_organize(
     reflect_stage["missing_issue_ids"] = missing_ids
     reflect_stage["duplicate_issue_ids"] = duplicate_ids
 
-    recurring = detect_recurring_patterns_fn(
+    recurring = deps.detect_recurring_patterns_fn(
         resolved_triage_input.open_issues,
         resolved_triage_input.resolved_issues,
     )
@@ -410,7 +416,7 @@ def _auto_confirm_reflect_for_organize(
             dimensions=reflect_dims,
             cluster_names=reflect_clusters,
         ),
-        save_plan_fn=save_plan_fn,
+        save_plan_fn=deps.save_plan_fn,
     )
 
 

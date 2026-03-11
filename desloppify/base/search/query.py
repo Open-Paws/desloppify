@@ -20,6 +20,10 @@ QUERY_CLUSTER_MEMBER_LIMIT = 10
 QUERY_TEXT_LIMIT = 400
 
 
+def _payload_over_budget(payload: dict, *, max_bytes: int) -> bool:
+    return _payload_size_bytes(payload) > max_bytes
+
+
 def _payload_size_bytes(payload: dict) -> int:
     """Return UTF-8 byte size for a JSON-serializable payload."""
     return len(json.dumps(payload, indent=2, default=json_default).encode("utf-8"))
@@ -143,6 +147,62 @@ def _fit_payload_to_budget(payload: dict, *, max_bytes: int) -> dict:
     return trimmed
 
 
+def _trim_query_items(payload: dict, notes: list[str]) -> dict:
+    trimmed = dict(payload)
+    items = trimmed.get("items")
+    if not isinstance(items, list):
+        return trimmed
+
+    original_count = len(items)
+    limited_items = items[:QUERY_ITEMS_SOFT_LIMIT]
+    if len(limited_items) < original_count:
+        notes.append(f"items:{original_count}->{len(limited_items)}")
+    trimmed["items"] = [_lightweight_item(item) for item in limited_items]
+    return trimmed
+
+
+def _trim_query_narrative(payload: dict, notes: list[str]) -> dict:
+    if not isinstance(payload.get("narrative"), dict):
+        return payload
+    trimmed = dict(payload)
+    trimmed["narrative"] = {"truncated": True}
+    notes.append("narrative")
+    return trimmed
+
+
+def _trim_query_plan(payload: dict, notes: list[str]) -> dict:
+    plan = payload.get("plan")
+    if not isinstance(plan, dict):
+        return payload
+
+    clusters = plan.get("clusters")
+    if not isinstance(clusters, list) or len(clusters) <= 100:
+        return payload
+
+    compact_plan = dict(plan)
+    compact_plan["clusters"] = clusters[:100]
+    compact_plan["clusters_truncated"] = True
+    trimmed = dict(payload)
+    trimmed["plan"] = compact_plan
+    notes.append("plan.clusters")
+    return trimmed
+
+
+def _annotate_query_truncation(payload: dict, notes: list[str], *, max_bytes: int) -> dict:
+    if not notes:
+        return payload
+
+    trimmed = dict(payload)
+    meta = trimmed.get("query_truncated")
+    if not isinstance(meta, dict):
+        meta = {}
+    meta["max_bytes"] = max_bytes
+    meta["actual_bytes"] = _payload_size_bytes(trimmed)
+    meta["applied"] = notes
+    trimmed["query_truncated"] = meta
+    return trimmed
+
+
 def _enforce_payload_budget(
     payload: dict,
     *,
@@ -150,47 +210,23 @@ def _enforce_payload_budget(
 ) -> tuple[dict, list[str]]:
     """Bound payload size with deterministic truncation steps."""
     budget = QUERY_PAYLOAD_MAX_BYTES if max_bytes is None else max_bytes
-    if _payload_size_bytes(payload) <= budget:
+    if not _payload_over_budget(payload, max_bytes=budget):
         return payload, []
 
     notes: list[str] = []
-    trimmed = dict(payload)
+    trimmed = _trim_query_items(payload, notes)
 
-    items = trimmed.get("items")
-    if isinstance(items, list):
-        original_count = len(items)
-        limited_items = items[:QUERY_ITEMS_SOFT_LIMIT]
-        if len(limited_items) < original_count:
-            notes.append(f"items:{original_count}->{len(limited_items)}")
-        trimmed["items"] = [_lightweight_item(item) for item in limited_items]
+    if _payload_over_budget(trimmed, max_bytes=budget):
+        trimmed = _trim_query_narrative(trimmed, notes)
 
-    if _payload_size_bytes(trimmed) > budget and isinstance(trimmed.get("narrative"), dict):
-        trimmed["narrative"] = {"truncated": True}
-        notes.append("narrative")
+    if _payload_over_budget(trimmed, max_bytes=budget):
+        trimmed = _trim_query_plan(trimmed, notes)
 
-    plan = trimmed.get("plan")
-    if _payload_size_bytes(trimmed) > budget and isinstance(plan, dict):
-        clusters = plan.get("clusters")
-        if isinstance(clusters, list) and len(clusters) > 100:
-            compact_plan = dict(plan)
-            compact_plan["clusters"] = clusters[:100]
-            compact_plan["clusters_truncated"] = True
-            trimmed["plan"] = compact_plan
-            notes.append("plan.clusters")
-
-    if _payload_size_bytes(trimmed) > budget:
+    if _payload_over_budget(trimmed, max_bytes=budget):
         trimmed = _minimal_payload(trimmed, max_bytes=budget)
         notes.append("minimal")
 
-    if notes:
-        meta = trimmed.get("query_truncated")
-        if not isinstance(meta, dict):
-            meta = {}
-        meta["max_bytes"] = budget
-        meta["actual_bytes"] = _payload_size_bytes(trimmed)
-        meta["applied"] = notes
-        trimmed["query_truncated"] = meta
-
+    trimmed = _annotate_query_truncation(trimmed, notes, max_bytes=budget)
     return trimmed, notes
 
 

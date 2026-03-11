@@ -208,7 +208,7 @@ def plan_superseded_section(plan: dict) -> list[str]:
 
     lines: list[str] = [
         "---",
-        f"## Superseded ({len(superseded)} items — may need remap)",
+        f"## Scan Drift ({len(superseded)} items — may need remap)",
         "",
     ]
     for issue_id, entry in superseded.items():

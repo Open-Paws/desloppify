@@ -162,6 +162,7 @@ class TestScoreAntiGaming:
             [issue],
             MergeScanOptions(lang="python", potentials={"unused": 1}, force_resolve=True),
         )
+        before_strict = st["strict_score"]
         before_verified = st["verified_strict_score"]
 
         resolve_issues(
@@ -171,15 +172,23 @@ class TestScoreAntiGaming:
             note="removed symbol",
             attestation="I have actually fixed this and I am not gaming the score.",
         )
-        assert st["strict_score"] > before_verified
+        # strict_score should improve (fixed is not a failure in strict mode)
+        assert st["strict_score"] > before_strict
+        # verified_strict_score should NOT improve (fixed still counts as failing)
         assert st["verified_strict_score"] == before_verified
 
+        # Scan confirms absence — issue gets scan-verified metadata but keeps
+        # its "fixed" status.  verified_strict still treats "fixed" as failing,
+        # so the score stays unchanged; however the attestation records that the
+        # scan corroborated the manual resolution.
         merge_scan(
             st,
             [],
             MergeScanOptions(lang="python", potentials={"unused": 1}, force_resolve=True),
         )
-        assert st["verified_strict_score"] > before_verified
+        assert st["verified_strict_score"] == before_verified
+        attestation = st["issues"]["unused::a.py::x"].get("resolution_attestation", {})
+        assert attestation.get("scan_verified") is True
 
     def test_ignore_pattern_suppresses_and_excludes_from_scoring(self):
         from desloppify.state import remove_ignored_issues

@@ -158,9 +158,9 @@ def clear_postflight_scan_completion(
     ):
         return False
     refresh_state = _refresh_state(plan)
-    refresh_state[_LIFECYCLE_PHASE_KEY] = LIFECYCLE_PHASE_EXECUTE
     if _POSTFLIGHT_SCAN_KEY not in refresh_state:
-        return True
+        return False
+    refresh_state[_LIFECYCLE_PHASE_KEY] = LIFECYCLE_PHASE_EXECUTE
     refresh_state.pop(_POSTFLIGHT_SCAN_KEY, None)
     return True
 

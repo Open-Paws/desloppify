@@ -1,4 +1,4 @@
-"""Auto-resolution helpers for review re-import workflows."""
+"""Resolution helpers for review re-import workflows."""
 
 from __future__ import annotations
 
@@ -17,14 +17,21 @@ def auto_resolve_review_issues(
     should_resolve: Callable[[Issue], bool],
     utc_now_fn=utc_now,
 ) -> None:
-    """Auto-resolve stale open review issues that match a scope predicate."""
+    """Mark stale open review issues fixed when an explicit import supersedes them."""
     diff.setdefault("auto_resolved", 0)
     for issue_id, issue in state.get("issues", {}).items():
         if issue_id in new_ids or issue.get("status") != "open":
             continue
         if not should_resolve(issue):
             continue
-        issue["status"] = "auto_resolved"
-        issue["resolved_at"] = utc_now_fn()
+        now = utc_now_fn()
+        issue["status"] = "fixed"
+        issue["resolved_at"] = now
         issue["note"] = note
+        issue["resolution_attestation"] = {
+            "kind": "agent_import",
+            "text": note,
+            "attested_at": now,
+            "scan_verified": False,
+        }
         diff["auto_resolved"] += 1

@@ -333,9 +333,7 @@ def handle_successful_attempt(
         return None
     if not output_file.exists():
         log_sections.append("Runner returned 0 but output file is missing.")
-    validate_fn = deps.validate_output_fn
-    if validate_fn is None:
-        validate_fn = _output_file_has_json_payload
+    validate_fn = _resolved_validate_output_fn(deps)
     return handle_successful_attempt_core(
         result=result,
         output_file=output_file,
@@ -345,6 +343,12 @@ def handle_successful_attempt(
         default_validate_fn=validate_fn,
         monotonic_fn=time.monotonic,
     )
+
+
+def _resolved_validate_output_fn(deps: CodexBatchRunnerDeps):
+    if deps.validate_output_fn is not None:
+        return deps.validate_output_fn
+    return _output_file_has_json_payload
 
 
 def handle_failed_attempt(
@@ -362,7 +366,10 @@ def handle_failed_attempt(
     if not is_transient or attempt >= max_attempts:
         deps.safe_write_text_fn(log_file, "\n\n".join(log_sections))
         return result.code
-    delay_seconds = retry_backoff_seconds * (2 ** (attempt - 1))
+    delay_seconds = _retry_delay_seconds(
+        retry_backoff_seconds,
+        attempt=attempt,
+    )
     log_sections.append(
         "Transient runner failure detected; "
         f"retrying in {delay_seconds:.1f}s (attempt {attempt + 1}/{max_attempts})."
@@ -377,6 +384,14 @@ def handle_failed_attempt(
         deps.safe_write_text_fn(log_file, "\n\n".join(log_sections))
         return 1
     return None
+
+
+def _retry_delay_seconds(
+    retry_backoff_seconds: float,
+    *,
+    attempt: int,
+) -> float:
+    return retry_backoff_seconds * (2 ** (attempt - 1))
 
 
 __all__ = [

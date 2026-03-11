@@ -522,13 +522,13 @@ class TestUpsertIssues:
 
     # -- subjective_review reopen guard (#158 / #156) --
 
-    def test_subjective_review_auto_resolved_by_import_not_reopened(self):
-        """subjective_review with auto_resolved + agent_import stays resolved."""
+    def test_subjective_review_import_fixed_not_reopened(self):
+        """subjective_review fixed by import stays fixed when scan echoes it."""
         old = _make_raw_issue(
             "subjective_review::a.py::holistic_stale",
             detector="subjective_review",
             file="a.py",
-            status="auto_resolved",
+            status="fixed",
         )
         old["resolution_attestation"] = {
             "kind": "agent_import",
@@ -545,7 +545,7 @@ class TestUpsertIssues:
         )
         _, new, reopened, _, _ign = self._call(existing, [current])
         assert reopened == 0
-        assert existing["subjective_review::a.py::holistic_stale"]["status"] == "auto_resolved"
+        assert existing["subjective_review::a.py::holistic_stale"]["status"] == "fixed"
 
     def test_subjective_review_fixed_by_user_still_reopened(self):
         """subjective_review manually fixed DOES reopen (condition persists)."""
@@ -603,22 +603,44 @@ class TestUpsertIssues:
 
 
 class TestMissingIssuesResolved:
-    """Issues present in state but absent from scan get auto-resolved
-    (tested via merge_scan which calls auto_resolve_disappeared)."""
+    """Issues present in state but absent from scan stay user-controlled."""
 
-    def test_missing_issue_auto_resolved(self):
-        """A issue that existed before but is absent from the new scan
-        should be auto-resolved."""
+    def test_missing_issue_stays_open(self):
+        """An open issue that disappears from scan remains open until resolved."""
         st = empty_state()
         old = _make_raw_issue("det::a.py::fn", detector="det", file="a.py")
         old["lang"] = "python"
         st["issues"]["det::a.py::fn"] = old
 
-        # Merge an empty scan — the old issue should disappear
+        # Merge an empty scan — the old issue stays open.
         diff = merge_scan(st, [], MergeScanOptions(lang="python", force_resolve=True))
-        assert diff["auto_resolved"] >= 1
-        assert st["issues"]["det::a.py::fn"]["status"] == "auto_resolved"
-        assert st["issues"]["det::a.py::fn"]["resolved_at"] is not None
+        assert diff["auto_resolved"] == 0
+        assert st["issues"]["det::a.py::fn"]["status"] == "open"
+        assert st["issues"]["det::a.py::fn"]["resolved_at"] is None
+
+    def test_missing_fixed_issue_gets_scan_verified(self):
+        """A manually fixed issue stays fixed and gains scan corroboration."""
+        st = empty_state()
+        old = _make_raw_issue(
+            "det::a.py::fn",
+            detector="det",
+            file="a.py",
+            status="fixed",
+        )
+        old["lang"] = "python"
+        old["resolution_attestation"] = {
+            "kind": "manual",
+            "text": "fixed manually",
+            "attested_at": "2025-01-01T00:00:00+00:00",
+            "scan_verified": False,
+        }
+        st["issues"]["det::a.py::fn"] = old
+
+        diff = merge_scan(st, [], MergeScanOptions(lang="python", force_resolve=True))
+        assert diff["auto_resolved"] == 1
+        assert st["issues"]["det::a.py::fn"]["status"] == "fixed"
+        assert st["issues"]["det::a.py::fn"]["resolution_attestation"]["scan_verified"] is True
+        assert "scan_verified_at" in st["issues"]["det::a.py::fn"]["resolution_attestation"]
 
 
 # ---------------------------------------------------------------------------
@@ -627,11 +649,10 @@ class TestMissingIssuesResolved:
 
 
 class TestWontfixAutoResolution:
-    """Wontfix issues should be auto-resolved when the detector ran
-    (appears in potentials) but produced 0 issues for those files (#53)."""
+    """Wontfix issues stay authoritative when the detector produces no findings."""
 
-    def test_wontfix_resolved_when_detector_ran(self):
-        """Wontfix issues auto-resolve when detector is in potentials."""
+    def test_wontfix_stays_wontfix_when_detector_ran(self):
+        """Wontfix issues stay wontfix and gain scan verification."""
         st = empty_state()
         # Pre-populate 3 open + 2 wontfix test_coverage issues
         for i in range(3):
@@ -657,9 +678,19 @@ class TestWontfixAutoResolution:
         diff = merge_scan(
             st, [], MergeScanOptions(lang="python", potentials={"test_coverage": 50, "smells": 100})
         )
-        assert diff["auto_resolved"] == 5
-        for _fid, issue in st["issues"].items():
-            assert issue["status"] == "auto_resolved"
+        assert diff["auto_resolved"] == 2
+        assert (
+            st["issues"]["test_coverage::mod3.py::untested_module"]["status"]
+            == "wontfix"
+        )
+        assert (
+            st["issues"]["test_coverage::mod4.py::untested_module"]["resolution_attestation"]["scan_verified"]
+            is True
+        )
+        assert (
+            st["issues"]["test_coverage::mod0.py::untested_module"]["status"]
+            == "open"
+        )
 
     def test_wontfix_not_resolved_when_detector_suspect(self):
         """Wontfix issues survive when detector didn't run (not in potentials)."""
@@ -691,9 +722,8 @@ class TestWontfixAutoResolution:
             == "wontfix"
         )
 
-    def test_wontfix_resolved_when_some_issues_remain(self):
-        """Wontfix issues for fixed files are resolved even when other
-        issues remain (detector not suspect because it produced issues)."""
+    def test_wontfix_stays_wontfix_when_some_issues_remain(self):
+        """Wontfix issues stay wontfix even when other issues remain open."""
         st = empty_state()
         # 2 wontfix + 2 open
         for i in range(2):
@@ -724,14 +754,18 @@ class TestWontfixAutoResolution:
             for i in range(2, 4)
         ]
         _ = merge_scan(st, current, MergeScanOptions(lang="python", potentials={"test_coverage": 50}))
-        # The 2 wontfix issues should be auto-resolved
+        # The 2 wontfix issues stay wontfix and become scan-verified.
         assert (
             st["issues"]["test_coverage::mod0.py::untested_module"]["status"]
-            == "auto_resolved"
+            == "wontfix"
         )
         assert (
             st["issues"]["test_coverage::mod1.py::untested_module"]["status"]
-            == "auto_resolved"
+            == "wontfix"
+        )
+        assert (
+            st["issues"]["test_coverage::mod0.py::untested_module"]["resolution_attestation"]["scan_verified"]
+            is True
         )
         # The 2 open issues should still be open (they were re-emitted)
         assert (
@@ -820,5 +854,4 @@ class TestWontfixAutoResolution:
         # Overall/strict are dragged down by the low assessment score.
         assert st["overall_score"] < 100.0
         assert st["strict_score"] < 100.0
-
 

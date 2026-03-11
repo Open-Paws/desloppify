@@ -66,38 +66,95 @@ def _accumulate_batch_scores(
     for key, score in result["assessments"].items():
         if isinstance(score, bool):
             continue
-        score_value = float(score)
-        weight = assessment_weight(
-            dimension=key,
+        score_value, weight = _weighted_batch_score(
+            key,
+            score,
             issues=result_issues,
             dimension_notes=result_notes,
         )
-        score_buckets.setdefault(key, []).append((score_value, weight))
-        score_raw_by_dim.setdefault(key, []).append(score_value)
-
+        _record_batch_score(
+            key,
+            score_value,
+            weight,
+            score_buckets=score_buckets,
+            score_raw_by_dim=score_raw_by_dim,
+        )
         note = result_notes.get(key)
-        existing = merged_dimension_notes.get(key)
-        existing_evidence = (
-            len(existing.get("evidence", [])) if isinstance(existing, dict) else -1
+        _merge_strongest_dimension_note(key, note, merged_dimension_notes=merged_dimension_notes)
+        _record_abstraction_axis_scores(
+            key,
+            note,
+            weight,
+            abstraction_axis_scores=abstraction_axis_scores,
+            abstraction_sub_axes=abstraction_sub_axes,
         )
-        current_evidence = (
-            len(note.get("evidence", [])) if isinstance(note, dict) else -1
-        )
-        if current_evidence > existing_evidence and note is not None:
-            merged_dimension_notes[key] = note
 
-        if key == "abstraction_fitness" and isinstance(note, dict):
-            sub_axes = note.get("sub_axes")
-            if isinstance(sub_axes, dict):
-                for axis in abstraction_sub_axes:
-                    axis_score = sub_axes.get(axis)
-                    if isinstance(axis_score, bool) or not isinstance(
-                        axis_score, int | float
-                    ):
-                        continue
-                    abstraction_axis_scores[axis].append(
-                        (float(axis_score), weight)
-                    )
+
+def _weighted_batch_score(
+    key: str,
+    score: object,
+    *,
+    issues: list[BatchIssuePayload],
+    dimension_notes: dict[str, BatchDimensionNotePayload],
+) -> tuple[float, float]:
+    score_value = float(score)
+    weight = assessment_weight(
+        dimension=key,
+        issues=issues,
+        dimension_notes=dimension_notes,
+    )
+    return score_value, weight
+
+
+def _record_batch_score(
+    key: str,
+    score_value: float,
+    weight: float,
+    *,
+    score_buckets: dict[str, list[tuple[float, float]]],
+    score_raw_by_dim: dict[str, list[float]],
+) -> None:
+    score_buckets.setdefault(key, []).append((score_value, weight))
+    score_raw_by_dim.setdefault(key, []).append(score_value)
+
+
+def _evidence_count(note: BatchDimensionNotePayload | None) -> int:
+    if not isinstance(note, dict):
+        return -1
+    return len(note.get("evidence", []))
+
+
+def _merge_strongest_dimension_note(
+    key: str,
+    note: BatchDimensionNotePayload | None,
+    *,
+    merged_dimension_notes: dict[str, BatchDimensionNotePayload],
+) -> None:
+    if note is None:
+        return
+    existing = merged_dimension_notes.get(key)
+    if _evidence_count(note) > _evidence_count(existing):
+        merged_dimension_notes[key] = note
+
+
+def _record_abstraction_axis_scores(
+    key: str,
+    note: BatchDimensionNotePayload | None,
+    weight: float,
+    *,
+    abstraction_axis_scores: dict[str, list[tuple[float, float]]],
+    abstraction_sub_axes: tuple[str, ...],
+) -> None:
+    if key != "abstraction_fitness" or not isinstance(note, dict):
+        return
+    sub_axes = note.get("sub_axes")
+    if not isinstance(sub_axes, dict):
+        return
+    for axis in abstraction_sub_axes:
+        axis_score = sub_axes.get(axis)
+        if isinstance(axis_score, bool) or not isinstance(axis_score, int | float):
+            continue
+        abstraction_axis_scores[axis].append((float(axis_score), weight))
 
 
 def _issue_identity_key(issue: BatchIssuePayload) -> str:

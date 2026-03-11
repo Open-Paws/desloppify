@@ -146,6 +146,50 @@ def _clear_pending_import_scores(plan: PlanModel) -> None:
     refresh_state.pop(_PENDING_IMPORT_SCORES_KEY, None)
 
 
+def _pending_compare_timestamp(
+    pending_meta: dict[str, Any] | None,
+    latest_issues_only: dict[str, Any],
+) -> str:
+    if isinstance(pending_meta, dict):
+        pending_ts = str(pending_meta.get("timestamp", "")).strip()
+        if pending_ts:
+            return pending_ts
+    return str(latest_issues_only.get("timestamp", "")).strip()
+
+
+def _pending_import_scores_stale(
+    *,
+    order: list[str],
+    pending_meta: dict[str, Any] | None,
+    latest_issues_only: dict[str, Any] | None,
+    latest_trusted: dict[str, Any] | None,
+) -> bool:
+    if WORKFLOW_IMPORT_SCORES_ID not in order:
+        return False
+    if latest_issues_only is None:
+        return True
+    if latest_trusted is None:
+        return False
+
+    latest_trusted_ts = str(latest_trusted.get("timestamp", "")).strip()
+    compare_ts = _pending_compare_timestamp(pending_meta, latest_issues_only)
+    return bool(compare_ts and latest_trusted_ts and latest_trusted_ts >= compare_ts)
+
+
+def _record_pending_import_scores(
+    refresh_state: dict[str, Any],
+    *,
+    import_file: str | None,
+    import_payload: dict[str, Any] | None,
+    latest_issues_only: dict[str, Any] | None,
+) -> None:
+    refresh_state[_PENDING_IMPORT_SCORES_KEY] = _build_pending_import_scores_meta(
+        import_file=import_file,
+        import_payload=import_payload,
+        issues_only_audit=latest_issues_only,
+    )
+
+
 def _no_unscored(
     state: StateModel,
     policy: SubjectiveVisibility | None,
@@ -252,40 +296,33 @@ def sync_import_scores_needed(
     latest_issues_only = _latest_assessment_audit(state, modes={"issues_only"})
     latest_trusted = _latest_assessment_audit(state, modes=_TRUSTED_ASSESSMENT_MODES)
 
-    stale_pending = False
-    if WORKFLOW_IMPORT_SCORES_ID in order:
-        if latest_issues_only is None:
-            stale_pending = True
-        elif latest_trusted is not None:
-            latest_issues_ts = str(latest_issues_only.get("timestamp", "")).strip()
-            latest_trusted_ts = str(latest_trusted.get("timestamp", "")).strip()
-            pending_ts = ""
-            if isinstance(pending_meta, dict):
-                pending_ts = str(pending_meta.get("timestamp", "")).strip()
-            compare_ts = pending_ts or latest_issues_ts
-            if compare_ts and latest_trusted_ts and latest_trusted_ts >= compare_ts:
-                stale_pending = True
-    if stale_pending:
+    if _pending_import_scores_stale(
+        order=order,
+        pending_meta=pending_meta,
+        latest_issues_only=latest_issues_only,
+        latest_trusted=latest_trusted,
+    ):
         _clear_pending_import_scores(plan)
         return QueueSyncResult(pruned=[WORKFLOW_IMPORT_SCORES_ID])
 
     if WORKFLOW_IMPORT_SCORES_ID in order:
         if assessment_mode == "issues_only":
-            # Update metadata to track the latest issues-only batch
-            refresh_state[_PENDING_IMPORT_SCORES_KEY] = _build_pending_import_scores_meta(
+            _record_pending_import_scores(
+                refresh_state,
                 import_file=import_file,
                 import_payload=import_payload,
-                issues_only_audit=latest_issues_only,
+                latest_issues_only=latest_issues_only,
             )
             return QueueSyncResult(resurfaced=[WORKFLOW_IMPORT_SCORES_ID])
         return _EMPTY()
     if assessment_mode != "issues_only":
         return _EMPTY()
     result = _inject(plan, WORKFLOW_IMPORT_SCORES_ID)
-    refresh_state[_PENDING_IMPORT_SCORES_KEY] = _build_pending_import_scores_meta(
+    _record_pending_import_scores(
+        refresh_state,
         import_file=import_file,
         import_payload=import_payload,
-        issues_only_audit=latest_issues_only,
+        latest_issues_only=latest_issues_only,
     )
     return result
 

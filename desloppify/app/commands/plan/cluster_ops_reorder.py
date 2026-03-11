@@ -31,6 +31,31 @@ def _resolve_item_position(
     """Resolve where items should be positioned within a cluster."""
     item_set = set(item_ids)
 
+    if position in ("top", "bottom"):
+        return _resolve_edge_position(position, item_ids, ordered_slice, item_set)
+
+    if position in ("before", "after"):
+        return _resolve_relative_position(
+            position,
+            target,
+            cluster_member_set,
+            cluster_name,
+            state,
+            plan,
+        )
+
+    if position in ("up", "down"):
+        return _resolve_offset_position(position, target)
+
+    return (position, None, None)
+
+
+def _resolve_edge_position(
+    position: str,
+    item_ids: list[str],
+    ordered_slice: list[str],
+    item_set: set[str],
+) -> tuple[str, str | None, int | None] | None:
     if position == "top":
         first_non_item = next((fid for fid in ordered_slice if fid not in item_set), None)
         if first_non_item is None or set(ordered_slice[: len(item_ids)]) == item_set:
@@ -38,39 +63,48 @@ def _resolve_item_position(
             return None
         return ("before", first_non_item, None)
 
-    if position == "bottom":
-        last_non_item = next((fid for fid in reversed(ordered_slice) if fid not in item_set), None)
-        if last_non_item is None or set(ordered_slice[-len(item_ids) :]) == item_set:
-            print(colorize("  Already at the bottom of the cluster.", "yellow"))
-            return None
-        return ("after", last_non_item, None)
+    last_non_item = next((fid for fid in reversed(ordered_slice) if fid not in item_set), None)
+    if last_non_item is None or set(ordered_slice[-len(item_ids) :]) == item_set:
+        print(colorize("  Already at the bottom of the cluster.", "yellow"))
+        return None
+    return ("after", last_non_item, None)
 
-    if position in ("before", "after"):
-        if target is None:
-            print(colorize(f"  '{position}' requires a target. Example: --item PAT {position} TARGET", "red"))
-            return None
-        target_ids = resolve_ids_from_patterns(state, [target], plan=plan)
-        if not target_ids:
-            print(colorize(f"  No match for target {target!r}.", "yellow"))
-            return None
-        resolved_target = target_ids[0]
-        if resolved_target not in cluster_member_set:
-            print(colorize(f"  Target {resolved_target!r} is not in cluster {cluster_name!r}.", "red"))
-            return None
-        return (position, resolved_target, None)
 
-    if position in ("up", "down"):
-        if target is None:
-            print(colorize(f"  '{position}' requires an offset. Example: --item PAT {position} 3", "red"))
-            return None
-        try:
-            offset = int(target)
-        except (ValueError, TypeError):
-            print(colorize(f"  Invalid offset: {target}", "red"))
-            return None
-        return (position, None, offset)
+def _resolve_relative_position(
+    position: str,
+    target: str | None,
+    cluster_member_set: set[str],
+    cluster_name: str,
+    state: dict,
+    plan: dict,
+) -> tuple[str, str | None, int | None] | None:
+    if target is None:
+        print(colorize(f"  '{position}' requires a target. Example: --item PAT {position} TARGET", "red"))
+        return None
+    target_ids = resolve_ids_from_patterns(state, [target], plan=plan)
+    if not target_ids:
+        print(colorize(f"  No match for target {target!r}.", "yellow"))
+        return None
+    resolved_target = target_ids[0]
+    if resolved_target not in cluster_member_set:
+        print(colorize(f"  Target {resolved_target!r} is not in cluster {cluster_name!r}.", "red"))
+        return None
+    return (position, resolved_target, None)
 
-    return (position, None, None)
+
+def _resolve_offset_position(
+    position: str,
+    target: str | None,
+) -> tuple[str, str | None, int | None] | None:
+    if target is None:
+        print(colorize(f"  '{position}' requires an offset. Example: --item PAT {position} 3", "red"))
+        return None
+    try:
+        offset = int(target)
+    except (ValueError, TypeError):
+        print(colorize(f"  Invalid offset: {target}", "red"))
+        return None
+    return (position, None, offset)
 
 
 def _validate_cluster_members(

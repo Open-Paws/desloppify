@@ -47,7 +47,7 @@ from desloppify.base.discovery.source import (
 )
 from desloppify.base.discovery.paths import get_project_root
 from desloppify.engine import planning as plan_mod
-from desloppify.engine._work_queue.issues import expire_stale_holistic
+from desloppify.engine._work_queue.issues import mark_stale_holistic
 from desloppify.engine.planning.scan import PlanScanOptions
 from desloppify.intelligence.review.dimensions.metadata import (
     resettable_default_dimensions,
@@ -415,7 +415,7 @@ def merge_scan_results(
         ),
     )
 
-    expire_stale_holistic(
+    mark_stale_holistic(
         runtime.state, runtime.config.get("holistic_max_age_days", 30)
     )
     state_mod.save_state(

@@ -182,40 +182,73 @@ def normalize_cluster_defaults(plan: dict[str, Any]) -> None:
             continue
         if not isinstance(cluster.get("issue_ids"), list):
             cluster["issue_ids"] = []
-
-        normalized_issue_ids: list[str] = []
-        seen: set[str] = set()
-
-        def _append(raw_id: object) -> None:
-            issue_id = _normalize_cluster_issue_id(raw_id)
-            if issue_id is None and isinstance(raw_id, str) and _HEX_SUFFIX_RE.fullmatch(raw_id):
-                issue_id = hash_lookup.get(raw_id)
-            if issue_id is None or issue_id in seen:
-                return
-            seen.add(issue_id)
-            normalized_issue_ids.append(issue_id)
-
-        for raw_id in cluster.get("issue_ids", []):
-            _append(raw_id)
-
-        for step in cluster.get("action_steps", []):
-            if not isinstance(step, dict):
-                continue
-            for raw_id in step.get("issue_refs", []):
-                _append(raw_id)
-
-        cluster_name = cluster.get("name")
-        if isinstance(cluster_name, str):
-            for raw_id in recovered_members.get(cluster_name, []):
-                _append(raw_id)
-            for raw_id in override_members.get(cluster_name, []):
-                _append(raw_id)
-
-        cluster["issue_ids"] = normalized_issue_ids
+        cluster["issue_ids"] = _normalized_cluster_issue_ids(
+            cluster,
+            recovered_members=recovered_members,
+            override_members=override_members,
+            hash_lookup=hash_lookup,
+        )
         cluster.setdefault("auto", False)
         cluster.setdefault("cluster_key", "")
         cluster.setdefault("action", None)
         cluster.setdefault("user_modified", False)
+
+
+def _append_normalized_issue_id(
+    raw_id: object,
+    *,
+    normalized_issue_ids: list[str],
+    seen: set[str],
+    hash_lookup: dict[str, str],
+) -> None:
+    issue_id = _normalize_cluster_issue_id(raw_id)
+    if issue_id is None and isinstance(raw_id, str) and _HEX_SUFFIX_RE.fullmatch(raw_id):
+        issue_id = hash_lookup.get(raw_id)
+    if issue_id is None or issue_id in seen:
+        return
+    seen.add(issue_id)
+    normalized_issue_ids.append(issue_id)
+
+
+def _iter_cluster_raw_issue_ids(
+    cluster: dict[str, Any],
+    *,
+    recovered_members: dict[str, list[str]],
+    override_members: dict[str, list[str]],
+) -> list[object]:
+    raw_issue_ids: list[object] = list(cluster.get("issue_ids", []))
+    for step in cluster.get("action_steps", []):
+        if isinstance(step, dict):
+            raw_issue_ids.extend(step.get("issue_refs", []))
+
+    cluster_name = cluster.get("name")
+    if isinstance(cluster_name, str):
+        raw_issue_ids.extend(recovered_members.get(cluster_name, []))
+        raw_issue_ids.extend(override_members.get(cluster_name, []))
+    return raw_issue_ids
+
+
+def _normalized_cluster_issue_ids(
+    cluster: dict[str, Any],
+    *,
+    recovered_members: dict[str, list[str]],
+    override_members: dict[str, list[str]],
+    hash_lookup: dict[str, str],
+) -> list[str]:
+    normalized_issue_ids: list[str] = []
+    seen: set[str] = set()
+    for raw_id in _iter_cluster_raw_issue_ids(
+        cluster,
+        recovered_members=recovered_members,
+        override_members=override_members,
+    ):
+        _append_normalized_issue_id(
+            raw_id,
+            normalized_issue_ids=normalized_issue_ids,
+            seen=seen,
+            hash_lookup=hash_lookup,
+        )
+    return normalized_issue_ids
 
 
 def migrate_epics_to_clusters(plan: dict[str, Any]) -> None:

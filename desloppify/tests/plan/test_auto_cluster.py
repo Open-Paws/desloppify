@@ -1089,3 +1089,68 @@ def test_under_target_lifecycle_with_sync_stale():
     order = plan["queue_order"]
     assert "subjective::design_coherence" in order
     assert "subjective::error_consistency" in order
+
+
+# ---------------------------------------------------------------------------
+# Judgment-required detectors don't auto-cluster
+# ---------------------------------------------------------------------------
+
+def test_judgment_required_issues_do_not_auto_cluster():
+    """Issues from needs_judgment=True detectors (e.g. smells) must not auto-cluster."""
+    plan = empty_plan()
+    state = _state_with(
+        _issue("s1", "smells"),
+        _issue("s2", "smells"),
+        _issue("s3", "smells"),
+    )
+
+    auto_cluster_issues(plan, state)
+    # No auto-cluster should be created for smells
+    for name in plan["clusters"]:
+        assert "smells" not in name, f"unexpected cluster {name} for judgment-required detector"
+
+
+def test_non_judgment_issues_still_auto_cluster():
+    """Issues from needs_judgment=False detectors (e.g. unused) still auto-cluster."""
+    plan = empty_plan()
+    state = _state_with(
+        _issue("u1", "unused"),
+        _issue("u2", "unused"),
+    )
+
+    auto_cluster_issues(plan, state)
+    assert "auto/unused" in plan["clusters"]
+    assert set(plan["clusters"]["auto/unused"]["issue_ids"]) == {"u1", "u2"}
+
+
+def test_concerns_issues_still_auto_cluster():
+    """Reviewer-confirmed concerns (needs_judgment=False) still auto-cluster."""
+    plan = empty_plan()
+    state = _state_with(
+        _issue("c1", "concerns", detail={"dimension": "design_coherence"}),
+        _issue("c2", "concerns", detail={"dimension": "design_coherence"}),
+    )
+
+    auto_cluster_issues(plan, state)
+    # concerns should still cluster
+    cluster_names = list(plan["clusters"].keys())
+    concerns_clusters = [n for n in cluster_names if "concerns" in n or "design_coherence" in n]
+    assert len(concerns_clusters) >= 1
+
+
+def test_judgment_required_issues_still_in_state():
+    """Judgment-required issues remain in state (affecting scoring) even though they don't cluster."""
+    plan = empty_plan()
+    state = _state_with(
+        _issue("s1", "smells"),
+        _issue("s2", "smells"),
+        _issue("u1", "unused"),
+        _issue("u2", "unused"),
+    )
+
+    auto_cluster_issues(plan, state)
+    # smells issues still exist in state
+    assert "s1" in state["issues"]
+    assert "s2" in state["issues"]
+    # unused auto-clusters normally
+    assert "auto/unused" in plan["clusters"]

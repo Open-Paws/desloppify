@@ -7,6 +7,34 @@ def _normalized_dimension_key(value: str | None) -> str:
     return str(value or "").lower().replace(" ", "_")
 
 
+def _dimension_for_detector(detector: str, dim_scores: dict, *, get_dimension_for_detector_fn):
+    dimension = get_dimension_for_detector_fn(detector)
+    if not dimension or dimension.name not in dim_scores:
+        return None, None
+    return dimension, dim_scores[dimension.name]
+
+
+def _review_dimension_entry(item: dict, breakdown: dict) -> dict | None:
+    dim_key = item.get("detail", {}).get("dimension", "")
+    if not dim_key:
+        return None
+    target_key = _normalized_dimension_key(dim_key)
+    for entry in breakdown.get("entries", []):
+        if isinstance(entry, dict) and _normalized_dimension_key(entry.get("name", "")) == target_key:
+            return entry
+    return None
+
+
+def _review_dimension_score_entry(item: dict, dim_scores: dict) -> tuple[str, dict] | None:
+    dim_key = _normalized_dimension_key(item.get("detail", {}).get("dimension", ""))
+    if not dim_key:
+        return None
+    for ds_name, ds_data in dim_scores.items():
+        if _normalized_dimension_key(ds_name) == dim_key:
+            return ds_name, ds_data
+    return None
+
+
 def render_dimension_context(
     detector: str,
     dim_scores: dict,
@@ -16,10 +44,13 @@ def render_dimension_context(
 ) -> None:
     if not dim_scores:
         return
-    dimension = get_dimension_for_detector_fn(detector)
-    if not dimension or dimension.name not in dim_scores:
+    dimension, dimension_score = _dimension_for_detector(
+        detector,
+        dim_scores,
+        get_dimension_for_detector_fn=get_dimension_for_detector_fn,
+    )
+    if dimension is None or dimension_score is None:
         return
-    dimension_score = dim_scores[dimension.name]
     strict_val = dimension_score.get("strict", dimension_score["score"])
     print(
         colorize_fn(
@@ -52,10 +83,14 @@ def render_detector_impact_estimate(
             )
             return
 
-        dimension = get_dimension_for_detector_fn(detector)
-        if not dimension or dimension.name not in dim_scores:
+        dimension, dimension_score = _dimension_for_detector(
+            detector,
+            dim_scores,
+            get_dimension_for_detector_fn=get_dimension_for_detector_fn,
+        )
+        if dimension is None or dimension_score is None:
             return
-        issues = dim_scores[dimension.name].get("failing", 0)
+        issues = dimension_score.get("failing", 0)
         if issues <= 1:
             return
         bulk = compute_score_impact_fn(dim_scores, potentials, detector, issues_to_fix=issues)
@@ -79,25 +114,18 @@ def render_review_dimension_drag(
     compute_health_breakdown_fn,
 ) -> None:
     try:
-        dim_key = item.get("detail", {}).get("dimension", "")
-        if not dim_key:
-            return
         breakdown = compute_health_breakdown_fn(dim_scores)
-        target_key = _normalized_dimension_key(dim_key)
-        for entry in breakdown.get("entries", []):
-            if not isinstance(entry, dict):
-                continue
-            if _normalized_dimension_key(entry.get("name", "")) != target_key:
-                continue
-            drag = float(entry.get("overall_drag", 0) or 0)
-            if drag > 0.01:
-                print(
-                    colorize_fn(
-                        f"  Dimension drag: {entry['name']} costs -{drag:.2f} pts on overall score",
-                        "cyan",
-                    )
-                )
+        entry = _review_dimension_entry(item, breakdown)
+        if not entry:
             return
+        drag = float(entry.get("overall_drag", 0) or 0)
+        if drag > 0.01:
+            print(
+                colorize_fn(
+                    f"  Dimension drag: {entry['name']} costs -{drag:.2f} pts on overall score",
+                    "cyan",
+                )
+            )
     except (ImportError, TypeError, ValueError, KeyError) as exc:
         log_fn(f"  dimension drag estimate skipped: {exc}")
 
@@ -114,13 +142,15 @@ def render_score_impact(
     get_dimension_for_detector_fn,
 ) -> None:
     detector = item.get("detector", "")
-    render_dimension_context(
-        detector,
-        dim_scores,
-        colorize_fn=colorize_fn,
-        get_dimension_for_detector_fn=get_dimension_for_detector_fn,
-    )
-    if potentials and detector and dim_scores:
+    has_detector_context = bool(detector and dim_scores)
+    if has_detector_context:
+        render_dimension_context(
+            detector,
+            dim_scores,
+            colorize_fn=colorize_fn,
+            get_dimension_for_detector_fn=get_dimension_for_detector_fn,
+        )
+    if has_detector_context and potentials:
         render_detector_impact_estimate(
             detector,
             dim_scores,
@@ -153,32 +183,34 @@ def render_item_explain(
     explanation = item.get("explain", {})
     count_weight = explanation.get("count", int(detail.get("count", 0) or 0))
     detector = item.get("detector", "")
-    base = (
+    parts = [
         f"ranked by confidence={confidence}, "
         f"count={count_weight}, id={item.get('id', '')}"
-    )
+    ]
     if dim_scores and detector:
-        dimension = get_dimension_for_detector_fn(detector)
-        if dimension and dimension.name in dim_scores:
-            ds = dim_scores[dimension.name]
-            base += (
-                f". Dimension: {dimension.name} at {ds['score']:.1f}% "
+        dimension, ds = _dimension_for_detector(
+            detector,
+            dim_scores,
+            get_dimension_for_detector_fn=get_dimension_for_detector_fn,
+        )
+        if dimension is not None and ds is not None:
+            parts.append(
+                f"Dimension: {dimension.name} at {ds['score']:.1f}% "
                 f"({ds.get('failing', 0)} open issues)"
             )
     if item.get("detector") == "review" and dim_scores:
-        dim_key = _normalized_dimension_key(item.get("detail", {}).get("dimension", ""))
-        if dim_key:
-            for ds_name, ds_data in dim_scores.items():
-                if _normalized_dimension_key(ds_name) != dim_key:
-                    continue
-                score_val = ds_data.get("score", "?")
-                score_str = f"{score_val:.1f}" if isinstance(score_val, int | float) else str(score_val)
-                base += f". Subjective dimension: {ds_name} at {score_str}%"
-                break
+        entry = _review_dimension_score_entry(item, dim_scores)
+        if entry is not None:
+            ds_name, ds_data = entry
+            score_val = ds_data.get("score", "?")
+            score_str = (
+                f"{score_val:.1f}" if isinstance(score_val, int | float) else str(score_val)
+            )
+            parts.append(f"Subjective dimension: {ds_name} at {score_str}%")
     policy = explanation.get("policy")
     if policy:
-        base = f"{base}. {policy}"
-    print(colorize_fn(f"  explain: {base}", "dim"))
+        parts.append(str(policy))
+    print(colorize_fn(f"  explain: {'. '.join(parts)}", "dim"))
 
 
 __all__ = ["render_item_explain", "render_score_impact"]

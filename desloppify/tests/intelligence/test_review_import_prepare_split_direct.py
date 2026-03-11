@@ -86,7 +86,7 @@ def test_holistic_cache_update_and_resolution_helpers(monkeypatch) -> None:
     assert state["review_cache"]["holistic"]["issue_count"] == 1
     assert holistic_cache_mod._resolve_total_files(state, "python") == 2
 
-    # resolve_holistic_coverage_issues resolves dimension-level issues for assessed dims
+    # resolve_holistic_coverage_issues marks dimension-level issues fixed for assessed dims
     diff = {"auto_resolved": 0}
     holistic_cache_mod.resolve_holistic_coverage_issues(
         state,
@@ -95,6 +95,7 @@ def test_holistic_cache_update_and_resolution_helpers(monkeypatch) -> None:
     )
     # naming_quality is assessed, so its issue should be resolved
     assert diff["auto_resolved"] == 1
+    assert state["issues"]["subjective_review::.::naming_quality"]["status"] == "fixed"
 
     # resolve_reviewed_file_coverage_issues is now a no-op
     diff = {"auto_resolved": 0}
@@ -166,6 +167,7 @@ def test_issue_flow_build_collect_and_auto_resolve_paths(monkeypatch) -> None:
         full_sweep_included=False,
     )
     assert diff["auto_resolved"] == 1
+    assert state["issues"]["review::old"]["status"] == "fixed"
 
 
 def test_resolution_and_state_helper_utilities() -> None:
@@ -185,6 +187,7 @@ def test_resolution_and_state_helper_utilities() -> None:
         utc_now_fn=lambda: "2026-03-09T00:00:00+00:00",
     )
     assert diff["auto_resolved"] == 1
+    assert state["issues"]["id1"]["status"] == "fixed"
 
     cache = state_helpers_mod.ensure_review_file_cache({})
     assert cache == {}

@@ -27,3 +27,16 @@ The current lifecycle phase is persisted in `plan.refresh_state.lifecycle_phase`
 for debuggability and normal transitions. Queue assembly still re-resolves the
 phase from current visible items as a safety net, so stale saved phase state
 cannot hide the correct next step after out-of-band changes.
+
+## Completion Authority
+
+Queue-tracked work is completed by explicit user actions such as
+`desloppify plan resolve`, `plan skip --permanent`, or `plan reopen`.
+
+Scans and review imports may:
+- add new work
+- reopen previously completed work when it reappears
+- corroborate an existing manual resolution
+
+They do not silently complete open queue-tracked issues just because a detector
+stopped reporting them in the latest scan.

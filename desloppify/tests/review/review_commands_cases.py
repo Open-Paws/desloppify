@@ -2330,7 +2330,7 @@ class TestAutoResolveOnReImport:
         }
         diff2 = import_holistic_issues(_as_review_payload(data2), state, "typescript")
         assert diff2["new"] == 1
-        # The 2 old issues should be auto-resolved
+        # The 2 old issues should be marked fixed by the import.
         assert diff2["auto_resolved"] >= 2
         still_open = [
             fid for fid, f in state["issues"].items() if f["status"] == "open"
@@ -2389,7 +2389,7 @@ class TestAutoResolveOnReImport:
         diff2 = import_holistic_issues(_as_review_payload(data2), state, "typescript")
         assert diff2["new"] == 1
         assert diff2["auto_resolved"] >= 1
-        assert state["issues"][abstraction_id]["status"] == "auto_resolved"
+        assert state["issues"][abstraction_id]["status"] == "fixed"
         assert state["issues"][cross_mod_id]["status"] == "open"
 
     def test_per_file_auto_resolve_on_reimport(self):
@@ -2430,11 +2430,11 @@ class TestAutoResolveOnReImport:
             ],
         }
         import_review_issues(_as_review_payload(data2), state, "typescript")
-        # The comment_quality issue should be auto-resolved
+        # The comment_quality issue should be marked fixed by the explicit import.
         resolved = [
             f
             for f in state["issues"].values()
-            if f["status"] == "auto_resolved"
+            if f["status"] == "fixed"
             and "not reported in latest per-file" in (f.get("note") or "")
         ]
         assert len(resolved) >= 1

@@ -306,37 +306,29 @@ def manual_clusters_with_issues(plan: PlanModel) -> list[str]:
         if cluster_issue_ids(c) and not c.get("auto")
     ]
 
-def apply_completion(
-    args: argparse.Namespace,
-    plan: PlanModel,
-    strategy: str,
-    *,
-    services: TriageServices | None = None,
-    completion_mode: str = "manual_triage",
-    completion_note: str = "",
-) -> None:
-    """Shared completion logic: update meta, remove triage stage IDs, save."""
-    resolved_services = services or default_triage_services()
-    runtime = resolved_services.command_runtime(args)
-    state = runtime.state
 
+def _coverage_open_ids(
+    plan: PlanModel,
+    state: StateModel,
+) -> set[str]:
     has_completed_scan = bool(state.get("last_scan"))
     coverage_open_ids = open_review_ids_from_state(state)
     if not has_completed_scan and not coverage_open_ids:
-        coverage_open_ids = set(plan_review_ids(plan))
+        return set(plan_review_ids(plan))
+    return coverage_open_ids
 
-    organized, total, clusters = triage_coverage(
-        plan, open_review_ids=coverage_open_ids,
-    )
 
-    purge_ids(plan, [
-        *TRIAGE_IDS,
-        WORKFLOW_SCORE_CHECKPOINT_ID,
-        WORKFLOW_CREATE_PLAN_ID,
-    ])
-
+def _sync_completion_meta(
+    *,
+    plan: PlanModel,
+    state: StateModel,
+    strategy: str,
+    completion_mode: str,
+    completion_note: str,
+    coverage_open_ids: set[str],
+) -> tuple[dict[str, Any], str]:
     meta = _triage_meta(plan)
-    if has_completed_scan:
+    if state.get("last_scan"):
         meta["issue_snapshot_hash"] = review_issue_snapshot_hash(state)
     elif not meta.get("issue_snapshot_hash"):
         meta.pop("issue_snapshot_hash", None)
@@ -350,8 +342,7 @@ def apply_completion(
         existing_strategy=existing_strategy,
         completion_note=normalized_note,
     )
-    open_ids = sorted(coverage_open_ids)
-    meta["triaged_ids"] = open_ids
+    meta["triaged_ids"] = sorted(coverage_open_ids)
     if effective_strategy_summary:
         meta["strategy_summary"] = effective_strategy_summary
     meta["trigger"] = "confirm_existing" if completion_mode == "confirm_existing" else "manual_triage"
@@ -361,8 +352,19 @@ def apply_completion(
     else:
         meta.pop("last_completion_note", None)
     meta["last_completed_at"] = utc_now()
-    # Archive stages before clearing so previous analysis is preserved
+    return meta, effective_strategy_summary
+
+
+def _archive_and_clear_triage_stages(
+    meta: dict[str, Any],
+    *,
+    effective_strategy_summary: str,
+    existing_strategy: str,
+    completion_mode: str,
+    completion_note: str,
+) -> None:
     stages = meta.get("triage_stages", {})
+    normalized_note = _normalize_summary_text(completion_note)
     if stages:
         last_triage = {
             "completed_at": utc_now(),
@@ -382,8 +384,16 @@ def apply_completion(
     meta.pop("stage_refresh_required", None)
     meta.pop("stage_snapshot_hash", None)
 
-    resolved_services.save_plan(plan)
 
+def _print_completion_summary(
+    *,
+    plan: PlanModel,
+    clusters: dict[str, Cluster],
+    organized: int,
+    total: int,
+    completion_mode: str,
+    effective_strategy_summary: str,
+) -> None:
     cluster_count = len([c for c in clusters.values() if cluster_issue_ids(c)])
     print(colorize(f"  Triage complete: {organized}/{total} issues in {cluster_count} cluster(s).", "green"))
     if completion_mode == "confirm_existing":
@@ -397,6 +407,59 @@ def apply_completion(
     if effective_strategy_summary:
         print(colorize(f"  Strategy: {effective_strategy_summary}", "cyan"))
     print(colorize("  Run `desloppify next` to start implementation.", "green"))
+
+def apply_completion(
+    args: argparse.Namespace,
+    plan: PlanModel,
+    strategy: str,
+    *,
+    services: TriageServices | None = None,
+    completion_mode: str = "manual_triage",
+    completion_note: str = "",
+) -> None:
+    """Shared completion logic: update meta, remove triage stage IDs, save."""
+    resolved_services = services or default_triage_services()
+    runtime = resolved_services.command_runtime(args)
+    state = runtime.state
+
+    coverage_open_ids = _coverage_open_ids(plan, state)
+    organized, total, clusters = triage_coverage(
+        plan, open_review_ids=coverage_open_ids,
+    )
+
+    purge_ids(plan, [
+        *TRIAGE_IDS,
+        WORKFLOW_SCORE_CHECKPOINT_ID,
+        WORKFLOW_CREATE_PLAN_ID,
+    ])
+
+    existing_strategy = _normalize_summary_text(
+        _triage_meta(plan).get("strategy_summary", ""),
+    )
+    meta, effective_strategy_summary = _sync_completion_meta(
+        plan=plan,
+        state=state,
+        strategy=strategy,
+        completion_mode=completion_mode,
+        completion_note=completion_note,
+        coverage_open_ids=coverage_open_ids,
+    )
+    _archive_and_clear_triage_stages(
+        meta,
+        effective_strategy_summary=effective_strategy_summary,
+        existing_strategy=existing_strategy,
+        completion_mode=completion_mode,
+        completion_note=completion_note,
+    )
+    resolved_services.save_plan(plan)
+    _print_completion_summary(
+        plan=plan,
+        clusters=clusters,
+        organized=organized,
+        total=total,
+        completion_mode=completion_mode,
+        effective_strategy_summary=effective_strategy_summary,
+    )
 
 
 def find_cluster_for(fid: str, clusters: dict[str, Cluster]) -> str | None:

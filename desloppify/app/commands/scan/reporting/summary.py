@@ -117,6 +117,14 @@ def _unscored_subjective_callout(state: StateModel) -> None:
     if not dim_scores:
         return
 
+    total_subj, unscored_subj = _subjective_unscored_counts(dim_scores)
+    if unscored_subj == 0 or total_subj == 0:
+        return
+
+    print(colorize(_unscored_subjective_message(dim_scores, total_subj, unscored_subj), "yellow"))
+
+
+def _subjective_unscored_counts(dim_scores: dict[str, Any]) -> tuple[int, int]:
     total_subj = 0
     unscored_subj = 0
     for data in dim_scores.values():
@@ -129,35 +137,42 @@ def _unscored_subjective_callout(state: StateModel) -> None:
         meta = detectors.get("subjective_assessment", {})
         if isinstance(meta, dict) and meta.get("placeholder"):
             unscored_subj += 1
+    return total_subj, unscored_subj
 
-    if unscored_subj == 0 or total_subj == 0:
-        return
 
-    # Get the subjective weight fraction from the scoring breakdown
+def _subjective_fraction_percent(dim_scores: dict[str, Any]) -> int:
     try:
         import desloppify.engine._scoring.results.core as scoring_mod
-        breakdown = scoring_mod.compute_health_breakdown(dim_scores)
-        subj_pct = round(float(breakdown.get("subjective_fraction", 0.0) or 0.0) * 100)
-    except (ImportError, TypeError, ValueError):
-        subj_pct = 0
 
-    if unscored_subj == total_subj:
-        msg = (
-            f"  ⚠ {unscored_subj} subjective dimension{'s' if unscored_subj != 1 else ''} "
-            f"{'are' if unscored_subj != 1 else 'is'} unassessed (scored as 0). "
-        )
-        if subj_pct:
-            msg += (
-                f"The strict score currently reflects only mechanical detectors "
-                f"({100 - subj_pct}% of score weight). "
-            )
-        msg += "Run `desloppify review --prepare` to assess."
-    else:
-        msg = (
+        breakdown = scoring_mod.compute_health_breakdown(dim_scores)
+        return round(float(breakdown.get("subjective_fraction", 0.0) or 0.0) * 100)
+    except (ImportError, TypeError, ValueError):
+        return 0
+
+
+def _unscored_subjective_message(
+    dim_scores: dict[str, Any],
+    total_subj: int,
+    unscored_subj: int,
+) -> str:
+    if unscored_subj != total_subj:
+        return (
             f"  ⚠ {unscored_subj} of {total_subj} subjective dimensions unassessed (scored as 0). "
             f"Strict score is lower than expected until these are reviewed."
         )
-    print(colorize(msg, "yellow"))
+
+    subject_word = "dimensions" if unscored_subj != 1 else "dimension"
+    verb = "are" if unscored_subj != 1 else "is"
+    msg = (
+        f"  ⚠ {unscored_subj} subjective {subject_word} {verb} unassessed (scored as 0). "
+    )
+    subj_pct = _subjective_fraction_percent(dim_scores)
+    if subj_pct:
+        msg += (
+            f"The strict score currently reflects only mechanical detectors "
+            f"({100 - subj_pct}% of score weight). "
+        )
+    return msg + "Run `desloppify review --prepare` to assess."
 
 
 def _print_score_guide() -> None:

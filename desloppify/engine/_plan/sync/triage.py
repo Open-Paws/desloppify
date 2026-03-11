@@ -78,6 +78,178 @@ def _clear_triage_defer_tracking(meta: dict) -> None:
     meta.pop(_TRIAGE_FORCE_VISIBLE_KEY, None)
 
 
+def _store_triage_meta(plan: PlanModel, meta: dict) -> None:
+    plan["epic_triage_meta"] = meta
+
+
+def _inject_triage_result(
+    order: list[str],
+    confirmed: set[str],
+    *,
+    skipped: dict[str, object] | None = None,
+    normalize: bool = False,
+) -> QueueSyncResult:
+    injected = _inject_pending_triage_stages(order, confirmed, skipped=skipped)
+    if not injected:
+        return QueueSyncResult()
+    if normalize:
+        normalize_queue_workflow_and_triage_prefix(order)
+    return QueueSyncResult(injected=injected)
+
+
+def _mark_triage_deferred(
+    plan: PlanModel,
+    meta: dict,
+    *,
+    defer_state: dict,
+) -> QueueSyncResult:
+    meta[_TRIAGE_DEFER_META_KEY] = defer_state
+    meta["triage_recommended"] = True
+    meta.pop(_TRIAGE_FORCE_VISIBLE_KEY, None)
+    _store_triage_meta(plan, meta)
+    return QueueSyncResult(deferred=True)
+
+
+def _mark_triage_escalated(plan: PlanModel, meta: dict) -> None:
+    meta[_TRIAGE_FORCE_VISIBLE_KEY] = True
+    meta.pop("triage_recommended", None)
+    _store_triage_meta(plan, meta)
+
+
+def _mark_triage_ready(plan: PlanModel, meta: dict) -> None:
+    _clear_triage_defer_tracking(meta)
+    meta.pop("triage_recommended", None)
+    _store_triage_meta(plan, meta)
+
+
+def _prune_stale_present_stages(
+    *,
+    plan: PlanModel,
+    state: StateModel,
+    order: list[str],
+    meta: dict,
+    last_hash: str,
+    confirmed: set[str],
+    recorded_unconfirmed: set[str],
+) -> QueueSyncResult:
+    result = QueueSyncResult()
+    if not last_hash or confirmed or recorded_unconfirmed:
+        return result
+    new_since_triage = _new_review_ids_since_triage(state, meta)
+    if new_since_triage:
+        return result
+    _prune_all_triage_stages(order)
+    _clear_triage_defer_tracking(meta)
+    current_hash = stale_policy_mod.review_issue_snapshot_hash(state)
+    if current_hash:
+        meta["issue_snapshot_hash"] = current_hash
+        plan["epic_triage_meta"] = meta
+    result.pruned = list(TRIAGE_STAGE_IDS)
+    return result
+
+
+def _backfill_partial_triage_snapshot(
+    *,
+    plan: PlanModel,
+    state: StateModel,
+    meta: dict,
+    last_hash: str,
+) -> None:
+    stages = meta.get("triage_stages", {})
+    has_completed_stage = any(
+        isinstance(v, dict) and v.get("confirmed_at")
+        for v in stages.values()
+    )
+    if not has_completed_stage or meta.get("triaged_ids") or last_hash:
+        return
+    current_review = sorted(stale_policy_mod.open_review_ids(state))
+    if current_review:
+        meta["triaged_ids"] = current_review
+        meta["issue_snapshot_hash"] = stale_policy_mod.review_issue_snapshot_hash(state)
+        plan["epic_triage_meta"] = meta
+
+
+def _defer_or_inject_triage(
+    *,
+    plan: PlanModel,
+    state: StateModel,
+    order: list[str],
+    meta: dict,
+    confirmed: set[str],
+    policy: SubjectiveVisibility | None,
+    new_since_triage: set[str],
+) -> QueueSyncResult:
+    decision = decide_triage_start(
+        plan,
+        state,
+        policy=policy,
+        explicit_start=False,
+        attested_override=False,
+    )
+    if decision.action == "defer":
+        defer_state = update_defer_state(
+            meta.get(_TRIAGE_DEFER_META_KEY),
+            state=state,
+            deferred_ids=new_since_triage,
+            options=DeferUpdateOptions(
+                deferred_ids_field=_TRIAGE_DEFER_IDS_FIELD,
+            ),
+        )
+        meta[_TRIAGE_DEFER_META_KEY] = defer_state
+        escalated = should_escalate_defer_state(
+            defer_state,
+            state=state,
+            options=DeferEscalationOptions(
+                deferred_ids_field=_TRIAGE_DEFER_IDS_FIELD,
+            ),
+        )
+        if not escalated:
+            return _mark_triage_deferred(plan, meta, defer_state=defer_state)
+        _mark_triage_escalated(plan, meta)
+        return _inject_triage_result(
+            order,
+            confirmed,
+            skipped=plan.get("skipped", {}),
+            normalize=True,
+        )
+
+    _mark_triage_ready(plan, meta)
+    return _inject_triage_result(
+        order,
+        confirmed,
+        skipped=plan.get("skipped", {}),
+    )
+
+
+def _sync_hash_change(
+    *,
+    plan: PlanModel,
+    state: StateModel,
+    order: list[str],
+    meta: dict,
+    confirmed: set[str],
+    policy: SubjectiveVisibility | None,
+    current_hash: str,
+) -> QueueSyncResult:
+    new_since_triage = _new_review_ids_since_triage(state, meta)
+    if new_since_triage:
+        return _defer_or_inject_triage(
+            plan=plan,
+            state=state,
+            order=order,
+            meta=meta,
+            confirmed=confirmed,
+            policy=policy,
+            new_since_triage=new_since_triage,
+        )
+
+    meta["issue_snapshot_hash"] = current_hash
+    meta.pop("triage_recommended", None)
+    _clear_triage_defer_tracking(meta)
+    plan["epic_triage_meta"] = meta
+    return QueueSyncResult()
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -149,106 +321,33 @@ def sync_triage_needed(
     last_hash = meta.get("issue_snapshot_hash", "")
 
     if already_present:
-        # Stages present — check if the reason for injection still applies.
-        # Only auto-prune when triage was completed before (hash exists),
-        # all new issues have been resolved, and no triage work is in
-        # progress.  This avoids pruning the initial triage or a
-        # user-started triage session.
-        if last_hash and not confirmed and not recorded_unconfirmed:
-            new_since_triage = _new_review_ids_since_triage(state, meta)
+        return _prune_stale_present_stages(
+            plan=plan,
+            state=state,
+            order=order,
+            meta=meta,
+            last_hash=last_hash,
+            confirmed=confirmed,
+            recorded_unconfirmed=recorded_unconfirmed,
+        )
 
-            if not new_since_triage:
-                # No new issues remain — prune stale stages
-                _prune_all_triage_stages(order)
-                _clear_triage_defer_tracking(meta)
-                if current_hash:
-                    meta["issue_snapshot_hash"] = current_hash
-                    plan["epic_triage_meta"] = meta
-                result.pruned = list(TRIAGE_STAGE_IDS)
-        return result
-
-    # Backfill: partial triage was done (stages confirmed with
-    # confirmed_at) but triage was never fully completed — remaining
-    # stages were skipped or removed from the queue.  Record current
-    # review IDs as triaged so they don't re-trigger injection on the
-    # next cycle.
-    stages = meta.get("triage_stages", {})
-    has_completed_stage = any(
-        isinstance(v, dict) and v.get("confirmed_at")
-        for v in stages.values()
+    _backfill_partial_triage_snapshot(
+        plan=plan,
+        state=state,
+        meta=meta,
+        last_hash=last_hash,
     )
-    if has_completed_stage and not meta.get("triaged_ids") and not last_hash:
-        current_review = sorted(stale_policy_mod.open_review_ids(state))
-        if current_review:
-            meta["triaged_ids"] = current_review
-            meta["issue_snapshot_hash"] = current_hash
-            plan["epic_triage_meta"] = meta
 
     if current_hash and current_hash != last_hash:
-        # Distinguish "new issues appeared" from "issues were resolved".
-        # Only re-triage when genuinely new issues exist.
-        new_since_triage = _new_review_ids_since_triage(state, meta)
-
-        if new_since_triage:
-            decision = decide_triage_start(
-                plan,
-                state,
-                policy=policy,
-                explicit_start=False,
-                attested_override=False,
-            )
-            if decision.action == "defer":
-                defer_state = update_defer_state(
-                    meta.get(_TRIAGE_DEFER_META_KEY),
-                    state=state,
-                    deferred_ids=new_since_triage,
-                    options=DeferUpdateOptions(
-                        deferred_ids_field=_TRIAGE_DEFER_IDS_FIELD,
-                    ),
-                )
-                meta[_TRIAGE_DEFER_META_KEY] = defer_state
-                meta["triage_recommended"] = True
-                escalated = should_escalate_defer_state(
-                    defer_state,
-                    state=state,
-                    options=DeferEscalationOptions(
-                        deferred_ids_field=_TRIAGE_DEFER_IDS_FIELD,
-                    ),
-                )
-                if escalated:
-                    meta[_TRIAGE_FORCE_VISIBLE_KEY] = True
-                    meta.pop("triage_recommended", None)
-                    plan["epic_triage_meta"] = meta
-                    injected = _inject_pending_triage_stages(
-                        order,
-                        confirmed,
-                        skipped=plan.get("skipped", {}),
-                    )
-                    if injected:
-                        normalize_queue_workflow_and_triage_prefix(order)
-                        result.injected = injected
-                else:
-                    meta.pop(_TRIAGE_FORCE_VISIBLE_KEY, None)
-                    plan["epic_triage_meta"] = meta
-                    result.deferred = True
-            elif decision.action == "inject":
-                _clear_triage_defer_tracking(meta)
-                meta.pop("triage_recommended", None)
-                plan["epic_triage_meta"] = meta
-                injected = _inject_pending_triage_stages(
-                    order,
-                    confirmed,
-                    skipped=plan.get("skipped", {}),
-                )
-                result.injected = injected
-        else:
-            # Only resolved issues changed the hash — update silently.
-            # Also clear triage_recommended: the issues that triggered the
-            # recommendation have been resolved, so it's no longer relevant.
-            meta["issue_snapshot_hash"] = current_hash
-            meta.pop("triage_recommended", None)
-            _clear_triage_defer_tracking(meta)
-            plan["epic_triage_meta"] = meta
+        return _sync_hash_change(
+            plan=plan,
+            state=state,
+            order=order,
+            meta=meta,
+            confirmed=confirmed,
+            policy=policy,
+            current_hash=current_hash,
+        )
 
     return result
 

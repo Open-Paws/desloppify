@@ -128,7 +128,7 @@ def resolve_holistic_coverage_issues(
     *,
     utc_now_fn=utc_now,
 ) -> None:
-    """Resolve dimension-level subjective_review issues covered by import."""
+    """Mark dimension-level subjective_review issues fixed when import covers them."""
     assessed = _assessed_dimension_keys(state)
     if not assessed:
         return
@@ -141,9 +141,9 @@ def resolve_holistic_coverage_issues(
         dim_key = (issue.get("detail") or {}).get("dimension", "")
         if dim_key not in assessed:
             continue
-        issue["status"] = "auto_resolved"
+        issue["status"] = "fixed"
         issue["resolved_at"] = now
-        issue["note"] = "resolved by review import"
+        issue["note"] = "completed by review import"
         issue["resolution_attestation"] = {
             "kind": "agent_import",
             "text": "Dimension assessment imported; coverage marker superseded",

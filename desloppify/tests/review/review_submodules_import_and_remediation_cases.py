@@ -129,8 +129,8 @@ class TestImportReviewIssues:
             }
         ]
         _ = import_review_issues(_as_review_payload(data), empty_state, "typescript")
-        # Old issue should be auto-resolved
-        assert empty_state["issues"][old["id"]]["status"] == "auto_resolved"
+        # Old issue should be marked fixed by the explicit import.
+        assert empty_state["issues"][old["id"]]["status"] == "fixed"
 
 
 class TestImportHolisticIssues:

@@ -41,6 +41,107 @@ class SenseCheckStageDeps:
     steps_without_effort: Callable[[dict], list[tuple[str, int, int]]] = _steps_without_effort
 
 
+def _sense_check_report(
+    args: argparse.Namespace,
+    stages: dict,
+    *,
+    deps: SenseCheckStageDeps,
+) -> tuple[str | None, bool, dict | None]:
+    existing_stage = stages.get("sense-check")
+    report = getattr(args, "report", None)
+    report, is_reuse = deps.resolve_reusable_report(report, existing_stage)
+    return report, is_reuse, existing_stage
+
+
+def _sense_check_quality_problems(
+    plan: dict,
+    *,
+    deps: SenseCheckStageDeps,
+) -> list[str]:
+    get_project_root = deps.get_project_root
+    if get_project_root is None:
+        from desloppify.base.discovery.paths import get_project_root
+
+    repo_root = get_project_root()
+    quality_report = evaluate_enrich_quality(
+        plan,
+        repo_root,
+        phase_label="sense-check",
+        bad_paths_severity="failure",
+        missing_effort_severity="failure",
+        include_missing_issue_refs=True,
+        include_vague_detail=True,
+        stale_issue_refs_severity=None,
+    )
+    return [issue.message for issue in quality_report.failures]
+
+
+def _print_sense_check_problems(
+    problems: list[str],
+    *,
+    colorize_fn: ColorizeFn,
+) -> None:
+    print(colorize_fn("  Cannot record sense-check — plan still has issues:", "red"))
+    for problem in problems:
+        print(colorize_fn(f"    • {problem}", "yellow"))
+    print(colorize_fn("  Fix these before recording the sense-check stage.", "dim"))
+
+
+def _report_length_ok(report: str | None, *, colorize_fn: ColorizeFn) -> bool:
+    if not report:
+        print(colorize_fn("  --report is required for --stage sense-check.", "red"))
+        print(
+            colorize_fn(
+                "  Describe what the content and structure subagents found and fixed.",
+                "dim",
+            )
+        )
+        return False
+    if len(report) < 100:
+        print(colorize_fn(f"  Report too short: {len(report)} chars (minimum 100).", "red"))
+        return False
+    return True
+
+
+def _sense_check_evidence_failures(
+    report: str,
+    *,
+    plan: dict,
+    state: dict,
+) -> tuple[list[object], list[object]]:
+    from .evidence_parsing import (
+        validate_report_has_file_paths,
+        validate_report_references_clusters,
+    )
+    from ..helpers import manual_clusters_with_issues
+
+    failures: list[object] = []
+    if open_review_ids_from_state(state):
+        failures.extend(validate_report_has_file_paths(report) or [])
+
+    cluster_names = manual_clusters_with_issues(plan)
+    if cluster_names:
+        failures.extend(validate_report_references_clusters(report, cluster_names) or [])
+
+    blocking = [failure for failure in failures if failure.blocking]
+    advisory = [failure for failure in failures if not failure.blocking]
+    return blocking, advisory
+
+
+def _print_evidence_failures(
+    failures: list[object],
+    *,
+    stage_label: str,
+    colorize_fn: ColorizeFn,
+    style: str,
+) -> None:
+    from .evidence_parsing import format_evidence_failures
+
+    if not failures:
+        return
+    print(colorize_fn(format_evidence_failures(failures, stage_label=stage_label), style))
+
+
 def run_stage_sense_check(
     args: argparse.Namespace,
     *,
@@ -61,85 +162,43 @@ def run_stage_sense_check(
 
     meta = plan.get("epic_triage_meta", {})
     stages = meta.get("triage_stages", {})
-
-    existing_stage = stages.get("sense-check")
-    report, is_reuse = resolved_deps.resolve_reusable_report(report, existing_stage)
+    report, is_reuse, existing_stage = _sense_check_report(
+        args,
+        stages,
+        deps=resolved_deps,
+    )
 
     if not stages.get("enrich", {}).get("confirmed_at"):
         print(resolved_deps.colorize("  Cannot sense-check: enrich stage not confirmed.", "red"))
         print(resolved_deps.colorize("  Run: desloppify plan triage --confirm enrich", "dim"))
         return
 
-    get_project_root = resolved_deps.get_project_root
-    if get_project_root is None:
-        from desloppify.base.discovery.paths import get_project_root
-
-    repo_root = get_project_root()
-    quality_report = evaluate_enrich_quality(
-        plan,
-        repo_root,
-        phase_label="sense-check",
-        bad_paths_severity="failure",
-        missing_effort_severity="failure",
-        include_missing_issue_refs=True,
-        include_vague_detail=True,
-        stale_issue_refs_severity=None,
-    )
-    problems = [issue.message for issue in quality_report.failures]
-
+    problems = _sense_check_quality_problems(plan, deps=resolved_deps)
     if problems:
-        print(resolved_deps.colorize("  Cannot record sense-check — plan still has issues:", "red"))
-        for problem in problems:
-            print(resolved_deps.colorize(f"    • {problem}", "yellow"))
-        print(resolved_deps.colorize("  Fix these before recording the sense-check stage.", "dim"))
+        _print_sense_check_problems(problems, colorize_fn=resolved_deps.colorize)
         return
 
     print(resolved_deps.colorize("  All enrich-level checks pass after sense-check.", "green"))
 
-    if not report:
-        print(resolved_deps.colorize("  --report is required for --stage sense-check.", "red"))
-        print(
-            resolved_deps.colorize(
-                "  Describe what the content and structure subagents found and fixed.",
-                "dim",
-            )
+    if not _report_length_ok(report, colorize_fn=resolved_deps.colorize):
+        return
+
+    blocking_ev, advisory_ev = _sense_check_evidence_failures(report, plan=plan, state=state)
+    if blocking_ev:
+        _print_evidence_failures(
+            blocking_ev,
+            stage_label="sense-check",
+            colorize_fn=resolved_deps.colorize,
+            style="red",
         )
         return
-
-    if len(report) < 100:
-        print(resolved_deps.colorize(f"  Report too short: {len(report)} chars (minimum 100).", "red"))
-        return
-
-    from .evidence_parsing import (
-        EvidenceFailure,
-        format_evidence_failures,
-        validate_report_has_file_paths,
-        validate_report_references_clusters,
-    )
-    from ..helpers import manual_clusters_with_issues
-
-    sc_evidence_failures: list[EvidenceFailure] = []
-    has_open_review_work = bool(open_review_ids_from_state(state))
-    if has_open_review_work:
-        path_failures = validate_report_has_file_paths(report)
-        if path_failures:
-            sc_evidence_failures.extend(path_failures)
-
-    cluster_names = manual_clusters_with_issues(plan)
-    if cluster_names:
-        cluster_failures = validate_report_references_clusters(report, cluster_names)
-        if cluster_failures:
-            sc_evidence_failures.extend(cluster_failures)
-
-    blocking_ev = [f for f in sc_evidence_failures if f.blocking]
-    advisory_ev = [f for f in sc_evidence_failures if not f.blocking]
-    if blocking_ev:
-        msg = format_evidence_failures(blocking_ev, stage_label="sense-check")
-        print(resolved_deps.colorize(msg, "red"))
-        return
     if advisory_ev:
-        msg = format_evidence_failures(advisory_ev, stage_label="sense-check")
-        print(resolved_deps.colorize(msg, "yellow"))
+        _print_evidence_failures(
+            advisory_ev,
+            stage_label="sense-check",
+            colorize_fn=resolved_deps.colorize,
+            style="yellow",
+        )
 
     stages = meta.setdefault("triage_stages", {})
     cleared = resolved_deps.record_sense_check_stage(
