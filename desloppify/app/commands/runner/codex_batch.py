@@ -28,14 +28,18 @@ def _resolve_executable(name: str) -> list[str]:
     On Windows, npm-installed CLIs are ``.cmd`` batch scripts that cannot be
     executed directly by ``subprocess`` without ``shell=True``.  Prefixing
     with ``cmd /c`` avoids needing ``shell=True`` while still resolving them.
+
+    When ``shutil.which()`` cannot locate the executable on Windows, we still
+    route through ``cmd /c`` so the shell's own PATH resolution can find
+    ``.cmd``/``.bat`` wrappers that Python's ``which`` missed.
     """
-    resolved = shutil.which(name) or name
-    if (
-        sys.platform == "win32"
-        and resolved.lower().endswith((".cmd", ".bat"))
-    ):
-        return ["cmd", "/c", resolved]
-    return [resolved]
+    resolved = shutil.which(name)
+    if sys.platform == "win32":
+        if resolved is not None and resolved.lower().endswith((".cmd", ".bat")):
+            return ["cmd", "/c", resolved]
+        # shutil.which may miss .cmd/.bat wrappers — let cmd.exe resolve it
+        return ["cmd", "/c", resolved or name]
+    return [resolved or name]
 
 
 def codex_batch_command(*, prompt: str, repo_root: Path, output_file: Path) -> list[str]:
