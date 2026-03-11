@@ -52,6 +52,7 @@ class DetectorMeta:
     standalone_threshold: str | None = None  # Min confidence for standalone queue item
     tier: int = 2  # T1-T4 scoring weight
     marks_dims_stale: bool = False  # Mechanical changes should stale subjective dimensions
+    subjective_dimensions: tuple[str, ...] = ()  # Review dimensions this detector provides evidence for
 
 
 __all__ = ["DISPLAY_ORDER", "DetectorMeta"]

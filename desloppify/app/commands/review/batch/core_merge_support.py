@@ -34,7 +34,7 @@ def assessment_weight(
     note = dimension_notes.get(dimension, {})
     note_evidence = len(note.get("evidence", [])) if isinstance(note, dict) else 0
     issue_count = sum(
-        1 for issue in issues if issue["dimension"].strip() == dimension
+        1 for issue in issues if str(issue.get("dimension", "")).strip() == dimension
     )
     return float(1 + note_evidence + issue_count)
 
@@ -159,11 +159,16 @@ def _record_abstraction_axis_scores(
 
 def _issue_identity_key(issue: BatchIssuePayload) -> str:
     """Build a stable concept key; prefer dimension+identifier when available."""
-    dim = issue["dimension"].strip()
-    ident = issue["identifier"].strip()
+    verdict = str(issue.get("concern_verdict", "")).strip().lower()
+    fingerprint = str(issue.get("concern_fingerprint", "")).strip()
+    if verdict == "dismissed" and fingerprint:
+        return f"dismissed::{fingerprint}"
+
+    dim = str(issue.get("dimension", "")).strip()
+    ident = str(issue.get("identifier", "")).strip()
     if ident:
         return f"{dim}::{ident}"
-    summary = issue["summary"].strip()
+    summary = str(issue.get("summary", "")).strip()
     summary_terms = sorted(normalize_word_set(summary))
     if summary_terms:
         return f"{dim}::summary::{','.join(summary_terms[:8])}"

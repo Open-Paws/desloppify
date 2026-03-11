@@ -59,7 +59,7 @@ class TestRenderMechanicalConcernSignals:
         ]
         batch = {"concern_signals": signals}
         result = render_mechanical_concern_signals(batch)
-        assert "(+5 more concern signals)" in result
+        assert "(+5 more" in result
 
     def test_verdict_instructions_in_header(self):
         batch = {

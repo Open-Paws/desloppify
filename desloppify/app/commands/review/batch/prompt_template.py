@@ -78,8 +78,9 @@ def _render_output_schema(context: PromptBatchContext, batch_index: int) -> str:
         '    "impact_scope": "local|module|subsystem|codebase",\n'
         '    "fix_scope": "single_edit|multi_file_refactor|architectural_change",\n'
         '    "root_cause_cluster": "optional_cluster_name_when_supported_by_history",\n'
-        '    "concern_verdict": "confirmed|dismissed  // required for concern signals",\n'
-        '    "concern_fingerprint": "abc123  // required when verdict is dismissed"\n'
+        '    "concern_verdict": "confirmed|dismissed  // for concern signals only",\n'
+        '    "concern_fingerprint": "abc123  // required when dismissed; copy from signal fingerprint",\n'
+        '    "reasoning": "why dismissed  // optional, for dismissed only"\n'
         "  }],\n"
         '  "retrospective": {\n'
         '    "root_causes": ["optional: concise root-cause hypotheses"],\n'

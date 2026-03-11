@@ -14,6 +14,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         "remove unused imports and variables",
         fixers=("unused-imports", "unused-vars", "unused-params"),
         tier=3,
+        subjective_dimensions=("design_coherence",),
     ),
     "logs": DetectorMeta(
         "logs",
@@ -23,6 +24,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         "remove debug logs",
         fixers=("debug-logs",),
         tier=3,
+        subjective_dimensions=("logic_clarity",),
     ),
     "exports": DetectorMeta(
         "exports",
@@ -31,6 +33,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         "manual_fix",
         "run `knip --fix` to remove dead exports",
         tier=3,
+        subjective_dimensions=("api_surface_coherence",),
     ),
     "smells": DetectorMeta(
         "smells",
@@ -43,6 +46,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         standalone_threshold="medium",
         tier=3,
         marks_dims_stale=True,
+        subjective_dimensions=("design_coherence", "error_consistency", "logic_clarity"),
     ),
     # ── Reorganize (move tool) ────────────────────────────
     "orphaned": DetectorMeta(
@@ -55,6 +59,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         needs_judgment=True,
         tier=3,
         marks_dims_stale=True,
+        subjective_dimensions=("design_coherence",),
     ),
     "uncalled_functions": DetectorMeta(
         "uncalled_functions",
@@ -64,6 +69,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         "remove dead functions or document why they're retained",
         needs_judgment=True,
         marks_dims_stale=True,
+        subjective_dimensions=("design_coherence",),
     ),
     "unused_enums": DetectorMeta(
         "unused_enums",
@@ -71,6 +77,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         "unused",
         "manual_fix",
         "remove unused enum classes or add imports where they belong",
+        subjective_dimensions=("design_coherence",),
     ),
     "flat_dirs": DetectorMeta(
         "flat_dirs",
@@ -83,6 +90,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         standalone_threshold="high",
         tier=3,
         marks_dims_stale=True,
+        subjective_dimensions=("package_organization",),
     ),
     "naming": DetectorMeta(
         "naming",
@@ -95,6 +103,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         standalone_threshold="medium",
         tier=3,
         marks_dims_stale=True,
+        subjective_dimensions=("convention_outlier", "naming_quality"),
     ),
     "single_use": DetectorMeta(
         "single_use",
@@ -106,6 +115,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         needs_judgment=True,
         standalone_threshold="high",
         tier=3,
+        subjective_dimensions=("abstraction_fitness",),
     ),
     "coupling": DetectorMeta(
         "coupling",
@@ -118,6 +128,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         standalone_threshold="high",
         tier=3,
         marks_dims_stale=True,
+        subjective_dimensions=("cross_module_architecture",),
     ),
     "cycles": DetectorMeta(
         "cycles",
@@ -129,6 +140,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         needs_judgment=True,
         tier=4,
         marks_dims_stale=True,
+        subjective_dimensions=("cross_module_architecture", "dependency_health"),
     ),
     "facade": DetectorMeta(
         "facade",
@@ -140,6 +152,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         needs_judgment=True,
         standalone_threshold="high",
         tier=3,
+        subjective_dimensions=("abstraction_fitness",),
     ),
     # ── Refactor ──────────────────────────────────────────
     "structural": DetectorMeta(
@@ -152,6 +165,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         standalone_threshold="high",
         tier=3,
         marks_dims_stale=True,
+        subjective_dimensions=("design_coherence", "abstraction_fitness", "logic_clarity"),
     ),
     "props": DetectorMeta(
         "props",
@@ -162,6 +176,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         needs_judgment=True,
         standalone_threshold="medium",
         tier=3,
+        subjective_dimensions=("abstraction_fitness",),
     ),
     "react": DetectorMeta(
         "react",
@@ -172,6 +187,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         needs_judgment=True,
         standalone_threshold="medium",
         tier=3,
+        subjective_dimensions=("design_coherence",),
     ),
     "dupes": DetectorMeta(
         "dupes",
@@ -183,6 +199,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         standalone_threshold="medium",
         tier=3,
         marks_dims_stale=True,
+        subjective_dimensions=("convention_outlier",),
     ),
     "patterns": DetectorMeta(
         "patterns",
@@ -193,6 +210,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         needs_judgment=True,
         standalone_threshold="medium",
         tier=3,
+        subjective_dimensions=("convention_outlier",),
     ),
     "dict_keys": DetectorMeta(
         "dict_keys",
@@ -204,6 +222,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         needs_judgment=True,
         standalone_threshold="medium",
         tier=3,
+        subjective_dimensions=("type_safety",),
     ),
     "test_coverage": DetectorMeta(
         "test_coverage",
@@ -212,6 +231,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         "refactor",
         "add tests for untested production modules — prioritize by import count",
         tier=4,
+        subjective_dimensions=("test_strategy",),
     ),
     "signature": DetectorMeta(
         "signature",
@@ -221,6 +241,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         "consolidate inconsistent function signatures",
         needs_judgment=True,
         standalone_threshold="high",
+        subjective_dimensions=("convention_outlier",),
     ),
     "global_mutable_config": DetectorMeta(
         "global_mutable_config",
@@ -232,6 +253,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         standalone_threshold="high",
         tier=3,
         marks_dims_stale=True,
+        subjective_dimensions=("initialization_coupling",),
     ),
     "private_imports": DetectorMeta(
         "private_imports",
@@ -243,6 +265,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         standalone_threshold="high",
         tier=3,
         marks_dims_stale=True,
+        subjective_dimensions=("cross_module_architecture",),
     ),
     "layer_violation": DetectorMeta(
         "layer_violation",
@@ -254,6 +277,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         standalone_threshold="high",
         tier=3,
         marks_dims_stale=True,
+        subjective_dimensions=("cross_module_architecture",),
     ),
     "responsibility_cohesion": DetectorMeta(
         "responsibility_cohesion",
@@ -265,6 +289,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         standalone_threshold="high",
         tier=3,
         marks_dims_stale=True,
+        subjective_dimensions=("design_coherence", "abstraction_fitness"),
     ),
     "boilerplate_duplication": DetectorMeta(
         "boilerplate_duplication",
@@ -276,6 +301,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         standalone_threshold="high",
         tier=3,
         marks_dims_stale=True,
+        subjective_dimensions=("convention_outlier",),
     ),
     "stale_wontfix": DetectorMeta(
         "stale_wontfix",
@@ -299,6 +325,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         "manual_fix",
         "remove deprecated symbols or migrate callers",
         tier=3,
+        subjective_dimensions=("incomplete_migration",),
     ),
     "stale_exclude": DetectorMeta(
         "stale_exclude",
@@ -315,6 +342,7 @@ DETECTORS: dict[str, DetectorMeta] = {
         "manual_fix",
         "review and fix security issues — prioritize by severity",
         tier=4,
+        subjective_dimensions=("error_consistency",),
     ),
     # ── Subjective review ────────────────────────────────────
     "review": DetectorMeta(

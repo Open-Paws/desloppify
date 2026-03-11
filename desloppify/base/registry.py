@@ -181,11 +181,21 @@ def detector_tools() -> dict[str, dict[str, Any]]:
     return result
 
 
+def dimension_to_detectors() -> dict[str, set[str]]:
+    """Subjective dimension -> set of detector names that provide evidence."""
+    result: dict[str, set[str]] = {}
+    for name, meta in _REGISTRY.detectors.items():
+        for dim in meta.subjective_dimensions:
+            result.setdefault(dim, set()).add(name)
+    return result
+
+
 __all__ = [
     "DETECTORS",
     "DetectorMeta",
     "JUDGMENT_DETECTORS",
     "_DISPLAY_ORDER",
+    "dimension_to_detectors",
     "detector_names",
     "get_detector_meta",
     "detector_tools",

@@ -220,6 +220,40 @@ def test_merge_batch_results_merges_same_identifier_issues():
     assert set(issue["evidence"]) == {"branch A uses OR", "branch B uses AND"}
 
 
+def test_merge_batch_results_preserves_dismissed_concerns_without_counting_them() -> None:
+    merged = _merge(
+        [
+            {
+                "assessments": {"logic_clarity": 88.0},
+                "dimension_notes": {
+                    "logic_clarity": {
+                        "evidence": ["queue paths are mostly direct"],
+                        "impact_scope": "module",
+                        "fix_scope": "single_edit",
+                        "confidence": "medium",
+                        "issues_preventing_higher_score": "",
+                    }
+                },
+                "dimension_judgment": {},
+                "issues": [
+                    {
+                        "concern_verdict": "dismissed",
+                        "concern_fingerprint": "fp-1",
+                        "reasoning": "intentional dispatcher seam",
+                    }
+                ],
+                "quality": {},
+            }
+        ]
+    )
+    issues = merged["issues"]
+    assert len(issues) == 1
+    assert issues[0]["concern_verdict"] == "dismissed"
+    assert issues[0]["concern_fingerprint"] == "fp-1"
+    assert merged["review_quality"]["issue_pressure"] == 0.0
+    assert merged["review_quality"]["dimensions_with_issues"] == 0
+
+
 def test_normalize_batch_result_rejects_low_score_without_same_dimension_issue():
     with pytest.raises(ValueError) as exc:
         normalize_batch_result(
@@ -298,6 +332,60 @@ def test_normalize_batch_result_accepts_low_score_with_same_dimension_issue():
     )
     assert assessments["logic_clarity"] == LOW_SCORE_ISSUE_THRESHOLD - 10.0
     assert len(issues) == 1
+
+
+def test_normalize_batch_result_accepts_dismissed_concern_entries() -> None:
+    assessments, issues, _notes, _judgment, _quality = normalize_batch_result(
+        payload={
+            "assessments": {"logic_clarity": 80.0},
+            "dimension_notes": {
+                "logic_clarity": {
+                    "evidence": ["concern signals were reviewed"],
+                    "impact_scope": "module",
+                    "fix_scope": "single_edit",
+                    "confidence": "medium",
+                    "issues_preventing_higher_score": "",
+                }
+            },
+            "dimension_judgment": {
+                "logic_clarity": {
+                    "strengths": ["the reviewer checked the signal and explained the outcome"],
+                    "issue_character": "Most concerns are real, but some detector signals are intentionally acceptable seams.",
+                    "score_rationale": (
+                        "The code remains understandable, and the review includes explicit adjudication "
+                        "of detector concerns instead of silently dropping them. That keeps the score "
+                        "grounded in inspected evidence rather than raw detector noise."
+                    ),
+                }
+            },
+            "issues": [
+                {
+                    "dimension": "logic_clarity",
+                    "identifier": "real_issue",
+                    "summary": "A real logic issue remains",
+                    "related_files": ["src/a.ts"],
+                    "evidence": ["branch guard diverges"],
+                    "suggestion": "align the guard logic",
+                    "confidence": "medium",
+                    "impact_scope": "module",
+                    "fix_scope": "single_edit",
+                },
+                {
+                    "concern_verdict": "dismissed",
+                    "concern_fingerprint": "fp-dismissed",
+                    "reasoning": "intentional output-shape discriminator",
+                },
+            ],
+        },
+        allowed_dims={"logic_clarity"},
+        max_batch_issues=max_batch_issues_for_dimension_count(1),
+        abstraction_sub_axes=_ABSTRACTION_SUB_AXES,
+    )
+    assert assessments["logic_clarity"] == 80.0
+    assert len(issues) == 2
+    assert issues[0]["identifier"] == "real_issue"
+    assert issues[1]["concern_verdict"] == "dismissed"
+    assert issues[1]["concern_fingerprint"] == "fp-dismissed"
 
 
 def test_normalize_batch_result_accepts_legacy_findings_alias():

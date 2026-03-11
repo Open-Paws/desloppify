@@ -232,6 +232,24 @@ def _build_normalized_issue(
     )
 
 
+def _build_dismissed_concern_payload(issue: ReviewIssuePayload) -> BatchIssuePayload:
+    """Return a minimal dismissed-concern payload preserved for later import."""
+    payload: BatchIssuePayload = {
+        "concern_verdict": "dismissed",
+        "concern_fingerprint": str(issue.get("concern_fingerprint", "")).strip(),
+    }
+    concern_type = str(issue.get("concern_type", "")).strip()
+    concern_file = str(issue.get("concern_file", "")).strip()
+    reasoning = str(issue.get("reasoning", "")).strip()
+    if concern_type:
+        payload["concern_type"] = concern_type
+    if concern_file:
+        payload["concern_file"] = concern_file
+    if reasoning:
+        payload["reasoning"] = reasoning
+    return payload
+
+
 def _raise_issue_schema_errors(errors: list[str]) -> None:
     """Raise a capped issue-schema validation error list."""
     if not errors:
@@ -250,12 +268,13 @@ def _normalize_issues(
     max_batch_issues: int,
     allowed_dims: set[str],
     low_score_dimensions: set[str] | None = None,
-) -> list[NormalizedBatchIssue]:
+) -> tuple[list[NormalizedBatchIssue], list[BatchIssuePayload]]:
     """Validate and normalize the issues array from a batch payload."""
     if not isinstance(raw_issues, list):
         raise ValueError("issues must be an array")
 
     issues: list[NormalizedBatchIssue] = []
+    dismissed_concerns: list[BatchIssuePayload] = []
     errors: list[str] = []
     for idx, item in enumerate(raw_issues):
         issue, issue_errors = _validated_batch_issue(
@@ -270,6 +289,9 @@ def _normalize_issues(
             raise ValueError(
                 "batch issue payload missing after validation succeeded"
             )
+        if issue.get("concern_verdict") == "dismissed":
+            dismissed_concerns.append(_build_dismissed_concern_payload(issue))
+            continue
 
         dim = issue["dimension"]
         note = dimension_notes.get(dim, {})
@@ -286,12 +308,15 @@ def _normalize_issues(
             errors.append(str(exc))
     _raise_issue_schema_errors(errors)
     if len(issues) <= max_batch_issues:
-        return issues
+        return issues, dismissed_concerns
 
-    return _trim_normalized_issues(
-        issues,
-        max_batch_issues=max_batch_issues,
-        low_score_dimensions=low_score_dimensions,
+    return (
+        _trim_normalized_issues(
+            issues,
+            max_batch_issues=max_batch_issues,
+            low_score_dimensions=low_score_dimensions,
+        ),
+        dismissed_concerns,
     )
 
 
@@ -305,7 +330,7 @@ def _validated_batch_issue(
         item,
         label=f"issues[{idx}]",
         allowed_dimensions=allowed_dims,
-        allow_dismissed=False,
+        allow_dismissed=True,
     )
 
 
@@ -546,7 +571,7 @@ def normalize_batch_result(
         log_fn=log_fn,
     )
 
-    issues = _normalize_issues(
+    issues, dismissed_concerns = _normalize_issues(
         payload.get("issues"),
         dimension_notes,
         max_batch_issues=max_batch_issues,
@@ -564,7 +589,7 @@ def normalize_batch_result(
     )
     return (
         assessments,
-        [issue.to_payload() for issue in issues],
+        [issue.to_payload() for issue in issues] + list(dismissed_concerns),
         dimension_notes,
         dimension_judgment,
         quality,

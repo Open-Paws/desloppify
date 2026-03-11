@@ -7,7 +7,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from desloppify.app.commands.helpers.query import (
-    load_query,
     load_query_result,
     write_query,
 )
@@ -93,7 +92,6 @@ class TestWriteQuery:
         assert result.payload is None
         assert result.error_kind == "query_parse_error"
         assert result.message
-        assert load_query() is None
 
     def test_load_query_result_success_payload(self, tmp_path, monkeypatch):
         query_file = tmp_path / ".desloppify" / "query.json"
@@ -108,7 +106,6 @@ class TestWriteQuery:
         assert result.ok is True
         assert result.error_kind is None
         assert result.payload == {"command": "review"}
-        assert load_query() == {"command": "review"}
 
 
 # ===========================================================================

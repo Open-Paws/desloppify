@@ -218,6 +218,7 @@ def prepare_holistic_review_payload(
         lang,
         repo_root=path,
         max_files_per_batch=options.max_files_per_batch,
+        state=state,
     )
 
     _append_concerns_batch(
@@ -283,14 +284,6 @@ def prepare_holistic_review_payload(
         options,
         allowed_review_files,
     )
-
-    # Annotate all batches with per-dimension judgment finding counts so every
-    # reviewer subagent gets CLI exploration commands for its dimension's detectors.
-    try:
-        from .prepare_batches_builders import annotate_batches_with_judgment_findings
-        annotate_batches_with_judgment_findings(batches, state)
-    except (ImportError, TypeError, ValueError):
-        pass  # best-effort; don't block review on annotation failure
 
     payload["investigation_batches"] = batches
     return payload

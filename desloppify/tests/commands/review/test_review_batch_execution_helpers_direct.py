@@ -274,6 +274,7 @@ def test_do_import_run_reuses_merge_result_boundary(tmp_path: Path, monkeypatch)
             {
                 "runner": "codex",
                 "run_stamp": "r1",
+                "selected_batches": [1],
                 "successful_batches": [1],
                 "blind_packet": str(blind_packet),
                 "immutable_packet": str(immutable_packet),
@@ -319,6 +320,77 @@ def test_do_import_run_reuses_merge_result_boundary(tmp_path: Path, monkeypatch)
     assert merge_calls[0]["merge_batch_results_fn"] is orchestrator_mod._merge_batch_results
     assert len(coverage_calls) == 1
     assert coverage_calls[0]["allow_partial"] is True
+
+
+def test_do_import_run_recollects_batches_from_selected_indexes(tmp_path: Path, monkeypatch) -> None:
+    run_dir = tmp_path / "run"
+    results_dir = run_dir / "results"
+    results_dir.mkdir(parents=True)
+    (results_dir / "batch-1.raw.txt").write_text("{}")
+    (results_dir / "batch-2.raw.txt").write_text("{}")
+
+    blind_packet = run_dir / "blind.json"
+    blind_packet.write_text("{}")
+    immutable_packet = run_dir / "packet.json"
+    immutable_packet.write_text(
+        json.dumps(
+            {
+                "dimensions": ["mid_level_elegance"],
+                "investigation_batches": [
+                    {
+                        "name": "mid_level_elegance",
+                        "dimensions": ["mid_level_elegance"],
+                        "files_to_read": ["a.py"],
+                    }
+                ],
+            }
+        )
+    )
+    (run_dir / "run_summary.json").write_text(
+        json.dumps(
+            {
+                "runner": "codex",
+                "run_stamp": "r2",
+                "selected_batches": [1, 2],
+                "successful_batches": [1],
+                "failed_batches": [2],
+                "blind_packet": str(blind_packet),
+                "immutable_packet": str(immutable_packet),
+            }
+        )
+    )
+
+    collect_calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        orchestrator_mod,
+        "collect_batch_results",
+        lambda **kwargs: (collect_calls.append(kwargs) or ([{"dummy": True}], [])),
+    )
+    monkeypatch.setattr(
+        orchestrator_mod,
+        "_merge_and_write_results",
+        lambda **_kwargs: (run_dir / "holistic_issues_merged.json", []),
+    )
+    monkeypatch.setattr(
+        orchestrator_mod,
+        "_enforce_import_coverage",
+        lambda **_kwargs: None,
+    )
+    monkeypatch.setattr(orchestrator_mod, "_do_import", lambda *_args, **_kwargs: None)
+
+    orchestrator_mod.do_import_run(
+        str(run_dir),
+        state={},
+        lang=SimpleNamespace(name="python"),
+        state_file=str(tmp_path / "state.json"),
+        config={},
+        allow_partial=True,
+        scan_after_import=False,
+        dry_run=True,
+    )
+
+    assert len(collect_calls) == 1
+    assert collect_calls[0]["selected_indexes"] == [0, 1]
 
 
 def test_try_load_prepared_packet_accepts_matching_contract(tmp_path: Path, monkeypatch) -> None:

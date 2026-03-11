@@ -460,12 +460,12 @@ def _validate_run_dir(run_dir: Path) -> tuple[dict, Path, str]:
     except (OSError, json.JSONDecodeError) as exc:
         raise CommandError(f"Error reading run summary: {exc}", exit_code=1) from exc
 
-    successful = summary.get("successful_batches", [])
+    selected = summary.get("selected_batches", [])
     blind_packet_path = Path(str(summary.get("blind_packet", "")))
     immutable_packet_path = str(summary.get("immutable_packet", ""))
 
-    if not successful:
-        raise CommandError("no successful batches in run summary.", exit_code=1)
+    if not selected:
+        raise CommandError("no selected batches in run summary.", exit_code=1)
     if not blind_packet_path.exists():
         raise PacketValidationError(f"blind packet not found: {blind_packet_path}", exit_code=1)
 
@@ -501,13 +501,13 @@ def do_import_run(
 
     runner = str(summary.get("runner", "codex"))
     stamp = str(summary.get("run_stamp", ""))
-    successful = summary.get("successful_batches", [])
+    selected = summary.get("selected_batches", [])
     packet = summary.pop("_packet", {})
     allowed_dims = {str(d) for d in packet.get("dimensions", []) if isinstance(d, str)}
 
     # -- locate and parse raw batch results --
     results_dir = run_dir / "results"
-    selected_indexes = [idx - 1 for idx in successful]  # convert 1-based to 0-based
+    selected_indexes = [idx - 1 for idx in selected]  # convert 1-based to 0-based
     output_files = {
         idx: results_dir / f"batch-{idx + 1}.raw.txt"
         for idx in selected_indexes

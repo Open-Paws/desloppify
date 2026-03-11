@@ -12,12 +12,51 @@ from .prepare_batches_core import (
 )
 
 
+def _count_findings_for_dimensions(
+    state: dict,
+    dimensions: list[str],
+) -> tuple[dict[str, int], dict[str, int]]:
+    """Count open findings for detectors relevant to the given dimensions.
+
+    Returns (judgment_counts, mechanical_counts) keyed by detector name.
+    """
+    from desloppify.base.registry import JUDGMENT_DETECTORS, dimension_to_detectors
+
+    dim_detectors = dimension_to_detectors()
+    relevant: set[str] = set()
+    for dim in dimensions:
+        relevant.update(dim_detectors.get(dim, ()))
+    if not relevant:
+        return {}, {}
+
+    issues = state.get("issues")
+    if not isinstance(issues, dict):
+        return {}, {}
+
+    judgment: dict[str, int] = {}
+    mechanical: dict[str, int] = {}
+    for issue in issues.values():
+        if not isinstance(issue, dict):
+            continue
+        status = str(issue.get("status", "")).strip()
+        if status not in ("open", "reopened"):
+            continue
+        detector = str(issue.get("detector", "")).strip()
+        if detector not in relevant:
+            continue
+        target = judgment if detector in JUDGMENT_DETECTORS else mechanical
+        target[detector] = target.get(detector, 0) + 1
+
+    return judgment, mechanical
+
+
 def build_investigation_batches(
     holistic_ctx,
     lang: object,
     *,
     repo_root: Path | None = None,
     max_files_per_batch: int | None = None,
+    state: dict | None = None,
 ) -> list[dict]:
     """Build one batch per dimension from holistic context."""
     ctx = _ensure_holistic_context(holistic_ctx)
@@ -39,14 +78,21 @@ def build_investigation_batches(
         if not files:
             continue
 
-        batches.append(
-            {
-                "name": dimension,
-                "dimensions": [dimension],
-                "files_to_read": files,
-                "why": f"seed files for {dimension} review",
-            }
-        )
+        batch: dict[str, object] = {
+            "name": dimension,
+            "dimensions": [dimension],
+            "files_to_read": files,
+            "why": f"seed files for {dimension} review",
+        }
+
+        if state is not None:
+            j_counts, m_counts = _count_findings_for_dimensions(state, [dimension])
+            if j_counts:
+                batch["judgment_finding_counts"] = j_counts
+            if m_counts:
+                batch["mechanical_finding_counts"] = m_counts
+
+        batches.append(batch)
 
     return batches
 
@@ -191,96 +237,7 @@ def batch_concerns(
     return result
 
 
-# Mechanical detectors → subjective dimensions they provide evidence for.
-# Mirrors _DETECTOR_SUBJECTIVE_DIMENSIONS in engine/_state/merge.py.
-_DETECTOR_DIMENSIONS: dict[str, tuple[str, ...]] = {
-    "structural": ("design_coherence", "abstraction_fitness"),
-    "smells": ("design_coherence", "error_consistency"),
-    "global_mutable_config": ("initialization_coupling",),
-    "coupling": ("cross_module_architecture",),
-    "layer_violation": ("cross_module_architecture",),
-    "private_imports": ("cross_module_architecture",),
-    "dupes": ("convention_outlier",),
-    "boilerplate_duplication": ("convention_outlier",),
-    "naming": ("convention_outlier", "naming_quality"),
-    "flat_dirs": ("package_organization",),
-    "orphaned": ("design_coherence",),
-    "uncalled_functions": ("design_coherence",),
-    "responsibility_cohesion": ("design_coherence", "abstraction_fitness"),
-    "cycles": ("cross_module_architecture", "dependency_health"),
-    "dict_keys": ("type_safety",),
-    "props": ("abstraction_fitness",),
-    "signature": ("convention_outlier",),
-    "security": ("error_consistency",),
-    "facade": ("abstraction_fitness",),
-    "patterns": ("convention_outlier",),
-    "react": ("design_coherence",),
-    "single_use": ("abstraction_fitness",),
-}
-
-# Invert to dimension → set of detectors.
-_DIMENSION_DETECTORS: dict[str, set[str]] = {}
-for _det, _dims in _DETECTOR_DIMENSIONS.items():
-    for _dim in _dims:
-        _DIMENSION_DETECTORS.setdefault(_dim, set()).add(_det)
-
-
-def annotate_batches_with_judgment_findings(
-    batches: list[dict],
-    state: dict,
-) -> None:
-    """Add per-dimension judgment_finding_counts to batches that lack them.
-
-    For each batch, look at its dimension(s), find which detectors map to those
-    dimensions, count open judgment findings per detector from state, and inject
-    ``judgment_finding_counts`` so the prompt renderer can show CLI exploration
-    commands.  Batches that already have ``judgment_finding_counts`` (e.g. the
-    design_coherence concern batch) are left untouched.
-    """
-    from desloppify.base.registry import JUDGMENT_DETECTORS
-
-    issues = state.get("issues")
-    if not isinstance(issues, dict):
-        return
-
-    # Count open judgment findings per detector once.
-    global_detector_counts: dict[str, int] = {}
-    for issue in issues.values():
-        if not isinstance(issue, dict):
-            continue
-        status = str(issue.get("status", "")).strip()
-        if status not in ("open", "reopened"):
-            continue
-        detector = str(issue.get("detector", "")).strip()
-        if detector and detector in JUDGMENT_DETECTORS:
-            global_detector_counts[detector] = global_detector_counts.get(detector, 0) + 1
-
-    if not global_detector_counts:
-        return
-
-    for batch in batches:
-        if batch.get("judgment_finding_counts"):
-            continue
-        dims = batch.get("dimensions", [])
-        if not isinstance(dims, list):
-            continue
-        # Collect detectors relevant to this batch's dimensions.
-        relevant_detectors: set[str] = set()
-        for dim in dims:
-            relevant_detectors.update(_DIMENSION_DETECTORS.get(dim, ()))
-        if not relevant_detectors:
-            continue
-        counts = {
-            det: count
-            for det, count in global_detector_counts.items()
-            if det in relevant_detectors
-        }
-        if counts:
-            batch["judgment_finding_counts"] = counts
-
-
 __all__ = [
-    "annotate_batches_with_judgment_findings",
     "batch_concerns",
     "build_investigation_batches",
     "filter_batches_to_dimensions",

@@ -22,14 +22,30 @@ from desloppify.app.commands.review.runner_process_impl.types import (
 )
 
 
+def _resolve_executable(name: str) -> list[str]:
+    """Resolve an executable, handling Windows .cmd/.bat wrappers.
+
+    On Windows, npm-installed CLIs are ``.cmd`` batch scripts that cannot be
+    executed directly by ``subprocess`` without ``shell=True``.  Prefixing
+    with ``cmd /c`` avoids needing ``shell=True`` while still resolving them.
+    """
+    resolved = shutil.which(name) or name
+    if (
+        sys.platform == "win32"
+        and resolved.lower().endswith((".cmd", ".bat"))
+    ):
+        return ["cmd", "/c", resolved]
+    return [resolved]
+
+
 def codex_batch_command(*, prompt: str, repo_root: Path, output_file: Path) -> list[str]:
     """Build one codex exec command line for a batch prompt."""
     effort = os.environ.get("DESLOPPIFY_CODEX_REASONING_EFFORT", "low").strip().lower()
     if effort not in {"low", "medium", "high", "xhigh"}:
         effort = "low"
-    codex = shutil.which("codex") or "codex"
+    prefix = _resolve_executable("codex")
     return [
-        codex,
+        *prefix,
         "exec",
         "--ephemeral",
         "-C",

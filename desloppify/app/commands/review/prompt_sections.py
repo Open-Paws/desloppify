@@ -178,82 +178,101 @@ def _iter_valid_concern_signals(
     return [entry for entry in signals if isinstance(entry, dict)]
 
 
+def _build_concern_summary(valid_signals: list[dict[str, object]]) -> list[str]:
+    """Build a grouped summary of concern signals by type."""
+    by_type: dict[str, list[str]] = {}
+    for entry in valid_signals:
+        concern_type = str(entry.get("type", "")).strip() or "design_concern"
+        file = str(entry.get("file", "")).strip() or "(unknown)"
+        by_type.setdefault(concern_type, []).append(file)
+
+    if not by_type:
+        return []
+
+    lines = [f"Overview ({len(valid_signals)} signals):"]
+    for concern_type, files in sorted(by_type.items(), key=lambda x: -len(x[1])):
+        if len(files) <= 3:
+            file_list = ", ".join(files)
+            lines.append(f"  {concern_type}: {len(files)} — {file_list}")
+        else:
+            sample = ", ".join(files[:2])
+            lines.append(f"  {concern_type}: {len(files)} — {sample}, ...")
+    lines.append("")
+    return lines
+
+
 def render_mechanical_concern_signals(batch: dict[str, object]) -> str:
     """Render mechanically-generated concern hypotheses for this batch."""
     signals = batch.get("concern_signals")
     if not isinstance(signals, list) or not signals:
         return ""
 
+    valid_signals = _iter_valid_concern_signals(signals)
+    if not valid_signals:
+        return ""
+
     lines: list[str] = []
-    lines.append("Mechanical concern signals — investigate and adjudicate each one:")
+    lines.append("Mechanical concern signals — investigate and adjudicate:")
+    lines.extend(_build_concern_summary(valid_signals))
+    lines.append("For each concern, read the source code and report your verdict in issues[]:")
     lines.append(
-        "Read the source code for each concern. Then report your verdict in issues[]:"
+        '  - Confirm → full issue object with concern_verdict: "confirmed"'
     )
     lines.append(
-        '  - Real problem → report as a full issue with concern_verdict: "confirmed",'
+        '  - Dismiss → minimal object: {concern_verdict: "dismissed", concern_fingerprint: "<hash>"}'
     )
     lines.append(
-        "    concern_type, and concern_file (all standard issue fields still required)"
-    )
-    lines.append(
-        '  - Intentional/acceptable → report with concern_verdict: "dismissed"'
-        " and the concern_fingerprint shown below"
+        "    (only these 2 fields required — add optional reasoning/concern_type/concern_file)"
     )
     lines.append(
         "  - Unsure → skip it (will be re-evaluated next review)"
     )
+    lines.append("")
 
-    valid_signals = _iter_valid_concern_signals(signals)
     capped_signals = valid_signals[:30]
     for entry in capped_signals:
         lines.extend(_concern_signal_lines(entry))
 
     extra = max(0, len(valid_signals) - len(capped_signals))
     if extra:
-        lines.append(f"  - (+{extra} more concern signals)")
+        lines.append(f"  (+{extra} more — use `desloppify show <detector> --no-budget` to explore)")
     return "\n".join(lines) + "\n\n"
 
 
-def render_judgment_findings_section(batch: dict[str, object]) -> str:
-    """Render CLI exploration instructions for judgment-required findings."""
-    counts = batch.get("judgment_finding_counts")
-    if not isinstance(counts, dict) or not counts:
+def render_findings_exploration_section(batch: dict[str, object]) -> str:
+    """Render CLI exploration commands for detector findings relevant to this batch."""
+    all_counts: dict[str, int] = {}
+    for key in ("judgment_finding_counts", "mechanical_finding_counts"):
+        raw = batch.get(key)
+        if isinstance(raw, dict):
+            for det, count in raw.items():
+                try:
+                    n = int(count)  # type: ignore[arg-type]
+                except (TypeError, ValueError):
+                    continue
+                if n > 0:
+                    all_counts[det] = n
+    if not all_counts:
         return ""
 
-    lines: list[str] = [
-        "JUDGMENT FINDINGS — explore and adjudicate:",
-        "Mechanical detectors found patterns that need human judgment. Use these CLI commands",
-        "to explore the underlying findings, then read the actual source code.",
+    lines = [
+        "RELEVANT FINDINGS — explore with CLI:",
+        "These detectors found patterns related to this dimension. Explore the findings,",
+        "then read the actual source code.",
         "",
     ]
-    for detector, count in sorted(counts.items()):
-        try:
-            n = int(count)
-        except (TypeError, ValueError):
-            continue
-        if n > 0:
-            lines.append(f"  desloppify show {detector} --no-budget      # {n} findings")
-
+    for detector, n in sorted(all_counts.items()):
+        lines.append(f"  desloppify show {detector} --no-budget      # {n} findings")
     lines.append("")
-
-    has_concern_signals = bool(
-        isinstance(batch.get("concern_signals"), list) and batch["concern_signals"]
-    )
-    if has_concern_signals:
-        lines.append(
-            "Each concern signal below was generated from these findings. For each one:"
-        )
-    else:
-        lines.append(
-            "Explore these findings alongside the seed files. For patterns that affect this dimension:"
-        )
     lines.append(
-        '- Read the source code, then report in issues[] with concern_verdict: "confirmed" or "dismissed"'
+        "Report actionable issues in issues[]. Use concern_verdict and concern_fingerprint"
     )
-    lines.append(
-        "- Include the concern_fingerprint when dismissing so the finding won't resurface"
-    )
+    lines.append("for findings you want to confirm or dismiss.")
     return "\n".join(lines) + "\n\n"
+
+
+# Keep the old name as an alias so existing callers don't break.
+render_judgment_findings_section = render_findings_exploration_section
 
 
 def render_workflow_integrity_focus(dim_set: set[str]) -> str:
@@ -453,6 +472,7 @@ __all__ = [
     "SCAN_EVIDENCE_FOCUS_BY_DIMENSION",
     "render_scan_evidence_focus",
     "render_historical_focus",
+    "render_findings_exploration_section",
     "render_judgment_findings_section",
     "render_mechanical_concern_signals",
     "render_workflow_integrity_focus",

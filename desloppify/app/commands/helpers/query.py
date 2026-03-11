@@ -82,12 +82,6 @@ def load_query_result() -> QueryLoadResult:
     return QueryLoadResult(ok=True, payload=payload)
 
 
-def load_query() -> dict | None:
-    """Compatibility wrapper for callers expecting ``dict | None``."""
-    result = load_query_result()
-    return result.payload if result.ok else None
-
-
 def write_query(data: dict) -> OutputResult:
     """Write structured query output using default best-effort policy."""
     return write_query_best_effort(data, context="query payload update")
@@ -101,7 +95,6 @@ def write_query_best_effort(data: dict, *, context: str) -> OutputResult:
 __all__ = [
     "QueryLoadResult",
     "QueryWriter",
-    "load_query",
     "load_query_result",
     "query_file_path",
     "query_writer",
