@@ -31,6 +31,36 @@ def test_has_testable_logic_uses_language_hook(tmp_path, monkeypatch):
     assert heuristics_mod._has_testable_logic(str(source), "typescript") is True
 
 
+def test_has_inline_tests_uses_language_hook(tmp_path, monkeypatch):
+    source = tmp_path / "module.rs"
+    source.write_text(
+        "pub fn run() -> i32 { 1 }\n#[cfg(test)]\nmod tests { #[test] fn it_works() {} }\n"
+    )
+
+    monkeypatch.setattr(
+        heuristics_mod,
+        "_load_lang_test_coverage_module",
+        lambda _lang: SimpleNamespace(
+            has_inline_tests=lambda _filepath, content: "#[cfg(test)]" in content
+        ),
+    )
+
+    assert heuristics_mod._has_inline_tests(str(source), "rust") is True
+
+
+def test_has_inline_tests_returns_false_without_hook(tmp_path, monkeypatch):
+    source = tmp_path / "module.rs"
+    source.write_text("pub fn run() -> i32 { 1 }\n")
+
+    monkeypatch.setattr(
+        heuristics_mod,
+        "_load_lang_test_coverage_module",
+        lambda _lang: object(),
+    )
+
+    assert heuristics_mod._has_inline_tests(str(source), "rust") is False
+
+
 def test_runtime_entrypoint_uses_hook_when_available(tmp_path, monkeypatch):
     source = tmp_path / "entry.ts"
     source.write_text("const app = {};\n")
@@ -78,4 +108,3 @@ def test_runtime_entrypoint_hook_failure_falls_back_without_throwing(
     )
 
     assert heuristics_mod._is_runtime_entrypoint(str(source), "typescript") is False
-

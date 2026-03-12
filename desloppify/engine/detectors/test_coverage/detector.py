@@ -15,6 +15,7 @@ from .discovery import (
     _no_tests_issues,
     _normalize_graph_paths,
 )
+from .heuristics import _has_inline_tests
 from .issues import (
     _generate_issues,
 )
@@ -38,17 +39,25 @@ def detect_test_coverage(
     if not scorable:
         return [], 0
 
-    if not test_files:
+    inline_tested = {
+        filepath
+        for filepath in scorable
+        if filepath in production_files and _has_inline_tests(filepath, lang_name)
+    }
+
+    if not test_files and not inline_tested:
         entries = _no_tests_issues(scorable, graph, lang_name, complexity_map)
         return entries, potential
 
-    directly_tested = import_based_mapping(
-        graph,
-        test_files,
-        production_files,
-        lang_name,
-    )
-    directly_tested |= naming_based_mapping(test_files, production_files, lang_name)
+    directly_tested = set(inline_tested)
+    if test_files:
+        directly_tested |= import_based_mapping(
+            graph,
+            test_files,
+            production_files,
+            lang_name,
+        )
+        directly_tested |= naming_based_mapping(test_files, production_files, lang_name)
 
     transitively_tested = transitive_coverage(directly_tested, graph, production_files)
     test_quality = analyze_test_quality(test_files, lang_name)

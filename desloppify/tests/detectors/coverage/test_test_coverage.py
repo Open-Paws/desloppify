@@ -104,6 +104,10 @@ class TestInferLangName:
         result = _infer_lang_name({"tests/test_utils.py"}, {"src/utils.py"})
         assert result == "python"
 
+    def test_detects_rust_from_rs_files(self):
+        result = _infer_lang_name({"tests/http.rs"}, {"src/lib.rs"})
+        assert result == "rust"
+
     def test_returns_none_when_no_languages_available(self, monkeypatch):
         monkeypatch.setattr("desloppify.languages.available_langs", lambda: [])
         result = _infer_lang_name(set(), set())
@@ -258,6 +262,47 @@ class TestImportBasedMapping:
         }
         result = import_based_mapping(graph, {test_file}, {prod_file}, "typescript")
         assert prod_file in result
+
+
+class TestInlineRustCoverage:
+    def test_detect_test_coverage_counts_inline_rust_tests_without_test_files(
+        self, tmp_path
+    ):
+        source = _write_file(
+            tmp_path,
+            "src/lib.rs",
+            (
+                "pub fn add(a: i32, b: i32) -> i32 {\n"
+                "    let total = a + b;\n"
+                "    if total > 10 {\n"
+                "        return total;\n"
+                "    }\n"
+                "    total\n"
+                "}\n"
+                "\n"
+                "#[cfg(test)]\n"
+                "mod tests {\n"
+                "    #[test]\n"
+                "    fn it_adds() {\n"
+                "        assert_eq!(4, 2 + 2);\n"
+                "    }\n"
+                "}\n"
+            ),
+        )
+        graph = {
+            source: {
+                "imports": set(),
+                "importers": set(),
+                "import_count": 0,
+                "importer_count": 0,
+            }
+        }
+        zone_map = FileZoneMap([source], [])
+
+        entries, potential = detect_test_coverage(graph, zone_map, "rust")
+
+        assert entries == []
+        assert potential >= 3
 
 
 # ── _parse_test_imports ──────────────────────────────────
@@ -935,5 +980,4 @@ class TestDetectTestCoverage:
             if e["detail"]["kind"] in ("untested_module", "untested_critical")
         ]
         assert untested == []
-
 

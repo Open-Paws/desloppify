@@ -172,6 +172,19 @@ def test_auto_detect_gdscript_project(tmp_path):
     assert result == "gdscript"
 
 
+def test_auto_detect_rust_project(tmp_path):
+    """Project with Cargo.toml and .rs files auto-detects as rust."""
+    (tmp_path / "Cargo.toml").write_text(
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n"
+    )
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "main.rs").write_text("fn main() {}\n")
+
+    result = auto_detect_lang(tmp_path)
+    assert result == "rust"
+
+
 # ── LangConfig basics ───────────────────────────────────────
 
 

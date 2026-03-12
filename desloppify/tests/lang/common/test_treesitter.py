@@ -614,6 +614,24 @@ class TestGenericLangIntegration:
         assert "Test coverage" in phase_labels
         assert "Security" in phase_labels
 
+    def test_rust_is_full_plugin(self):
+        import desloppify.languages.rust  # noqa: F401
+        from desloppify.languages._framework.resolution import get_lang
+
+        lang = get_lang("rust")
+        assert lang.extract_functions is not None
+        assert lang.integration_depth == "full"
+
+    def test_rust_phases_include_structural(self):
+        import desloppify.languages.rust  # noqa: F401
+        from desloppify.languages._framework.resolution import get_lang
+
+        lang = get_lang("rust")
+        phase_labels = [p.label for p in lang.phases]
+        assert "Structural analysis" in phase_labels
+        assert "Test coverage" in phase_labels
+        assert "Security" in phase_labels
+
 
 
 # ── Spec validation tests ─────────────────────────────────────
@@ -1187,5 +1205,4 @@ class TestEslintParser:
 
         output = '[{"filePath": "/src/clean.js", "messages": []}]'
         assert parse_eslint(output, Path("/src")) == []
-
 

@@ -824,7 +824,7 @@ def test_low_impact_items_preserved_in_queue():
 
 
 def test_registry_standalone_threshold_count():
-    """Exactly 7 detectors have standalone_threshold='medium'."""
+    """The medium standalone-threshold registry matches the current catalog."""
     from desloppify.base.registry import DETECTORS
 
     threshold_detectors = [
@@ -832,5 +832,17 @@ def test_registry_standalone_threshold_count():
         if meta.standalone_threshold == "medium"
     ]
     assert sorted(threshold_detectors) == sorted([
-        "props", "patterns", "naming", "react", "smells", "dupes", "dict_keys",
+        "dict_keys",
+        "dupes",
+        "naming",
+        "patterns",
+        "props",
+        "react",
+        "rust_api_convention",
+        "rust_async_locking",
+        "rust_drop_safety",
+        "rust_error_boundary",
+        "rust_future_proofing",
+        "rust_thread_safety",
+        "smells",
     ])

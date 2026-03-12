@@ -26,6 +26,7 @@ def _infer_lang_name(test_files: set[str], production_files: set[str]) -> str | 
         ".cs": "csharp",
         ".php": "php",
         ".go": "go",
+        ".rs": "rust",
     }
     counts: dict[str, int] = {}
     for file_path in paths:
