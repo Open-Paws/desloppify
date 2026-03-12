@@ -141,6 +141,18 @@ def _build_prod_by_module(
     """Build module lookup map for production files."""
     root_str = project_root + os.sep
     prod_by_module: dict[str, str] = {}
+    ambiguous_aliases: set[str] = set()
+
+    def assign_alias(alias: str, prod_file: str) -> None:
+        if not alias or alias in ambiguous_aliases:
+            return
+        existing = prod_by_module.get(alias)
+        if existing is None or existing == prod_file:
+            prod_by_module[alias] = prod_file
+            return
+        ambiguous_aliases.add(alias)
+        prod_by_module.pop(alias, None)
+
     for prod_file in production_files:
         rel_path = (
             prod_file[len(root_str) :]
@@ -150,12 +162,12 @@ def _build_prod_by_module(
         module_name = rel_path.replace("/", ".").replace("\\", ".")
         if "." in module_name:
             module_name = module_name.rsplit(".", 1)[0]
-        prod_by_module[module_name] = prod_file
+        assign_alias(module_name, prod_file)
         if module_name.endswith(".__init__"):
-            prod_by_module[module_name[: -len(".__init__")]] = prod_file
+            assign_alias(module_name[: -len(".__init__")], prod_file)
         parts = module_name.split(".")
         if parts:
-            prod_by_module[parts[-1]] = prod_file
+            assign_alias(parts[-1], prod_file)
     return prod_by_module
 
 

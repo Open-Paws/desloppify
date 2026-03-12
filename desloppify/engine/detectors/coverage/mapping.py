@@ -14,6 +14,7 @@ from desloppify.engine.detectors.coverage.mapping_imports import (
 )
 from desloppify.engine.detectors.test_coverage.io import read_coverage_file
 from desloppify.engine.detectors.coverage.mapping_analysis import (
+    _build_prod_by_module,
     analyze_test_quality as _analyze_test_quality,
     build_test_import_index as _build_test_import_index,
     get_test_files_for_prod as _get_test_files_for_prod,
@@ -25,23 +26,10 @@ logger = logging.getLogger(__name__)
 
 def _build_prod_module_index(production_files: set[str]) -> dict[str, str]:
     """Build a mapping from module basename/dotted-path to full file path."""
-    prod_by_module: dict[str, str] = {}
-    root_str = str(get_project_root()) + os.sep
-    for pf in production_files:
-        rel_pf = pf[len(root_str) :] if pf.startswith(root_str) else pf
-        module_name = rel_pf.replace("/", ".").replace("\\", ".")
-        if "." in module_name:
-            module_name = module_name.rsplit(".", 1)[0]
-        prod_by_module[module_name] = pf
-
-        # __init__.py: also map package path (e.g. "foo.bar" -> __init__.py).
-        if module_name.endswith(".__init__"):
-            prod_by_module[module_name[: -len(".__init__")]] = pf
-
-        parts = module_name.split(".")
-        if parts:
-            prod_by_module[parts[-1]] = pf
-    return prod_by_module
+    return _build_prod_by_module(
+        production_files,
+        project_root=str(get_project_root()),
+    )
 
 
 def _graph_tested_imports(

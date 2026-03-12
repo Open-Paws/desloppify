@@ -6,6 +6,7 @@ import pytest
 
 import desloppify.languages.typescript.test_coverage as ts_cov
 from desloppify.engine.detectors.coverage.mapping import (
+    _build_prod_module_index,
     analyze_test_quality,
     import_based_mapping,
     naming_based_mapping,
@@ -235,6 +236,24 @@ class TestResolveBarrelReexports:
         assert barrel in result
         assert utils in result
         assert helpers in result
+
+    def test_prod_module_index_drops_ambiguous_basename_aliases(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        util_a = _write_file(tmp_path, "pkg/util.py", "# a\n")
+        util_b = _write_file(tmp_path, "services/util.py", "# b\n")
+        monkeypatch.setattr(
+            "desloppify.engine.detectors.coverage.mapping.get_project_root",
+            lambda: tmp_path,
+        )
+
+        index = _build_prod_module_index({util_a, util_b})
+
+        assert index["pkg.util"] == util_a
+        assert index["services.util"] == util_b
+        assert "util" not in index
 
 
 # ── Comment stripping in assertion counting ──────────────

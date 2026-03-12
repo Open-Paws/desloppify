@@ -126,11 +126,7 @@ def _same_issue_concept(
         # Identifier match still requires at least one corroborating signal
         return similarity >= 0.3 or files_overlap
 
-    if similarity < similarity_threshold:
-        return False
-    if not files_overlap:
-        return False
-    return True
+    return similarity >= similarity_threshold and files_overlap
 
 
 def _merge_issue_details(

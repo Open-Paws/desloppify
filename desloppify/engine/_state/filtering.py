@@ -201,24 +201,20 @@ def _matches_issue_name_segment(issue_id: str, pattern: str) -> bool:
     name_segment = segments[-1]
     if name_segment == pattern:
         return True
-    if len(segments) < 3 or not _HEX8_RE.match(name_segment):
-        return False
-    return segments[-2] == pattern
+    return (
+        len(segments) >= 3
+        and bool(_HEX8_RE.match(name_segment))
+        and segments[-2] == pattern
+    )
 
 
 def _matches_pattern(issue_id: str, issue: dict[str, str], pattern: str) -> bool:
     """Check if a issue matches by ID, glob, prefix, detector, suffix, or path."""
-    if issue_id == pattern:
-        return True
-    if "*" in pattern and fnmatch.fnmatch(issue_id, pattern):
-        return True
-    if "::" in pattern and issue_id.startswith(pattern):
-        return True
-    if _HEX8_RE.match(pattern) and issue_id.endswith("::" + pattern):
-        return True
-    if _matches_issue_path(issue, pattern):
-        return True
-    if _matches_issue_name_segment(issue_id, pattern):
-        return True
-
-    return False
+    return (
+        issue_id == pattern
+        or ("*" in pattern and fnmatch.fnmatch(issue_id, pattern))
+        or ("::" in pattern and issue_id.startswith(pattern))
+        or (bool(_HEX8_RE.match(pattern)) and issue_id.endswith("::" + pattern))
+        or _matches_issue_path(issue, pattern)
+        or _matches_issue_name_segment(issue_id, pattern)
+    )

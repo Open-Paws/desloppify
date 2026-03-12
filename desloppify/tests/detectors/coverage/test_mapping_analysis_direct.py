@@ -170,3 +170,24 @@ def test_build_test_import_index_passes_module_lookup_map() -> None:
     assert captures
     assert "pkg" in captures[0]
     assert "util" in captures[0]
+
+
+def test_build_test_import_index_drops_ambiguous_basename_aliases() -> None:
+    captures: list[dict[str, str]] = []
+
+    def parse_test_imports(_test_path, _production_files, prod_by_module, _lang_name):
+        captures.append(dict(prod_by_module))
+        return set()
+
+    analysis_mod.build_test_import_index(
+        {"/repo/tests/a.test.py"},
+        {"/repo/pkg/util.py", "/repo/services/util.py"},
+        "python",
+        parse_test_imports_fn=parse_test_imports,
+        project_root="/repo",
+    )
+
+    assert captures
+    assert "pkg.util" in captures[0]
+    assert "services.util" in captures[0]
+    assert "util" not in captures[0]
