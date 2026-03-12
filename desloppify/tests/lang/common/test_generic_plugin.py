@@ -377,15 +377,13 @@ class TestMakeToolPhase:
 
 
     def test_resolve_command_argv_windows_backslash_path_preserved(self):
-        if os.name != "nt":
-            pytest.skip("windows-specific path parsing")
-        argv = resolve_command_argv(r"C:\Tools\tool.exe --flag")
+        with patch("desloppify.languages._framework.generic_parts.tool_runner.os.name", "nt"):
+            argv = resolve_command_argv(r"C:\Tools\tool.exe --flag")
         assert argv == [r"C:\Tools\tool.exe", "--flag"]
 
     def test_resolve_command_argv_windows_quoted_path_unquotes_executable(self):
-        if os.name != "nt":
-            pytest.skip("windows-specific path parsing")
-        argv = resolve_command_argv('"C:\\Program Files\\Tool\\tool.exe" --flag')
+        with patch("desloppify.languages._framework.generic_parts.tool_runner.os.name", "nt"):
+            argv = resolve_command_argv('"C:\\Program Files\\Tool\\tool.exe" --flag')
         assert argv == [r"C:\Program Files\Tool\tool.exe", "--flag"]
 
 

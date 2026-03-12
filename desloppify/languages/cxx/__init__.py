@@ -24,7 +24,9 @@ from desloppify.languages.cxx._zones import CXX_ENTRY_PATTERNS, CXX_ZONE_RULES
 from desloppify.languages.cxx.commands import get_detect_commands
 from desloppify.languages.cxx.detectors.security import detect_cxx_security
 from desloppify.languages.cxx.extractors import (
+    CXX_EXTENSIONS,
     CXX_FILE_EXCLUSIONS,
+    CXX_SOURCE_EXTENSIONS,
     extract_all_cxx_functions,
     find_cxx_files,
 )
@@ -49,7 +51,7 @@ class CxxConfig(LangConfig):
     def __init__(self):
         super().__init__(
             name="cxx",
-            extensions=[".c", ".cc", ".cpp", ".cxx", ".h", ".hpp"],
+            extensions=CXX_EXTENSIONS,
             exclusions=CXX_FILE_EXCLUSIONS,
             default_src=".",
             build_dep_graph=build_cxx_dep_graph,
@@ -76,7 +78,7 @@ class CxxConfig(LangConfig):
             default_scan_profile="objective",
             detect_markers=["CMakeLists.txt", "Makefile"],
             external_test_dirs=["tests", "test"],
-            test_file_extensions=[".c", ".cc", ".cpp", ".cxx"],
+            test_file_extensions=list(CXX_SOURCE_EXTENSIONS),
             review_module_patterns_fn=module_patterns,
             review_api_surface_fn=api_surface,
             review_guidance=REVIEW_GUIDANCE,

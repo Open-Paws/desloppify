@@ -19,6 +19,10 @@ def test_has_testable_logic_accepts_function_definitions_without_regex_crash():
     assert cxx_cov.has_testable_logic("widget_test.cpp", "int widget() { return 1; }\n") is False
 
 
+def test_has_testable_logic_excludes_test_prefix_files():
+    assert cxx_cov.has_testable_logic("test_widget.cpp", "int widget() { return 1; }\n") is False
+
+
 def test_map_test_to_source_and_resolve_import_spec(tmp_path):
     source = tmp_path / "src" / "widget.cpp"
     header = tmp_path / "src" / "widget.hpp"

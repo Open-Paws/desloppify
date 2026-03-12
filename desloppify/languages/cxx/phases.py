@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 import shlex
 
@@ -97,7 +98,7 @@ def phase_cppcheck_issue(
         make_issue(
             _CPPCHECK_SMELL_ID,
             entry["file"],
-            f"{_CPPCHECK_SMELL_ID}::{entry['line']}",
+            f"{_CPPCHECK_SMELL_ID}::{entry['line']}::{hashlib.md5(entry['message'].encode('utf-8'), usedforsecurity=False).hexdigest()[:8]}",
             tier=2,
             confidence="medium",
             summary=entry["message"],

@@ -36,3 +36,43 @@ def test_build_dep_graph_from_compile_commands(tmp_path):
 
     assert str(source.resolve()) in graph
     assert str(header.resolve()) in graph[str(source.resolve())]["imports"]
+
+def test_build_dep_graph_distinguishes_angle_vs_quoted_include_resolution(tmp_path):
+    source = _write(
+        tmp_path,
+        "src/main.cpp",
+        '#include <widget.hpp>\n#include "widget_local.hpp"\nint main() { return answer() + local_answer(); }\n',
+    )
+    local_header = _write(
+        tmp_path,
+        "src/widget_local.hpp",
+        "#pragma once\ninline int local_answer() { return 1; }\n",
+    )
+    include_header = _write(
+        tmp_path,
+        "include/widget.hpp",
+        "#pragma once\ninline int answer() { return 42; }\n",
+    )
+    _write(
+        tmp_path,
+        "src/widget.hpp",
+        "#pragma once\ninline int answer() { return -1; }\n",
+    )
+    (tmp_path / "compile_commands.json").write_text(
+        json.dumps(
+            [
+                {
+                    "directory": str(tmp_path),
+                    "file": "src/main.cpp",
+                    "command": "clang++ -Iinclude -c src/main.cpp",
+                }
+            ]
+        )
+    )
+
+    graph = build_cxx_dep_graph(tmp_path)
+
+    imports = graph[str(source.resolve())]["imports"]
+    assert str(include_header.resolve()) in imports
+    assert str(local_header.resolve()) in imports
+    assert str((tmp_path / "src" / "widget.hpp").resolve()) not in imports

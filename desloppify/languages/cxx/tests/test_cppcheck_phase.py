@@ -106,3 +106,43 @@ def test_phase_cppcheck_records_reduced_coverage_when_single_file_retry_still_fa
     assert lang.detector_coverage["cppcheck_issue"]["status"] == "reduced"
     assert lang.detector_coverage["cppcheck_issue"]["reason"] == "tool_timeout"
     assert lang.coverage_warnings[0]["detector"] == "cppcheck_issue"
+
+def test_phase_cppcheck_uses_unique_issue_ids_for_same_line(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        cxx_phases,
+        "find_cxx_files",
+        lambda _path: ["src/unsafe.cpp"],
+        raising=False,
+    )
+
+    def _fake_run_tool_result(_cmd, _path, _parser, **_kwargs):
+        return ToolRunResult(
+            entries=[
+                {
+                    "file": "src/unsafe.cpp",
+                    "line": 8,
+                    "message": "Using 'system' can be unsafe",
+                },
+                {
+                    "file": "src/unsafe.cpp",
+                    "line": 8,
+                    "message": "Buffer overflow risk",
+                },
+            ],
+            status="ok",
+            returncode=1,
+        )
+
+    monkeypatch.setattr(
+        cxx_phases,
+        "run_tool_result",
+        _fake_run_tool_result,
+        raising=False,
+    )
+
+    lang = SimpleNamespace(detector_coverage={}, coverage_warnings=[])
+    issues, signals = cxx_phases.phase_cppcheck_issue(tmp_path, lang)
+
+    assert len(issues) == 2
+    assert issues[0]["id"] != issues[1]["id"]
+    assert signals == {"cppcheck_issue": 2}

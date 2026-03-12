@@ -23,7 +23,10 @@ _TESTABLE_LOGIC_RE = re.compile(
 
 def has_testable_logic(filepath: str, content: str) -> bool:
     """Return True when a file looks like it contains runtime logic."""
+    basename = os.path.basename(filepath)
     if filepath.endswith(("_test.c", "_test.cc", "_test.cpp", "_test.cxx")):
+        return False
+    if basename.startswith("test_") and basename.endswith(_SOURCE_EXTENSIONS):
         return False
     return bool(_TESTABLE_LOGIC_RE.search(content))
 

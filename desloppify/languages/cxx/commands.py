@@ -24,7 +24,7 @@ from desloppify.languages._framework.commands_base_registry import (
 from desloppify.languages._framework.generic_parts.parsers import PARSERS
 from desloppify.languages._framework.generic_parts.tool_runner import run_tool_result
 from desloppify.languages.cxx._helpers import build_cxx_dep_graph
-from desloppify.languages.cxx.extractors import extract_all_cxx_functions, find_cxx_files
+from desloppify.languages.cxx.extractors import CXX_EXTENSIONS, CXX_SOURCE_EXTENSIONS, extract_all_cxx_functions, find_cxx_files
 from desloppify.languages.cxx.phases import CXX_COMPLEXITY_SIGNALS
 
 cmd_large = make_cmd_large(
@@ -48,7 +48,7 @@ cmd_deps = make_cmd_deps(
 cmd_cycles = make_cmd_cycles(build_dep_graph_fn=build_cxx_dep_graph, module_name=__name__)
 cmd_orphaned = make_cmd_orphaned(
     build_dep_graph_fn=build_cxx_dep_graph,
-    extensions=[".c", ".cc", ".cpp", ".cxx", ".h", ".hpp"],
+    extensions=CXX_EXTENSIONS,
     extra_entry_patterns=["/main.c", "/main.cc", "/main.cpp", "/main.cxx"],
     extra_barrel_names=set(),
     module_name=__name__,
@@ -106,7 +106,7 @@ def cmd_clang_tidy(args) -> None:
     files = [
         filepath
         for filepath in find_cxx_files(scan_root)
-        if Path(filepath).suffix.lower() in {".c", ".cc", ".cpp", ".cxx"}
+        if Path(filepath).suffix.lower() in set(CXX_SOURCE_EXTENSIONS)
     ]
     if not files:
         _emit_tool_entries(

@@ -81,7 +81,8 @@ def test_detect_cxx_security_normalizes_clang_tidy_findings_when_compile_command
 
     result = detect_cxx_security([str(source.resolve())], zone_map=None)
 
-    assert result.coverage is None
+    assert result.coverage is not None
+    assert result.coverage.reason == "missing_dependency"
     assert result.files_scanned == 1
     assert len(result.entries) == 1
     entry = result.entries[0]
@@ -127,7 +128,8 @@ def test_detect_cxx_security_uses_cppcheck_when_clang_tidy_missing_without_reduc
 
     result = detect_cxx_security([str(source.resolve())], zone_map=None)
 
-    assert result.coverage is None
+    assert result.coverage is not None
+    assert result.coverage.reason == "missing_dependency"
     assert result.files_scanned == 1
     assert len(result.entries) == 1
     entry = result.entries[0]
@@ -186,7 +188,8 @@ def test_detect_cxx_security_retries_cppcheck_per_file_after_batch_timeout(
     )
 
     assert len(calls) == 3
-    assert result.coverage is None
+    assert result.coverage is not None
+    assert result.coverage.reason == "timeout"
     assert result.files_scanned == 2
     assert len(result.entries) == 1
     assert result.entries[0]["detail"]["source"] == "cppcheck"
@@ -246,11 +249,110 @@ def test_detect_cxx_security_retries_clang_tidy_per_file_after_batch_failure(
     )
 
     assert len(calls) == 3
-    assert result.coverage is None
+    assert result.coverage is not None
+    assert result.coverage.reason == "execution_error"
     assert result.files_scanned == 2
     assert len(result.entries) == 1
     assert result.entries[0]["detail"]["source"] == "clang-tidy"
     assert result.entries[0]["detail"]["check_id"] == "clang-analyzer-security.insecureAPI.strcpy"
+
+
+def test_detect_cxx_security_keeps_reduced_coverage_when_partial_clang_tidy_retry_still_fails(
+    tmp_path,
+    monkeypatch,
+):
+    source_a = tmp_path / "src" / "unsafe_a.cpp"
+    source_b = tmp_path / "src" / "unsafe_b.cpp"
+    source_a.parent.mkdir(parents=True)
+    source_a.write_text("int a() { return 0; }\n")
+    source_b.write_text("int b() { return 0; }\n")
+    (tmp_path / "compile_commands.json").write_text("[]\n")
+
+    monkeypatch.setattr(
+        security_mod,
+        "shutil",
+        SimpleNamespace(which=lambda cmd: "C:/tools/clang-tidy.exe" if cmd == "clang-tidy" else None),
+        raising=False,
+    )
+
+    def _fake_run_tool_result(cmd, path, parser, **_kwargs):
+        assert cmd.startswith("clang-tidy ")
+        if "unsafe_a.cpp" in cmd and "unsafe_b.cpp" in cmd:
+            return ToolRunResult(
+                entries=[],
+                status="error",
+                error_kind="tool_timeout",
+                message="batch timeout",
+                returncode=1,
+            )
+        if "unsafe_a.cpp" in cmd:
+            output = (
+                f"{source_a}:7:5: warning: call to 'strcpy' is insecure [clang-analyzer-security.insecureAPI.strcpy]\n"
+            )
+            return ToolRunResult(entries=parser(output, path), status="ok", returncode=1)
+        if "unsafe_b.cpp" in cmd:
+            return ToolRunResult(
+                entries=[],
+                status="error",
+                error_kind="tool_timeout",
+                message="single timeout",
+                returncode=1,
+            )
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    monkeypatch.setattr(
+        security_mod,
+        "run_tool_result",
+        _fake_run_tool_result,
+        raising=False,
+    )
+
+    result = detect_cxx_security(
+        [str(source_a.resolve()), str(source_b.resolve())],
+        zone_map=None,
+    )
+
+    assert result.files_scanned == 2
+    assert len(result.entries) == 1
+    assert result.coverage is not None
+    assert result.coverage.reason == "timeout"
+    assert result.entries[0]["detail"]["source"] == "clang-tidy"
+
+
+def test_detect_cxx_security_uses_unique_names_for_same_kind_same_line_findings(
+    tmp_path,
+    monkeypatch,
+):
+    source = tmp_path / "src" / "unsafe.cpp"
+    source.parent.mkdir(parents=True)
+    source.write_text("int main() { return 0; }\n")
+    (tmp_path / "compile_commands.json").write_text("[]\n")
+
+    monkeypatch.setattr(
+        security_mod,
+        "shutil",
+        SimpleNamespace(which=lambda cmd: "C:/tools/clang-tidy.exe" if cmd == "clang-tidy" else None),
+        raising=False,
+    )
+
+    def _fake_run_tool_result(cmd, path, parser, **_kwargs):
+        output = (
+            f"{source}:7:5: warning: call to 'strcpy' is insecure [clang-analyzer-security.insecureAPI.strcpy]\n"
+            f"{source}:7:5: warning: call to 'strcat' is insecure [clang-analyzer-security.insecureAPI.strcat]\n"
+        )
+        return ToolRunResult(entries=parser(output, path), status="ok", returncode=1)
+
+    monkeypatch.setattr(
+        security_mod,
+        "run_tool_result",
+        _fake_run_tool_result,
+        raising=False,
+    )
+
+    result = detect_cxx_security([str(source.resolve())], zone_map=None)
+
+    assert len(result.entries) == 2
+    assert result.entries[0]["name"] != result.entries[1]["name"]
 
 
 def test_detect_cxx_security_prefers_clang_tidy_for_duplicate_same_line(tmp_path, monkeypatch):
@@ -388,7 +490,8 @@ def test_detect_cxx_security_keeps_distinct_same_line_tool_findings(
 
     result = detect_cxx_security([str(source.resolve())], zone_map=None)
 
-    assert result.coverage is None
+    assert result.coverage is not None
+    assert result.coverage.reason == "missing_dependency"
     assert result.files_scanned == 1
     assert len(result.entries) == 2
     assert {entry["detail"]["check_id"] for entry in result.entries} == {

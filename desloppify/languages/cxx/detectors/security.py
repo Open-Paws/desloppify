@@ -327,9 +327,13 @@ def _normalize_tool_entry(entry: dict) -> dict | None:
     )
     summary = f"[{check_id}] {message}" if check_id else message
     rel_path = rel(filepath)
+    dedupe_subject = _normalize_kind(check_id, message) and _dedupe_subject(
+        {"kind": kind, "check_id": check_id or kind, "content": message[:200]}
+    )
+    unique_token = dedupe_subject or check_id or kind
     return {
         "file": filepath,
-        "name": f"security::{kind}::{rel_path}::{line}",
+        "name": f"security::{kind}::{rel_path}::{line}::{unique_token}",
         "tier": 2,
         "confidence": confidence,
         "summary": summary,
@@ -424,23 +428,30 @@ def _run_clang_tidy_invocation(
 
 def _merge_tool_scan_results(tool: str, results: list[CxxToolScanResult]) -> CxxToolScanResult:
     successful = [result for result in results if result.is_success()]
+    failed = [result for result in results if not result.is_success()]
     if successful:
         entries = [entry for result in successful for entry in result.entries]
         covered_files = tuple(
             filepath for result in successful for filepath in result.covered_files
         )
-        detail = next((
-            result.detail for result in results if not result.is_success() and result.detail
-        ), "")
+        if failed:
+            first_failure = next((result for result in failed if result.detail), failed[0])
+            return CxxToolScanResult(
+                tool=tool,
+                state=first_failure.state,
+                entries=entries,
+                detail=first_failure.detail,
+                covered_files=covered_files,
+            )
         return CxxToolScanResult(
             tool=tool,
             state="ok" if entries else "empty",
             entries=entries,
-            detail=detail,
+            detail="",
             covered_files=covered_files,
         )
 
-    first_failure = next((result for result in results if result.detail), results[0])
+    first_failure = next((result for result in failed if result.detail), results[0])
     return CxxToolScanResult(
         tool=tool,
         state=first_failure.state,
@@ -648,19 +659,15 @@ def detect_cxx_security(
         tool_results.append(_run_clang_tidy(scan_root, scoped_files))
     tool_results.append(_run_cppcheck(scan_root, scoped_files))
 
-    tool_entries = [
-        entry
-        for result in tool_results
-        if result.is_success()
-        for entry in result.entries
-    ]
+    tool_entries = [entry for result in tool_results for entry in result.entries]
     covered_files = {
         filepath
         for result in tool_results
-        if result.is_success()
         for filepath in result.covered_files
     }
     uncovered_files = [filepath for filepath in scoped_files if filepath not in covered_files]
+    any_failure = any(not result.is_success() for result in tool_results)
+
     if uncovered_files:
         merged_entries = _dedupe_entries(tool_entries + _regex_fallback(uncovered_files))
         return LangSecurityResult(
@@ -669,11 +676,11 @@ def detect_cxx_security(
             coverage=_fallback_coverage(tool_results),
         )
 
-    if any(result.is_success() for result in tool_results):
+    if tool_entries:
         return LangSecurityResult(
             entries=_dedupe_entries(tool_entries),
             files_scanned=len(scoped_files),
-            coverage=None,
+            coverage=_fallback_coverage(tool_results) if any_failure else None,
         )
 
     fallback_entries = _dedupe_entries(_regex_fallback(scoped_files))

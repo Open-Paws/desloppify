@@ -16,7 +16,7 @@ from desloppify.languages._framework.treesitter.imports.resolvers_backend import
 )
 from desloppify.languages.cxx.extractors import find_cxx_files
 
-_INCLUDE_RE = re.compile(r'(?m)^\s*#include\s*[<"]([^>"]+)[>"]')
+_INCLUDE_RE = re.compile(r'(?m)^\s*#include\s*([<"])([^>"]+)[>"]')
 
 
 def _normalize_graph_path(path: Path | str) -> str:
@@ -43,12 +43,15 @@ def _match_production_file(candidate: Path | str, file_index: dict[str, str]) ->
     return file_index.get(normalized)
 
 
-def _read_include_specs(filepath: str) -> list[str]:
+def _read_include_specs(filepath: str) -> list[tuple[str, bool]]:
     try:
         content = Path(filepath).read_text(errors="replace")
     except OSError:
         return []
-    return [match.group(1).strip() for match in _INCLUDE_RE.finditer(content)]
+    return [
+        (match.group(2).strip(), match.group(1) == '"')
+        for match in _INCLUDE_RE.finditer(content)
+    ]
 
 
 def _parse_command_tokens(entry: dict[str, Any]) -> list[str]:
@@ -91,13 +94,17 @@ def _extract_include_dirs(tokens: list[str], directory: Path) -> list[Path]:
 def _resolve_with_compile_commands(
     include_spec: str,
     *,
+    is_quoted: bool,
     source_file: Path,
     scan_root: Path,
     include_dirs: list[Path],
     file_index: dict[str, str],
 ) -> str | None:
-    candidates = [source_file.parent / include_spec]
-    candidates.extend(include_dir / include_spec for include_dir in include_dirs)
+    candidates = [include_dir / include_spec for include_dir in include_dirs]
+    if is_quoted:
+        candidates.insert(0, source_file.parent / include_spec)
+    else:
+        candidates.append(source_file.parent / include_spec)
     for candidate in candidates:
         resolved = _match_production_file(candidate, file_index)
         if resolved is not None:
@@ -154,9 +161,10 @@ def _build_from_compile_commands(
         )
         include_dirs = _extract_include_dirs(_parse_command_tokens(entry), directory)
         source_file = Path(source)
-        for include_spec in _read_include_specs(source):
+        for include_spec, is_quoted in _read_include_specs(source):
             resolved = _resolve_with_compile_commands(
                 include_spec,
+                is_quoted=is_quoted,
                 source_file=source_file,
                 scan_root=path,
                 include_dirs=include_dirs,
@@ -176,7 +184,7 @@ def _build_from_local_includes(path: Path, files: list[str]) -> dict[str, dict[s
     scan_root = _normalize_graph_path(path)
     for source in files:
         source_file = Path(source)
-        for include_spec in _read_include_specs(source):
+        for include_spec, _is_quoted in _read_include_specs(source):
             resolved = resolve_cxx_include(include_spec, str(source_file), scan_root)
             if resolved is None:
                 continue

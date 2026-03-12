@@ -43,6 +43,9 @@ _FUNCTION_RE = re.compile(
 _CONTROL_KEYWORDS = {"if", "for", "while", "switch", "catch", "return"}
 
 
+_HEADER_LIKE_EXTENSIONS = (".h", ".hh", ".hpp", ".hxx", ".ipp", ".inl", ".tpp", ".txx", ".tcc")
+
+
 def _public_function_names(content: str) -> list[str]:
     names: set[str] = set()
     for section in _PUBLIC_SECTION_RE.findall(content):
@@ -76,11 +79,12 @@ def api_surface(file_contents: dict[str, str]) -> dict[str, list[str]]:
     public_headers: list[str] = []
 
     for filepath, content in file_contents.items():
+        if not filepath.endswith(_HEADER_LIKE_EXTENSIONS):
+            continue
         for match in _PUBLIC_TYPE_RE.finditer(content):
             public_types.add(match.group(1))
         public_functions.update(_public_function_names(content))
-        if filepath.endswith((".h", ".hpp")):
-            public_headers.append(rel(filepath) if os.path.isabs(filepath) else filepath)
+        public_headers.append(rel(filepath) if os.path.isabs(filepath) else filepath)
 
     summary: dict[str, list[str]] = {}
     if public_types:

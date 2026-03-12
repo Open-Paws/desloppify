@@ -22,12 +22,16 @@ def _run_scan_fixture(name: str) -> SimpleNamespace:
     )
 
 
-def test_cmake_fixture_produces_dep_graph_and_cycles():
+def test_cmake_fixture_produces_dep_graph_and_transitive_imports():
     result = _run_scan_fixture("cmake_sample")
+    main = str((result.root / "src" / "main.cpp").resolve())
+    a_header = str((result.root / "include" / "a.hpp").resolve())
+    b_header = str((result.root / "include" / "b.hpp").resolve())
 
     assert result.dep_graph
-    assert any(issue["detector"] == "cycles" for issue in result.issues)
-    assert result.potentials["cycles"] > 0
+    assert a_header in result.dep_graph[main]["imports"]
+    assert b_header in result.dep_graph[a_header]["imports"]
+    assert not any(issue["detector"] == "cycles" for issue in result.issues)
 
 
 def test_makefile_fixture_uses_best_effort_fallback():

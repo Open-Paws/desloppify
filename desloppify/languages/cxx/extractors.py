@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 import hashlib
+from os import PathLike
 import re
 from pathlib import Path
 
 from desloppify.base.discovery.file_paths import resolve_path
 from desloppify.base.discovery.source import SourceDiscoveryOptions, find_source_files
 from desloppify.engine.detectors.base import FunctionInfo
-from desloppify.languages.csharp._parse_helpers import find_matching_brace
+from desloppify.languages.cxx._parse_helpers import find_matching_brace
 
+CXX_SOURCE_EXTENSIONS = (".c", ".cc", ".cpp", ".cxx")
+CXX_HEADER_EXTENSIONS = (".h", ".hh", ".hpp", ".hxx", ".ipp", ".inl", ".tpp", ".txx", ".tcc")
+CXX_EXTENSIONS = [*CXX_SOURCE_EXTENSIONS, *CXX_HEADER_EXTENSIONS]
 CXX_FILE_EXCLUSIONS = [
     "build",
     "cmake-build-debug",
@@ -39,7 +43,7 @@ def find_cxx_files(path: Path | str) -> list[str]:
     """Find C/C++ source files under a path."""
     return find_source_files(
         path,
-        [".c", ".cc", ".cpp", ".cxx", ".h", ".hpp"],
+        CXX_EXTENSIONS,
         SourceDiscoveryOptions(exclusions=tuple(CXX_FILE_EXCLUSIONS)),
     )
 
@@ -127,10 +131,12 @@ def extract_cxx_functions(filepath: str) -> list[FunctionInfo]:
     return functions
 
 
-def extract_all_cxx_functions(path_or_files: Path | list[str]) -> list[FunctionInfo]:
+def extract_all_cxx_functions(
+    path_or_files: Path | str | PathLike[str] | list[str]
+ ) -> list[FunctionInfo]:
     """Extract C/C++ functions from either a scan root or an explicit file list."""
-    if isinstance(path_or_files, Path):
-        file_list = find_cxx_files(path_or_files)
+    if isinstance(path_or_files, (Path, str, PathLike)):
+        file_list = find_cxx_files(Path(path_or_files))
     else:
         file_list = list(path_or_files)
 
