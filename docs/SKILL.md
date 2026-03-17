@@ -276,8 +276,62 @@ If the fix is unclear or the change needs discussion, open an issue at `https://
 
 ## Prerequisite
 
-`command -v desloppify >/dev/null 2>&1 && echo "desloppify: installed" || echo "NOT INSTALLED — run: uvx --from git+https://github.com/peteromallet/desloppify.git desloppify"`
+`command -v desloppify >/dev/null 2>&1 && echo "desloppify: installed" || echo "NOT INSTALLED — run: uvx --from git+https://github.com/Open-Paws/desloppify.git desloppify"`
 
 If `uvx` is not available: `pip install desloppify[full]`
+
+## Open Paws Advocacy Extensions
+
+This fork adds two advocacy-specific detectors. When fixing issues from these detectors, apply the guidance below.
+
+### Advocacy Language Detector
+
+Detects 65 speciesist language patterns across 5 categories: idioms (30), metaphors (21), insults (6), process language (5), terminology (3). Each issue includes a suggested replacement — use it.
+
+**When fixing**: Replace the flagged term with the first suggested alternative. Do not add comments explaining why the term was replaced. Do not wrap in feature flags. Just change it.
+
+### Advocacy Security Detector
+
+Detects activist protection antipatterns based on a 3-adversary threat model:
+
+1. **State surveillance**: ag-gag statutes, warrants, subpoenas, device seizure
+2. **Industry infiltration**: corporate investigators, social engineering
+3. **AI model bias**: training data encoding speciesist defaults, telemetry leakage
+
+**When fixing identity leakage**: Remove PII from log/error output. Use pseudonymous identifiers. Never log IP addresses, email addresses, or real names in the same statement.
+
+**When fixing external API calls**: Add zero-retention headers or route through self-hosted inference. Verify the endpoint's data retention policy.
+
+**When fixing public path exposure**: Move investigation/evidence data out of public/static directories. Use encrypted storage.
+
+### Ubiquitous Language
+
+Use these terms correctly in code, comments, and commit messages:
+
+| Term | Meaning | NOT |
+|------|---------|-----|
+| Campaign | Coordinated advocacy action | Marketing campaign |
+| Investigation | Covert evidence gathering | Bug investigation |
+| Coalition | Cross-org partnership | Generic collaboration |
+| Witness | Person providing testimony | Test witness |
+| Testimony | First-person account of suffering | Testimonial |
+| Sanctuary | Rescue facility for animals | Sandbox |
+| Companion animal | Animal living with humans | Pet |
+| Farmed animal | Animal in agriculture | Livestock |
+
+### AI Failure Modes (ranked by frequency in AI-generated code)
+
+Watch for these when fixing ANY desloppify issue — they're the most common ways AI makes code worse:
+
+1. **DRY violations** — AI duplicates at 4x the normal rate
+2. **Shallow modules** — interfaces as complex as implementation
+3. **Multi-responsibility functions** — doing too many things
+4. **Error suppression** — catch-all, silent failures
+5. **Information leakage** — internal details in API surfaces
+6. **Language drift** — inconsistent terminology vs ubiquitous language
+7. **Temporal decomposition** — wrong granularity
+8. **Legacy code churn** — AI-generated code churns 2x faster
+9. **Over-patterning** — Strategy/Factory/Observer where a function suffices
+10. **Tautological tests** — tests that can't fail
 
 <!-- desloppify-end -->

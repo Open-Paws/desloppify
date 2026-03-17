@@ -1,6 +1,43 @@
-# Desloppify - an agent harness to make your codebase 🤌
+# Desloppify - Open Paws Fork
+
+> This is the [Open Paws](https://github.com/Open-Paws) fork of [peteromallet/desloppify](https://github.com/peteromallet/desloppify). It adds animal advocacy-specific detectors for speciesist language and activist security, while tracking upstream for general improvements.
 
 [![PyPI version](https://img.shields.io/pypi/v/desloppify)](https://pypi.org/project/desloppify/) ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
+
+## What This Fork Adds
+
+### Advocacy Language Detector (65 rules)
+
+Detects speciesist language patterns in code, comments, and documentation. Native Python detector consuming canonical YAML rules from [project-compassionate-code](https://github.com/Open-Paws/project-compassionate-code).
+
+- **Idioms** (30 rules): "kill two birds with one stone", "beat a dead horse", etc.
+- **Metaphors** (21 rules): "sacred cow", "cash cow", "sacrificial lamb", etc.
+- **Insults** (6 rules): "code monkey", "cowboy coding", etc.
+- **Process language** (5 rules): "nuke", "cull", "kill process", etc.
+- **Terminology** (3 rules): "master/slave", "whitelist/blacklist", "grandfathered"
+
+Each finding includes a suggested replacement. Context suppression reduces false positives for technical terms (POSIX `kill()`, git `master` branch), proper nouns (project mascots), and quotations.
+
+New scoring dimension: **Advocacy language** (mechanical pool, weight 1.0).
+
+### Advocacy Security Detector (3-adversary threat model)
+
+Heuristic detector for activist protection antipatterns based on three adversaries: state surveillance (ag-gag laws), industry infiltration (corporate espionage), and AI bias (telemetry leakage).
+
+Detects: identity leakage in logs, sensitive data to external AI APIs without zero-retention headers, investigation materials in public paths, unencrypted writes of sensitive data, IP address logging.
+
+New scoring dimension: **Advocacy security** (mechanical pool, weight 1.0).
+
+### Advocacy Skill Overlay
+
+Agent guidance for the desloppify fix loop: ubiquitous language glossary, 3-adversary threat model summary, 10 ranked AI failure modes. Applied via `desloppify update-skill`.
+
+### Windows Hang Fixes
+
+- `input()` blocking in TypeScript logs detector replaced with TTY check
+- `msvcrt.locking()` infinite wait replaced with 5s retry timeout
+
+---
 
 Desloppify gives your AI coding agent the tools to identify, understand, and systematically improve codebase quality. It combines mechanical detection (dead code, duplication, complexity) with subjective LLM review (naming, abstractions, module boundaries), then works through a prioritized fix loop. State persists across scans so it chips away over multiple sessions, and the scoring is designed to resist gaming.
 
