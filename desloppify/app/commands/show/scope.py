@@ -197,18 +197,39 @@ def load_matches(
     status_filter: str,
     chronic: bool,
 ) -> list[dict[str, Any]]:
-    """Load matching issues from the ranked queue."""
-    queue = build_work_queue(
-        state,
-        options=QueueBuildOptions(
-            count=None,
-            scope=scope,
-            status=status_filter,
-            include_subjective=False,
-            chronic=chronic,
-        ),
+    """Load matching issues from the ranked queue.
+
+    When a scope is provided, search both execution and backlog partitions
+    so scoped queries (e.g. ``show advocacy_language``) surface findings
+    even when a different lifecycle phase (like initial review) owns the
+    execution partition.
+    """
+    from desloppify.engine.work_queue import build_work_queue_for_visibility, QueueVisibility
+
+    base_opts = QueueBuildOptions(
+        count=None,
+        scope=scope,
+        status=status_filter,
+        include_subjective=False,
+        chronic=chronic,
     )
-    return [item for item in queue.get("items", []) if item.get("kind") == "issue"]
+    queue = build_work_queue(state, options=base_opts)
+    matches = [
+        item for item in queue.get("items", []) if item.get("kind") == "issue"
+    ]
+    # When scoped and execution partition returned nothing, check backlog.
+    if not matches and scope and status_filter == "open":
+        backlog_queue = build_work_queue_for_visibility(
+            state,
+            options=base_opts,
+            visibility=QueueVisibility.BACKLOG,
+        )
+        matches = [
+            item
+            for item in backlog_queue.get("items", [])
+            if item.get("kind") == "issue"
+        ]
+    return matches
 
 
 def resolve_noise(

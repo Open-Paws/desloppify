@@ -103,27 +103,13 @@ _BROWSER_STORAGE = re.compile(
 
 def _find_files(path: Path) -> list[str]:
     """Find source files to scan."""
+    from desloppify.engine.detectors.advocacy_common import find_source_files
+
     code_extensions = frozenset({
         ".ts", ".tsx", ".js", ".jsx", ".py", ".go", ".rs",
         ".java", ".kt", ".cs", ".rb", ".php",
     })
-    if path.is_file():
-        return [str(path)]
-
-    files = []
-    for root, dirs, filenames in os.walk(path):
-        dirs[:] = [
-            d for d in dirs
-            if d not in {
-                "node_modules", ".git", "dist", "build", ".next",
-                "__pycache__", ".mypy_cache", ".pytest_cache", "vendor",
-                ".desloppify", ".venv", "venv",
-            }
-        ]
-        for name in filenames:
-            if any(name.endswith(ext) for ext in code_extensions):
-                files.append(os.path.join(root, name))
-    return files
+    return find_source_files(path, code_extensions)
 
 
 def detect_advocacy_security(

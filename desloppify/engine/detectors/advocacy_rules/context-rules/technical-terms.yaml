@@ -37,3 +37,8 @@ rules:
     description: "'cull' is standard terminology in 3D graphics rendering pipelines"
     pattern: "\\b(frustum|backface|back-face|occlusion|face|view|visibility)\\s+cull"
     applies_to: ["language"]
+
+  - name: "markdown_table_example"
+    description: "Term appears inside a markdown table row — typically an example table documenting detected patterns"
+    pattern: "^\\s*\\|.*\\|.*\\|"
+    applies_to: ["language"]

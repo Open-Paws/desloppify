@@ -157,13 +157,13 @@ def import_findings(findings_path: str, state: StateModel) -> tuple[int, int, in
 
 
 def compute_potentials(profiles: list[dict[str, Any]]) -> int:
-    """Total check items across all personas — the scoring denominator."""
-    total = 0
-    for profile in profiles:
-        for scenario in profile.get("scenarios", []):
-            total += len(scenario.get("check", []))
-        total += len(profile.get("accessibility", []))
-    return total
+    """Total check items across all personas — the scoring denominator.
+
+    Delegates to :func:`profiles.total_check_items` (canonical implementation).
+    """
+    from .profiles import total_check_items
+
+    return total_check_items(profiles)
 
 
 __all__ = [

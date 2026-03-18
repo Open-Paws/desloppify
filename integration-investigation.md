@@ -277,7 +277,7 @@ desloppify plan resolve                   → marks fixed
 | semgrep-rules-no-animal-violence | Distribution target | Unchanged (external tool users need it) |
 | eslint-plugin-no-animal-violence | Distribution target | Unchanged |
 | vale-no-animal-violence | Distribution target | Unchanged |
-| no-animal-violence | Master distribution | Unchanged |
+| no-animal-violence | Canonical distribution | Unchanged |
 | no-animal-violence-action | GitHub Action | Unchanged |
 | structured-coding-with-ai | Template archive | Unchanged (but no longer the active source for existing projects) |
 

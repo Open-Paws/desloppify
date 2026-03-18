@@ -156,7 +156,7 @@ Return machine-readable JSON for review imports. For `--external-submit`, includ
 }
 ```
 
-`findings` MUST match `query.system_prompt` exactly (including `related_files`, `evidence`, and `suggestion`). Use `"findings": []` when no defects found. Import is fail-closed: invalid findings abort unless `--allow-partial` is passed. Assessment scores are auto-applied from trusted internal or cloud session imports. Legacy `--attested-external` remains supported.
+`findings` MUST match `query.system_prompt` exactly (including `related_files`, `evidence`, and `suggestion`). Use `"findings": []` when no defects found. Import is fail-closed: invalid findings cancel the import unless `--allow-partial` is passed. Assessment scores are auto-applied from trusted internal or cloud session imports. Legacy `--attested-external` remains supported.
 
 #### Import paths
 
@@ -280,58 +280,102 @@ If the fix is unclear or the change needs discussion, open an issue at `https://
 
 If `uvx` is not available: `pip install desloppify[full]`
 
-## Open Paws Advocacy Extensions
+## Open Paws Animal Advocacy Extensions
 
-This fork adds two advocacy-specific detectors. When fixing issues from these detectors, apply the guidance below.
+This fork integrates animal advocacy, anti-speciesism, and vegan values into the scoring system. Advocacy controls ~28% of the total score across mechanical detectors and 6 subjective dimensions. An agent cannot reach a high strict score without addressing these concerns.
 
-### Advocacy Language Detector
+### Mechanical Detectors
 
-Detects 65 speciesist language patterns across 5 categories: idioms (30), metaphors (21), insults (6), process language (5), terminology (3). Each issue includes a suggested replacement — use it.
+**Advocacy Language** (weight 2.0) — 65 speciesist language patterns across idioms, metaphors, insults, process language, and terminology. **When fixing**: replace with the first suggested alternative. No explanatory comments. No feature flags. Just change it.
 
-**When fixing**: Replace the flagged term with the first suggested alternative. Do not add comments explaining why the term was replaced. Do not wrap in feature flags. Just change it.
+**Advocacy Security** (weight 2.0) — animal activist protection antipatterns based on a 3-adversary threat model.
 
-### Advocacy Security Detector
+**Advocacy Tools** (weight 1.0) — checks whether the project's toolchain has no-animal-violence enforcement tools configured (eslint plugin, vale styles, pre-commit hooks, GitHub Action, semgrep rules).
 
-Detects activist protection antipatterns based on a 3-adversary threat model:
+### Subjective Dimensions (LLM-reviewed)
 
-1. **State surveillance**: ag-gag statutes, warrants, subpoenas, device seizure
-2. **Industry infiltration**: corporate investigators, social engineering
-3. **AI model bias**: training data encoding speciesist defaults, telemetry leakage
+These 6 dimensions are scored 0-100 by LLM reviewers during `review --prepare`:
 
-**When fixing identity leakage**: Remove PII from log/error output. Use pseudonymous identifiers. Never log IP addresses, email addresses, or real names in the same statement.
+| Dimension | Weight | Focus |
+|-----------|--------|-------|
+| Advocacy language | 8.0 | Compassionate, non-speciesist language beyond regex — variable names, comments, docs |
+| Advocacy security | 10.0 | Holistic animal activist security — investigator identity protection, sanctuary location privacy, zero-retention data flows |
+| Advocacy terminology | 4.0 | Anti-speciesist ubiquitous language consistency — campaign, investigation, coalition, sanctuary used correctly |
+| Data sovereignty | 6.0 | Third-party data flows vetted for animal activist safety — no telemetry leaking investigation targets |
+| Advocacy UX | 4.0 | User-facing content reflects vegan, anti-speciesist values — no exploitation imagery, accessible to disabled activists |
+| Advocacy tools | 3.0 | No-animal-violence enforcement tools configured for the project's toolchain |
 
-**When fixing external API calls**: Add zero-retention headers or route through self-hosted inference. Verify the endpoint's data retention policy.
+### 3-Adversary Threat Model for Animal Activists
 
-**When fixing public path exposure**: Move investigation/evidence data out of public/static directories. Use encrypted storage.
+Apply this when fixing ANY security-related finding, not just advocacy_security:
 
-### Ubiquitous Language
+1. **State surveillance** — ag-gag laws criminalizing undercover investigation at factory farms, AETA (Animal Enterprise Terrorism Act) prosecution, device seizure at protests, subpoenas for activist communications
+2. **Industry infiltration** — animal agriculture corporate investigators, social engineering of sanctuary networks, infiltration of activist Signal groups, doxing campaigns against investigators
+3. **AI bias leakage** — training data encoding speciesist defaults (treating animal exploitation as normal), telemetry exposing investigation patterns to model providers, AI services retaining activist data
 
-Use these terms correctly in code, comments, and commit messages:
+### Anti-Speciesist Ubiquitous Language
+
+Use these terms in code, comments, and commit messages. This is not optional — terminology consistency is a scored dimension.
 
 | Term | Meaning | NOT |
 |------|---------|-----|
-| Campaign | Coordinated advocacy action | Marketing campaign |
-| Investigation | Covert evidence gathering | Bug investigation |
-| Coalition | Cross-org partnership | Generic collaboration |
-| Witness | Person providing testimony | Test witness |
-| Testimony | First-person account of suffering | Testimonial |
-| Sanctuary | Rescue facility for animals | Sandbox |
+| Campaign | Coordinated animal advocacy action | Marketing campaign |
+| Investigation | Covert evidence gathering at factory farms | Bug investigation |
+| Coalition | Cross-org animal rights partnership | Generic collaboration |
+| Witness | Person providing testimony about animal cruelty | Test witness |
+| Testimony | First-person account of animal suffering | Testimonial |
+| Sanctuary | Rescue facility for farmed animals | Sandbox, shelter |
 | Companion animal | Animal living with humans | Pet |
-| Farmed animal | Animal in agriculture | Livestock |
+| Farmed animal | Animal in agriculture system | Livestock, stock |
+
+### Enforcement Tools
+
+When the `advocacy_tool_presence` detector flags a missing tool, install it:
+
+- **JS/TS projects**: `npm install -D eslint-plugin-no-animal-violence` — add to ESLint config
+- **Documentation**: Add `NoAnimalViolence` package to `.vale.ini` — run `vale sync`
+- **Git hooks**: Add `no-animal-violence` repo to `.pre-commit-config.yaml`
+- **CI/CD**: Add `uses: Open-Paws/no-animal-violence-action@v1` to GitHub Actions workflow
+- **Python**: Add `semgrep-rules-no-animal-violence` rules to semgrep config
+
+### Persona QA for Animal Advocacy
+
+When a web frontend is detected, run persona-based browser QA:
+
+```bash
+desloppify persona-qa --generate-defaults     # creates 5 animal advocacy personas
+desloppify persona-qa --check-browser          # verifies browser tools are available
+desloppify persona-qa --prepare --url <url>    # generates agent instructions per persona
+```
+
+Default personas: undercover investigator, sanctuary operator, grassroots organizer (rural/mobile), disabled vegan activist (screen reader), non-English speaking supporter (i18n).
+
+If browser tools are not available, install Playwright MCP:
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@anthropic-ai/mcp-playwright"]
+    }
+  }
+}
+```
 
 ### AI Failure Modes (ranked by frequency in AI-generated code)
 
-Watch for these when fixing ANY desloppify issue — they're the most common ways AI makes code worse:
+Watch for these when fixing ANY desloppify issue:
 
 1. **DRY violations** — AI duplicates at 4x the normal rate
-2. **Shallow modules** — interfaces as complex as implementation
-3. **Multi-responsibility functions** — doing too many things
-4. **Error suppression** — catch-all, silent failures
-5. **Information leakage** — internal details in API surfaces
-6. **Language drift** — inconsistent terminology vs ubiquitous language
-7. **Temporal decomposition** — wrong granularity
-8. **Legacy code churn** — AI-generated code churns 2x faster
-9. **Over-patterning** — Strategy/Factory/Observer where a function suffices
-10. **Tautological tests** — tests that can't fail
+2. **Speciesist language drift** — AI defaults to speciesist metaphors and idioms; always review generated text
+3. **Shallow modules** — interfaces as complex as implementation
+4. **Multi-responsibility functions** — doing too many things
+5. **Error suppression** — catch-all, silent failures
+6. **Information leakage** — internal details (especially activist PII) in API surfaces
+7. **Language drift** — inconsistent terminology vs anti-speciesist ubiquitous language
+8. **Temporal decomposition** — wrong granularity
+9. **Legacy code churn** — AI-generated code churns 2x faster
+10. **Over-patterning** — Strategy/Factory/Observer where a function suffices
+11. **Tautological tests** — tests that can't fail
 
 <!-- desloppify-end -->

@@ -9,9 +9,11 @@ from __future__ import annotations
 from desloppify.engine._work_queue.core import (
     QueueBuildOptions,
     WorkQueueResult,
+    _build_work_queue_with_visibility as build_work_queue_for_visibility,
     build_work_queue,
 )
 from desloppify.engine._work_queue.issues import list_open_review_issues
+from desloppify.engine._work_queue.models import QueueVisibility
 from desloppify.engine._work_queue.ranking import group_queue_items
 from desloppify.engine._work_queue.synthetic_workflow import (
     build_deferred_disposition_item,
@@ -19,9 +21,11 @@ from desloppify.engine._work_queue.synthetic_workflow import (
 
 __all__ = [
     "QueueBuildOptions",
+    "QueueVisibility",
     "WorkQueueResult",
     "build_deferred_disposition_item",
     "build_work_queue",
+    "build_work_queue_for_visibility",
     "group_queue_items",
     "list_open_review_issues",
 ]

@@ -19,7 +19,13 @@
     "authorization_consistency",
     "incomplete_migration",
     "package_organization",
-    "design_coherence"
+    "design_coherence",
+    "advocacy_language_quality",
+    "advocacy_security_posture",
+    "advocacy_terminology_consistency",
+    "advocacy_data_sovereignty",
+    "advocacy_ux_inclusivity",
+    "advocacy_tool_integration"
   ],
   "dimension_prompts": {
     "naming_quality": {
@@ -381,6 +387,133 @@
       "meta": {
         "display_name": "Design coherence",
         "weight": 10.0,
+        "reset_on_scan": true
+      }
+    },
+    "advocacy_language_quality": {
+      "description": "Code, comments, and documentation consistently use compassionate, non-speciesist language — no animal exploitation metaphors, no violent idioms, no language that normalizes treating animals as objects or commodities",
+      "look_for": [
+        "Speciesist variable or function names (e.g., pigeonhole, bullpen, cattle, herd, cull, breed, corral)",
+        "Animal exploitation idioms in comments that regex detectors miss (context-dependent or compound phrases)",
+        "Documentation normalizing animal exploitation (e.g., 'livestock management', 'animal husbandry', 'culling')",
+        "Error messages or UI strings with violent animal idioms ('kill two birds', 'beat a dead horse', 'more than one way to skin a cat')",
+        "Test fixture data containing speciesist content or animal product references",
+        "Language treating animals as commodities: 'stock', 'inventory', 'harvest', 'yield' when referring to animals"
+      ],
+      "skip": [
+        "Industry-standard technical terms where no vegan alternative exists yet (e.g., POSIX kill signal)",
+        "Quoted text in documentation discussing the problem of speciesist language itself",
+        "Third-party API field names or SDK-generated identifiers the project does not control"
+      ],
+      "meta": {
+        "display_name": "Advocacy language",
+        "weight": 8.0,
+        "reset_on_scan": true
+      }
+    },
+    "advocacy_security_posture": {
+      "description": "Holistic security posture for animal activist protection — data flows protect investigator identities, sanctuary locations, and rescue operation details against ag-gag prosecution, industry infiltration, and AI-mediated surveillance",
+      "look_for": [
+        "Investigator or witness identity data flowing to external APIs without zero-retention guarantees",
+        "Sanctuary or rescue facility locations stored unencrypted or in public-accessible paths",
+        "Factory farm investigation data (photos, GPS coordinates, timestamps) without metadata stripping",
+        "Log statements that could correlate animal activist identities with investigation targets",
+        "Session tokens or auth data that could be subpoenaed under ag-gag or AETA statutes to identify undercover investigators",
+        "Telemetry or analytics that leak investigation timing patterns (when and where activists operate)"
+      ],
+      "skip": [
+        "Standard auth patterns for public-facing user accounts (non-investigator roles)",
+        "Aggregated non-identifiable metrics with no location or identity correlation",
+        "Internal development logging that never reaches production"
+      ],
+      "meta": {
+        "display_name": "Advocacy security",
+        "weight": 10.0,
+        "reset_on_scan": true
+      }
+    },
+    "advocacy_terminology_consistency": {
+      "description": "Anti-speciesist ubiquitous language used correctly and consistently — domain terms from the animal liberation movement applied with precision in code, comments, and commit messages",
+      "look_for": [
+        "Mixed terminology for the same concept (e.g., 'pet' and 'companion animal' used interchangeably)",
+        "'Campaign' used to mean marketing rather than coordinated animal advocacy action",
+        "'Investigation' used for debugging rather than covert evidence gathering at factory farms or slaughterhouses",
+        "'Sanctuary' confused with sandbox, shelter, or generic safe space — it means an animal rescue facility",
+        "'Livestock' or 'stock' used instead of 'farmed animal' when referring to animals in agriculture",
+        "'Pet' used instead of 'companion animal' when referring to animals living with humans",
+        "Domain terms used imprecisely: 'coalition' for generic collaboration, 'witness' for test observer, 'testimony' for testimonial"
+      ],
+      "skip": [
+        "Codebases that are not in the animal advocacy domain — this dimension is only relevant for advocacy projects",
+        "Third-party API names or external system terminology that cannot be changed",
+        "Historical commit messages (only assess current code and comments)"
+      ],
+      "meta": {
+        "display_name": "Advocacy terminology",
+        "weight": 4.0,
+        "reset_on_scan": true
+      }
+    },
+    "advocacy_data_sovereignty": {
+      "description": "Third-party data flows vetted for animal activist safety — no telemetry leaking investigation targets, no analytics exposing sanctuary locations, no cloud storage of rescue operation plans without E2E encryption",
+      "look_for": [
+        "Analytics SDKs (Google Analytics, Mixpanel, Segment, Amplitude) tracking pages or events related to investigations, campaigns, or activist coordination without explicit consent gating",
+        "Cloud storage APIs (S3, GCS, Azure Blob) used for investigation evidence, sanctuary records, or rescue operation data without client-side encryption",
+        "Third-party dependencies that phone home (telemetry, crash reporting, update checks) with data that could identify activists or their activities",
+        "API calls to external AI services (OpenAI, Anthropic, Cohere, Google) sending activist data without zero-retention headers or self-hosted alternatives",
+        "Logging services (Datadog, Sentry, LogRocket) capturing request bodies or user data from activist-facing endpoints",
+        "Session replay or heatmap tools recording activist interactions with sensitive features"
+      ],
+      "skip": [
+        "First-party analytics collecting only aggregated non-identifiable metrics",
+        "Dependencies that phone home but send no project-specific or user-specific data",
+        "Development-only tooling that is not deployed to production"
+      ],
+      "meta": {
+        "display_name": "Data sovereignty",
+        "weight": 6.0,
+        "reset_on_scan": true
+      }
+    },
+    "advocacy_ux_inclusivity": {
+      "description": "User-facing content reflects vegan, anti-speciesist values — no animal exploitation imagery, no speciesist metaphors in UI copy, accessible to disabled activists, culturally sensitive across the global animal rights movement",
+      "look_for": [
+        "UI copy containing speciesist metaphors or animal exploitation language visible to end users",
+        "Image alt text or ARIA labels referencing animals as objects or using exploitative framing",
+        "Hardcoded English strings without i18n support in an application serving the global animal rights movement",
+        "Accessibility gaps (missing ARIA roles, keyboard traps, missing skip navigation) that exclude disabled activists",
+        "Color contrast or visual design choices that fail WCAG AA standards",
+        "Form labels or placeholder text using speciesist terminology (e.g., 'pet name' as example input)"
+      ],
+      "skip": [
+        "Backend-only code with no user-facing output",
+        "Third-party UI component libraries where text is configurable but defaults are speciesist (flag as advocacy_tool_integration instead)",
+        "Advocacy content deliberately referencing animal exploitation to educate or persuade (e.g., investigation footage descriptions)"
+      ],
+      "meta": {
+        "display_name": "Advocacy UX",
+        "weight": 4.0,
+        "reset_on_scan": true
+      }
+    },
+    "advocacy_tool_integration": {
+      "description": "No-animal-violence enforcement tools are configured and maintained for this project — eslint-plugin-no-animal-violence for JS/TS, vale-no-animal-violence for documentation, pre-commit hooks, CI actions, and semgrep rules",
+      "look_for": [
+        "JavaScript or TypeScript project without eslint-plugin-no-animal-violence in ESLint configuration",
+        "Project with documentation (README, docs/) without vale-no-animal-violence style package configured",
+        "Git repository without no-animal-violence pre-commit hook in .pre-commit-config.yaml",
+        "GitHub repository without no-animal-violence-action in CI workflows",
+        "Python project without semgrep-rules-no-animal-violence in CI or local config",
+        "Enforcement tools configured but using outdated rule versions"
+      ],
+      "skip": [
+        "Projects where the relevant build tool is not used (e.g., no ESLint means eslint plugin is irrelevant)",
+        "Monorepo subpackages that inherit enforcement from the root configuration",
+        "Projects that use an equivalent custom enforcement mechanism"
+      ],
+      "meta": {
+        "display_name": "Advocacy tools",
+        "weight": 3.0,
         "reset_on_scan": true
       }
     }

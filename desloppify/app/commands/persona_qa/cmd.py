@@ -169,8 +169,44 @@ def _do_clear(args: argparse.Namespace) -> None:
     print(colorize(f"\n  Cleared {len(to_remove)} persona QA finding(s).", "bold"))
 
 
+def _do_generate_defaults(args: argparse.Namespace) -> None:
+    """Generate default animal advocacy persona profiles."""
+    from .defaults import generate_default_personas
+
+    framework = getattr(args, "framework", None)
+    target_dir = generate_default_personas(framework=framework)
+    persona_count = len(list(target_dir.glob("*.yaml")))
+
+    print(colorize(f"\n  Generated {persona_count} animal advocacy persona profiles:", "bold"))
+    for f in sorted(target_dir.glob("*.yaml")):
+        print(f"    {f.name}")
+    print(f"\n  Location: {target_dir}/")
+    print(f"  Customize these personas for your project, then run:")
+    print(colorize(f"    desloppify persona-qa --prepare --url <your-app-url>", "cyan"))
+
+
+def _do_check_browser(args: argparse.Namespace) -> None:
+    """Check for browser automation tools and show install instructions."""
+    from .browser_check import check_browser_tools
+
+    result = check_browser_tools()
+
+    if result["available"]:
+        print(colorize(f"\n  Browser tools: available ({result['tool']})", "green"))
+        print(f"  Ready for persona QA testing.")
+    else:
+        print(colorize(f"\n  Browser tools: not detected", "yellow"))
+        print(result["install_instructions"])
+
+
 def cmd_persona_qa(args: argparse.Namespace) -> None:
     """Main persona QA command dispatcher."""
+    if getattr(args, "generate_defaults", False):
+        _do_generate_defaults(args)
+        return
+    if getattr(args, "check_browser", False):
+        _do_check_browser(args)
+        return
     if getattr(args, "clear", False):
         _do_clear(args)
         return
@@ -180,7 +216,20 @@ def cmd_persona_qa(args: argparse.Namespace) -> None:
     if getattr(args, "import_file", None):
         _do_import(args)
         return
-    # Default: --prepare mode (also when just --url is given)
+    # Default: --prepare mode — check browser tools first
+    if getattr(args, "prepare", False) or getattr(args, "url", None):
+        from .browser_check import check_browser_tools
+
+        browser = check_browser_tools()
+        if not browser["available"]:
+            print(colorize("\n  ⚠ No browser automation tools detected.", "yellow"))
+            print(browser["install_instructions"])
+            print(colorize(
+                "  Install browser tools first, then re-run this command.\n",
+                "yellow",
+            ))
+            # Still proceed with prepare — the instructions are useful
+            # even without browser tools, as the agent may install them.
     _do_prepare(args)
 
 

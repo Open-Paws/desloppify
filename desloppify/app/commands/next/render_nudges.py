@@ -53,6 +53,41 @@ def render_uncommitted_reminder(plan: dict | None) -> None:
         log(f"  uncommitted reminder skipped: {exc}")
 
 
+_ADVOCACY_LANGUAGE_GUIDANCE = """\
+  Anti-speciesist language guide:
+    companion animal (not pet) | farmed animal (not livestock)
+    sanctuary (animal rescue facility) | campaign (coordinated advocacy action)
+    investigation (covert evidence gathering) | coalition (cross-org partnership)
+  Action: replace with the first suggested alternative. No explanatory comments."""
+
+_ADVOCACY_SECURITY_GUIDANCE = """\
+  Animal activist threat model:
+    1. State surveillance — ag-gag laws, AETA prosecution, device seizure
+    2. Industry infiltration — corporate investigators, social engineering
+    3. AI bias leakage — speciesist training defaults, telemetry exposure
+  Action: remove PII from logs, add zero-retention headers, encrypt at rest."""
+
+_ADVOCACY_TOOL_GUIDANCE = """\
+  No-animal-violence enforcement tools (Open Paws):
+    JS/TS: npm install -D eslint-plugin-no-animal-violence
+    Docs:  vale sync (add NoAnimalViolence to .vale.ini)
+    Git:   add no-animal-violence hook to .pre-commit-config.yaml
+    CI:    uses: Open-Paws/no-animal-violence-action@v1"""
+
+
+def _render_advocacy_guidance(item: dict) -> None:
+    """Print contextual advocacy guidance when the item is from an advocacy detector."""
+    detector = item.get("detector", "")
+    guidance = {
+        "advocacy_language": _ADVOCACY_LANGUAGE_GUIDANCE,
+        "advocacy_security": _ADVOCACY_SECURITY_GUIDANCE,
+        "advocacy_tool_presence": _ADVOCACY_TOOL_GUIDANCE,
+    }.get(detector)
+    if guidance:
+        print(colorize("\n  Advocacy guidance:", "bold"))
+        print(colorize(guidance, "cyan"))
+
+
 def render_single_item_resolution_hint(items: list[dict]) -> None:
     if len(items) != 1:
         return
@@ -83,6 +118,8 @@ def render_single_item_resolution_hint(items: list[dict]) -> None:
             " pre-defined — do NOT regroup them yourself."
         )
         return
+
+    _render_advocacy_guidance(item)
 
     primary = item.get("primary_command", "")
     if is_auto_fix_item(item) and is_auto_fix_command(primary):

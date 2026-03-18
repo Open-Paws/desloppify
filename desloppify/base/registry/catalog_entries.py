@@ -512,15 +512,27 @@ DETECTORS: dict[str, DetectorMeta] = {
         "replace speciesist language with inclusive alternatives — "
         "see the replacement suggestions in the issue summary",
         tier=3,
+        subjective_dimensions=("advocacy_language_quality",),
     ),
     "advocacy_security": DetectorMeta(
         "advocacy_security",
         "advocacy security",
         "Advocacy security",
         "manual_fix",
-        "review for activist identity exposure, sensitive data "
+        "review for animal activist identity exposure, sensitive data "
         "transmission to external APIs, and ag-gag compliance risks",
         tier=2,
+        subjective_dimensions=("advocacy_security_posture",),
+    ),
+    "advocacy_tool_presence": DetectorMeta(
+        "advocacy_tool_presence",
+        "advocacy tools",
+        "Advocacy tools",
+        "manual_fix",
+        "install Open Paws no-animal-violence enforcement tools "
+        "for this project's toolchain — see install instructions in issue summary",
+        tier=3,
+        subjective_dimensions=("advocacy_tool_integration",),
     ),
     # ── Persona-based browser QA ────────────────────────
     "persona_qa": DetectorMeta(

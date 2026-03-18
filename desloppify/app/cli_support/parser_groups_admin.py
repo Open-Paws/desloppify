@@ -196,7 +196,9 @@ examples:
   desloppify persona-qa --prepare --url http://localhost:3000 --persona new-visitor
   desloppify persona-qa --import findings.json
   desloppify persona-qa --status
-  desloppify persona-qa --clear""",
+  desloppify persona-qa --clear
+  desloppify persona-qa --generate-defaults
+  desloppify persona-qa --check-browser""",
     )
     p.add_argument("--url", type=str, default=None, help="Base URL to test against")
     p.add_argument("--persona", type=str, default=None, help="Run only a specific persona (by name or filename)")
@@ -204,6 +206,8 @@ examples:
     p.add_argument("--import", dest="import_file", type=str, default=None, help="Import findings JSON into state")
     p.add_argument("--status", action="store_true", help="Show per-persona pass/fail summary")
     p.add_argument("--clear", action="store_true", help="Remove all persona QA findings from state")
+    p.add_argument("--generate-defaults", action="store_true", help="Generate default animal advocacy persona profiles in .desloppify/personas/")
+    p.add_argument("--check-browser", action="store_true", help="Check if browser automation tools are available and show install instructions")
 
 
 def _add_update_skill_parser(sub) -> None:

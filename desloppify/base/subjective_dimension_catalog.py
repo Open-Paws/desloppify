@@ -26,6 +26,13 @@ DISPLAY_NAMES: dict[str, str] = {
     "logic_clarity": "Logic clarity",
     "type_safety": "Type safety",
     "contract_coherence": "Contracts",
+    # ── Open Paws animal advocacy dimensions ──────────────
+    "advocacy_language_quality": "Advocacy language",
+    "advocacy_security_posture": "Advocacy security",
+    "advocacy_terminology_consistency": "Advocacy terminology",
+    "advocacy_data_sovereignty": "Data sovereignty",
+    "advocacy_ux_inclusivity": "Advocacy UX",
+    "advocacy_tool_integration": "Advocacy tools",
 }
 
 _SUBJECTIVE_WEIGHTS_BY_DISPLAY: dict[str, float] = {
@@ -41,6 +48,13 @@ _SUBJECTIVE_WEIGHTS_BY_DISPLAY: dict[str, float] = {
     "naming quality": 2.0,
     "ai generated debt": 1.0,
     "design coherence": 10.0,
+    # Open Paws animal advocacy dimensions
+    "advocacy language": 8.0,
+    "advocacy security": 10.0,
+    "advocacy terminology": 4.0,
+    "data sovereignty": 6.0,
+    "advocacy ux": 4.0,
+    "advocacy tools": 3.0,
 }
 
 RESET_ON_SCAN_DIMENSIONS: frozenset[str] = frozenset(
@@ -56,6 +70,13 @@ RESET_ON_SCAN_DIMENSIONS: frozenset[str] = frozenset(
         "high_level_elegance",
         "mid_level_elegance",
         "low_level_elegance",
+        # Open Paws animal advocacy dimensions
+        "advocacy_language_quality",
+        "advocacy_security_posture",
+        "advocacy_terminology_consistency",
+        "advocacy_data_sovereignty",
+        "advocacy_ux_inclusivity",
+        "advocacy_tool_integration",
     }
 )
 

@@ -181,28 +181,10 @@ def _should_downgrade(line: str, downgrade_rules: list[_ContextRule]) -> bool:
 
 def _find_files(path: Path, lang_extensions: frozenset[str] | None = None) -> list[str]:
     """Find text files to scan under the given path."""
-    extensions = set(_EXTRA_EXTENSIONS)
-    if lang_extensions:
-        extensions |= set(lang_extensions)
+    from desloppify.engine.detectors.advocacy_common import find_source_files
 
-    if path.is_file():
-        return [str(path)]
-
-    files = []
-    for root, dirs, filenames in os.walk(path):
-        # Skip common non-content directories
-        dirs[:] = [
-            d for d in dirs
-            if d not in {
-                "node_modules", ".git", "dist", "build", ".next",
-                "__pycache__", ".mypy_cache", ".pytest_cache", "vendor",
-                ".desloppify", ".venv", "venv",
-            }
-        ]
-        for name in filenames:
-            if any(name.endswith(ext) for ext in extensions):
-                files.append(os.path.join(root, name))
-    return files
+    extensions = frozenset(_EXTRA_EXTENSIONS) | (lang_extensions or frozenset())
+    return find_source_files(path, extensions)
 
 
 def detect_advocacy_language(

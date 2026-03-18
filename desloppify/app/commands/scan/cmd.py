@@ -50,6 +50,41 @@ from desloppify.base.search.query import write_query
 from . import preflight as scan_preflight_mod
 
 
+def _show_persona_qa_nudge(scan_path) -> None:
+    """Show persona QA recommendation if a web frontend is detected."""
+    from pathlib import Path
+
+    try:
+        from desloppify.engine.detectors.frontend_detection import detect_web_frontend
+    except ImportError:
+        return
+
+    result = detect_web_frontend(Path(scan_path) if scan_path else Path.cwd())
+    if result is None:
+        return
+
+    personas_dir = Path(".desloppify") / "personas"
+    has_personas = personas_dir.is_dir() and any(personas_dir.glob("*.yaml"))
+
+    framework = result.get("framework", "web")
+    if not has_personas:
+        print(
+            colorize(
+                f"\n  {framework} frontend detected. Generate animal advocacy personas:\n"
+                f"    desloppify persona-qa --generate-defaults",
+                "cyan",
+            )
+        )
+    else:
+        print(
+            colorize(
+                f"\n  {framework} frontend detected, personas configured.\n"
+                f"    desloppify persona-qa --prepare --url <your-app-url>",
+                "cyan",
+            )
+        )
+
+
 def _print_scan_header(lang_label: str) -> None:
     """Print the scan header line."""
     print(colorize(f"\nDesloppify Scan{lang_label}\n", "bold"))
@@ -191,6 +226,7 @@ def cmd_scan(args: argparse.Namespace) -> None:
     )
 
     badge_path, _badge_result = emit_scorecard_badge(args, runtime.config, runtime.state)
+    _show_persona_qa_nudge(runtime.path)
     print_llm_summary(runtime.state, badge_path, narrative, merge.diff)
     auto_update_skill()
 

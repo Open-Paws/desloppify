@@ -49,6 +49,7 @@ DISPLAY_ORDER = [
     "security",
     "advocacy_language",
     "advocacy_security",
+    "advocacy_tool_presence",
     "persona_qa",
     "concerns",
     "review",

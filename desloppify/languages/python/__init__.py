@@ -15,6 +15,7 @@ from desloppify.languages._framework.base.phase_builders import (
 from desloppify.languages._framework.phases_advocacy import (
     detector_phase_advocacy_language,
     detector_phase_advocacy_security,
+    detector_phase_advocacy_tool_presence,
 )
 from desloppify.languages._framework.registry.registration import register_full_plugin
 from desloppify.languages._framework.registry.state import register_lang_hooks
@@ -115,6 +116,7 @@ class PythonConfig(LangConfig):
                 DetectorPhase("Unused enums", phase_unused_enums),
                 detector_phase_advocacy_language(),
                 detector_phase_advocacy_security(),
+                detector_phase_advocacy_tool_presence(),
                 *shared_subjective_duplicates_tail(),
             ],
             fixers={},

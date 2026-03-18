@@ -87,9 +87,47 @@ def detector_phase_advocacy_security() -> DetectorPhase:
     return DetectorPhase("Advocacy security", phase_advocacy_security)
 
 
+def phase_advocacy_tool_presence(
+    path: Path, lang: LangRuntimeContract
+) -> tuple[list[Issue], dict[str, int]]:
+    """Detect missing no-animal-violence enforcement tools."""
+    from desloppify.engine.detectors.advocacy_tool_presence import (
+        detect_advocacy_tool_presence,
+    )
+
+    entries, potentials = detect_advocacy_tool_presence(path)
+
+    results: list[Issue] = []
+    for entry in entries:
+        results.append(
+            make_issue(
+                "advocacy_tool_presence",
+                entry["file"],
+                entry.get("name", ""),
+                tier=entry["tier"],
+                confidence=entry["confidence"],
+                summary=entry["summary"],
+                detail=entry.get("detail", {}),
+            )
+        )
+
+    potential_count = potentials.get("advocacy_tool_presence", 0)
+    log(f"         {len(entries)} instances → {len(results)} issues")
+    return results, {
+        "advocacy_tool_presence": adjust_potential(lang.zone_map, potential_count),
+    }
+
+
+def detector_phase_advocacy_tool_presence() -> DetectorPhase:
+    """Return a DetectorPhase for advocacy tool presence detection."""
+    return DetectorPhase("Advocacy tools", phase_advocacy_tool_presence)
+
+
 __all__ = [
     "detector_phase_advocacy_language",
     "detector_phase_advocacy_security",
+    "detector_phase_advocacy_tool_presence",
     "phase_advocacy_language",
     "phase_advocacy_security",
+    "phase_advocacy_tool_presence",
 ]
