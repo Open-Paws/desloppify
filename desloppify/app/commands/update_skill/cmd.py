@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import ssl
 import urllib.error
 import urllib.request
 
@@ -23,11 +24,30 @@ from desloppify.base.output.terminal import colorize
 _RAW_BASE = "https://raw.githubusercontent.com/Open-Paws/desloppify/main/docs"
 
 
+def _ssl_context() -> ssl.SSLContext:
+    """Build SSL context, preferring certifi CA bundle for macOS compatibility."""
+    try:
+        import certifi  # noqa: F811
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        return ssl.create_default_context()
+
+
 def _download(filename: str) -> str:
     """Download a file from the desloppify docs directory on GitHub."""
     url = f"{_RAW_BASE}/{filename}"
-    with urllib.request.urlopen(url, timeout=15) as resp:  # nosec B310
-        return resp.read().decode("utf-8")
+    try:
+        ctx = _ssl_context()
+        with urllib.request.urlopen(url, timeout=15, context=ctx) as resp:  # nosec B310
+            return resp.read().decode("utf-8")
+    except urllib.error.URLError as exc:
+        if "CERTIFICATE_VERIFY_FAILED" in str(exc):
+            raise CommandError(
+                f"SSL certificate verification failed downloading {filename}.\n"
+                "On macOS with Homebrew Python, try: pip install certifi\n"
+                "Or run: /Applications/Python\\ 3.*/Install\\ Certificates.command"
+            ) from exc
+        raise
 
 
 def _build_section(skill_content: str, overlay_content: str | None) -> str:
