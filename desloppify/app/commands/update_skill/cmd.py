@@ -15,6 +15,7 @@ from desloppify.app.skill_docs import (
     SkillInstall,
     find_installed_skill,
 )
+from desloppify.base.exception_sets import CommandError
 from desloppify.base.discovery.file_paths import safe_write_text
 from desloppify.base.discovery.paths import get_project_root
 from desloppify.base.output.terminal import colorize
@@ -87,11 +88,23 @@ def _replace_section(file_content: str, new_section: str) -> str:
 
     Uses first ``<!-- desloppify-begin -->`` and last ``<!-- desloppify-end -->``
     so the overlay (which also has an end marker) is captured correctly.
+
+    Raises ``CommandError`` if the file already contains desloppify content
+    (detected by the version marker) but is missing the begin/end markers —
+    this prevents silently appending duplicate content.
     """
     begin = file_content.find(SKILL_BEGIN)
     end = file_content.rfind(SKILL_END)
     if begin == -1 or end == -1:
-        # No section markers — append (first install into existing shared file).
+        # Check if the file already has desloppify content without markers.
+        if SKILL_VERSION_RE.search(file_content):
+            raise CommandError(
+                "This file already contains desloppify skill content but is "
+                "missing <!-- desloppify-begin --> / <!-- desloppify-end --> "
+                "markers. Please add these markers around the existing "
+                "desloppify section, or remove the old content first."
+            )
+        # No section markers and no existing content — append (first install).
         return file_content.rstrip() + "\n\n" + new_section
 
     before = file_content[:begin]
