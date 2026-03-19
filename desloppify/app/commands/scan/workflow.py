@@ -165,6 +165,10 @@ class ScanRuntime:
     reset_subjective_count: int = 0
     coverage_warnings: list[DetectorCoverageRecord] = field(default_factory=list)
     force_rescan: bool = False
+    scan_diff: dict[str, object] | None = None
+    prev_scores: dict[str, float | None] | None = None
+    prev_dim_scores: dict[str, object] | None = None
+    prev_last_scan: str | None = None
 
 
 @dataclass
@@ -446,6 +450,7 @@ def merge_scan_results(
     _persist_scan_coverage(runtime.state, runtime.lang)
 
     target_score = target_strict_score_from_config(runtime.config)
+    runtime.prev_last_scan = str(runtime.state.get("last_scan", "") or "") or None
 
     diff = merge_scan(
         runtime.state,
@@ -475,6 +480,14 @@ def merge_scan_results(
     )
 
     _clear_needs_rescan_flag(runtime.config)
+    runtime.scan_diff = diff
+    runtime.prev_scores = {
+        "overall": prev.overall,
+        "objective": prev.objective,
+        "strict": prev.strict,
+        "verified_strict": prev.verified,
+    }
+    runtime.prev_dim_scores = prev_dim_scores
     _reconcile_plan_post_scan(runtime)
 
     return ScanMergeResult(

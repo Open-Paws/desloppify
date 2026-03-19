@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from desloppify.engine._work_queue.snapshot import QueueSnapshot
 
 from desloppify.app.commands.helpers.queue_progress import format_plan_delta
 from desloppify.base.output.terminal import colorize
@@ -221,12 +225,32 @@ def render_cluster_item(item: dict) -> None:
     _render_required_cluster_commands(cluster_name)
 
 
-def render_queue_header(queue: dict, explain: bool) -> None:
-    del explain
+def render_queue_explanation(
+    snapshot: QueueSnapshot,
+    plan: dict | None,
+) -> None:
+    """Print a queue explanation preamble from the canonical snapshot."""
+    from desloppify.engine._work_queue.policy import explain_queue
+
+    text = explain_queue(snapshot, plan)
+    print(colorize("\n  Queue context:", "cyan"))
+    print(colorize(text, "dim"))
+    print()
+
+
+def render_queue_header(
+    queue: dict,
+    explain: bool,
+    *,
+    snapshot: QueueSnapshot | None = None,
+    plan: dict | None = None,
+) -> None:
     total = queue.get("total", 0)
     print(colorize(f"\n  Queue: {total} item{'s' if total != 1 else ''}", "bold"))
     if total > 5:
         print(colorize("  (Skip items only when explicitly requested.)", "dim"))
+    if explain and snapshot is not None:
+        render_queue_explanation(snapshot, plan)
 
 
 def show_empty_queue(
@@ -283,6 +307,7 @@ __all__ = [
     "render_cluster_item",
     "render_compact_item",
     "render_grouped",
+    "render_queue_explanation",
     "render_queue_header",
     "scorecard_subjective",
     "show_empty_queue",

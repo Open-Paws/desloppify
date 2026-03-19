@@ -19,6 +19,7 @@ from desloppify.engine._plan.operations.meta import append_log_entry
 from desloppify.engine._plan.persistence import load_plan, save_plan
 from desloppify.engine._plan.scan_issue_reconcile import reconcile_plan_after_scan
 from desloppify.engine._plan.refresh_lifecycle import (
+    current_lifecycle_phase,
     mark_postflight_scan_completed,
 )
 from desloppify.engine._plan.sync import (
@@ -31,6 +32,13 @@ from desloppify.engine._plan.sync.context import is_mid_cycle
 from desloppify.engine._plan.sync.workflow import (
     clear_create_plan_sentinel,
     clear_score_communicated_sentinel,
+)
+from desloppify.engine._state.progression import (
+    _execution_log_ids_since,
+    append_progression_event,
+    build_postflight_scan_event,
+    build_scan_complete_event,
+    maybe_append_entered_planning,
 )
 from desloppify.engine.work_queue import build_deferred_disposition_item
 
@@ -190,15 +198,28 @@ def _sync_plan_start_scores_and_log(
 def _sync_postflight_scan_completion_and_log(
     plan: dict[str, object],
     state: state_mod.StateModel,
+    *,
+    phase_before: str | None = None,
 ) -> bool:
     changed = _mark_postflight_scan_completed_if_ready(state, plan)
     if changed:
+        scan_count = int(state.get("scan_count", 0) or 0)
         append_log_entry(
             plan,
             "complete_postflight_scan",
             actor="system",
-            detail={"scan_count": int(state.get("scan_count", 0) or 0)},
+            detail={"scan_count": scan_count},
         )
+        try:
+            append_progression_event(
+                build_postflight_scan_event(
+                    plan,
+                    scan_count_marker=scan_count,
+                    phase_before=phase_before,
+                )
+            )
+        except Exception:
+            logger.warning("Failed to append postflight_scan_completed progression event", exc_info=True)
     return changed
 
 
@@ -289,6 +310,8 @@ def reconcile_plan_post_scan(runtime: Any) -> None:
         logger.warning("Plan reconciliation skipped (load failed): %s", exc)
         return
 
+    phase_before = current_lifecycle_phase(plan)
+
     force_rescan = getattr(runtime, "force_rescan", False)
     dirty = _reset_cycle_for_force_rescan(plan) if force_rescan else False
     dirty = _sync_post_scan_without_policy(plan=plan, state=runtime.state) or dirty
@@ -311,7 +334,7 @@ def reconcile_plan_post_scan(runtime: Any) -> None:
 
     if not force_rescan and _sync_plan_start_scores_and_log(plan, runtime.state):
         dirty = True
-    if _sync_postflight_scan_completion_and_log(plan, runtime.state):
+    if _sync_postflight_scan_completion_and_log(plan, runtime.state, phase_before=phase_before):
         dirty = True
 
     if dirty:
@@ -319,6 +342,45 @@ def reconcile_plan_post_scan(runtime: Any) -> None:
             save_plan(plan, plan_path)
         except PLAN_LOAD_EXCEPTIONS as exc:
             logger.warning("Plan reconciliation save failed: %s", exc)
+
+    # --- Progression: scan_complete (unconditional) ---
+    try:
+        from desloppify.app.commands.plan.triage.completion_flow import count_log_activity_since
+
+        prev_last_scan = getattr(runtime, "prev_last_scan", None)
+        execution_summary = (
+            count_log_activity_since(plan, prev_last_scan) if prev_last_scan else {}
+        )
+        resolved_ids, skipped_ids = _execution_log_ids_since(plan, prev_last_scan)
+        append_progression_event(
+            build_scan_complete_event(
+                runtime.state,
+                plan,
+                getattr(runtime, "scan_diff", None) or {},
+                prev_scores=getattr(runtime, "prev_scores", None),
+                lang=runtime.lang.name if getattr(runtime, "lang", None) else None,
+                phase_before=phase_before,
+                execution_summary=execution_summary,
+                prev_dimension_scores=getattr(runtime, "prev_dim_scores", None),
+                resolved_ids=resolved_ids or None,
+                skipped_ids=skipped_ids or None,
+            )
+        )
+    except Exception:
+        logger.warning("Failed to append scan_complete progression event", exc_info=True)
+
+    # --- Progression: entered_planning_mode ---
+    try:
+        maybe_append_entered_planning(
+            runtime.state,
+            plan,
+            source_command="scan",
+            trigger_action="reconcile_plan",
+            issue_ids=None,
+            phase_before=phase_before,
+        )
+    except Exception:
+        logger.warning("Failed to append entered_planning_mode progression event", exc_info=True)
 
 
 __all__ = [

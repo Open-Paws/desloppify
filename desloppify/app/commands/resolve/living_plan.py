@@ -21,6 +21,11 @@ from desloppify.engine.plan_ops import (
 from desloppify.engine._plan.refresh_lifecycle import (
     LIFECYCLE_PHASE_EXECUTE,
     clear_postflight_scan_completion,
+    current_lifecycle_phase,
+)
+from desloppify.engine._state.progression import (
+    maybe_append_entered_planning,
+    maybe_append_execution_drain,
 )
 from desloppify.engine.plan_state import (
     add_uncommitted_issues,
@@ -93,6 +98,7 @@ def update_living_plan_after_resolve(
             return None, ctx
         plan = load_plan(plan_path)
         ctx = capture_cluster_context(plan, all_resolved)
+        phase_before = current_lifecycle_phase(plan)
         purged = purge_ids(plan, all_resolved)
         step_messages = auto_complete_steps(plan)
         for msg in step_messages:
@@ -126,10 +132,37 @@ def update_living_plan_after_resolve(
         transition_phase: str | None = None
         if clear_postflight_scan_completion(plan, issue_ids=all_resolved, state=state):
             transition_phase = LIFECYCLE_PHASE_EXECUTE
+        queue_drained = False
         reconcile_phase = _reconcile_if_queue_drained(plan, state)
         if reconcile_phase:
             transition_phase = reconcile_phase
+            queue_drained = True
         save_plan(plan, plan_path)
+
+        # --- Progression: execution_drain (only when queue actually drained)
+        #     + entered_planning_mode ---
+        if queue_drained:
+            try:
+                maybe_append_execution_drain(
+                    state or {},
+                    plan,
+                    trigger_action="resolve",
+                    issue_ids=all_resolved,
+                    cluster_name=ctx.cluster_name,
+                    phase_before=phase_before,
+                    source_command="resolve",
+                )
+                maybe_append_entered_planning(
+                    state,
+                    plan,
+                    source_command="resolve",
+                    trigger_action="resolve",
+                    issue_ids=all_resolved,
+                    phase_before=phase_before,
+                )
+            except Exception:
+                _logger.warning("Failed to append progression event after resolve", exc_info=True)
+
         if purged:
             print(colorize(f"  Plan updated: {purged} item(s) removed from queue.", "dim"))
         if transition_phase:

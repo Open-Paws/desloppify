@@ -1,86 +1,49 @@
 # Work Queue
 
-How items get from scan results into the execution queue that `desloppify next` returns.
+How items flow from scan results into the execution queue that `desloppify next` returns.
+
+## Core concepts
+
+- **`queue_order`** is the durable ordering source (persisted in plan JSON).
+- **Phase gate** controls visibility — re-resolved from live items every build, not from persisted phase.
+- **`auto_queue` detectors** (`unused`, `logs`) auto-inject into `queue_order` without triage.
+- See `policy.py` for the readable queue model summary.
+- See `docs/QUEUE_LIFECYCLE.md` for phase lifecycle rules.
 
 ## Lifecycle phases
 
-The queue shows different items depending on which lifecycle phase the plan is in.
-Phase is determined by `_phase_for_snapshot()` and `_legacy_phase_inference()`.
+Phase is determined by `_phase_for_snapshot()` with `_legacy_phase_inference()` fallback.
 
-1. **PHASE_REVIEW_INITIAL** — fresh boundary (first scan or cycle reset), no scores yet.
-   Shows subjective review items ("review these dimensions"). Objective items are NOT
-   visible. Users must complete initial review before seeing the execution queue.
+1. **PHASE_REVIEW_INITIAL** — fresh boundary, no scores yet. Shows subjective review items.
+   Objective items are NOT visible until initial review completes.
 
 2. **PHASE_EXECUTE** — the main work phase. Shows objective (mechanical defect) items.
-   This is where test_coverage, dead_code, naming, etc. appear.
+   Only issues in `queue_order` are executable (post-triage). Pre-triage: all objectives visible.
 
 3. **PHASE_SCAN** / **PHASE_*_POSTFLIGHT** — workflow items (rescan, communicate score,
    assessment, triage). These gate the execution phase.
 
-Most users reach PHASE_EXECUTE after the initial review completes and scores are seeded.
+## Auto-queue vs triage-promoted
 
-## The two queue modes (within PHASE_EXECUTE)
+Detectors with `auto_queue=True` in the registry (currently: `unused`, `logs`) get
+`execution_status=active` and `execution_policy=ephemeral_autopromote` at cluster creation.
+Their issues auto-inject into `queue_order`.
 
-The execution queue operates differently depending on whether triage has run:
-
-### Pre-triage (no plan or empty `queue_order`)
-
-ALL mechanical defect issues that pass these filters are executable:
-
-```
-Filter chain (ranking.py → snapshot.py → schema/__init__.py):
-  1. status == "open"                           (ranking.py:141)
-  2. not suppressed                             (ranking.py:139)
-  3. above standalone confidence threshold      (ranking.py:151-155)
-  4. scoped to scan_path                        (ranking.py:133)
-  5. work_item_kind == "mechanical_defect"      (snapshot.py:140, issue_semantics.py:152)
-  6. not in plan's skipped set                  (snapshot.py:141)
-```
-
-This includes: test_coverage, dead_code, naming, smells, coupling, security,
-unused imports/vars/enums, duplication, and all other mechanical detectors.
-
-This does NOT include: review defects (subjective), review concerns, assessment
-requests, or synthetic workflow items — those go through separate partitions.
-
-Sorted by:
-
-1. **Impact** (`per_point × headroom`) — issues in low-scoring dimensions sort first
-   because they have the most headroom to improve
-2. **Confidence** — higher confidence issues sort before lower
-3. **Count** — issues affecting more locations sort first
-
-This means whichever dimension has the lowest score AND the most issues dominates
-the queue. In practice, test_coverage often floods the queue because:
-- It generates one issue per untested file (high volume)
-- Most codebases start with low test coverage (high headroom)
-- Every issue is high confidence
-
-**Autofix vs manual has no effect on individual item ordering.** The `action_type`
-priority (auto_fix > refactor > manual_fix) only applies to cluster-level ordering
-after `collapse_clusters`, not to individual issue ranking.
-
-### Post-triage (`queue_order` populated)
-
-Only issues explicitly listed in `plan["queue_order"]` are executable. Everything
-else drops to the backlog. Triage (observe → reflect → organize → enrich) decides
-what goes in and in what order.
-
-The gate is `executable_objective_ids()` in `schema/__init__.py:310`:
-- No `queue_order` → all objective IDs executable (pre-triage mode)
-- `queue_order` has entries matching objectives → only those are executable
-- `queue_order` has entries but none match objectives → empty execution queue
+All other detectors require triage to promote their clusters to active. The precedence
+for determining execution policy is: **explicit persisted field → registry `auto_queue` → string-sniffing fallback**.
 
 ## Module map
 
 ```
-snapshot.py          build_queue_snapshot() — the main entry point
+snapshot.py          build_queue_snapshot() — canonical entry point
   → ranking.py       build_issue_items() — creates WorkQueueItem dicts from state
   → selection.py     items_for_visibility() — filters by execution/backlog view
   → finalize.py      finalize_queue() — enriches with impact, stamps plan position, sorts
   → plan_order.py    stamp_plan_sort_keys(), collapse_clusters()
   → synthetic.py     build_subjective_items(), build_triage_stage_items()
   → synthetic_workflow.py  workflow items (scan, review, communicate-score, deferred)
+policy.py            should_auto_queue(), explain_queue() — readable rules + explainability
+models.py            QueueBuildOptions, QueueSnapshot, WorkQueueResult
 ```
 
 ## Sort order (`item_sort_key` in ranking.py)
@@ -98,11 +61,5 @@ Natural sort (within each tier):
 ## Key types
 
 - `WorkQueueItem` (types.py) — TypedDict with id, kind, detector, file, etc.
-- `QueueSnapshot` (models.py) — the full snapshot: execution_items, backlog_items, phase, counts
+- `QueueSnapshot` (snapshot.py) — the full snapshot: execution_items, backlog_items, phase, counts
 - `_Partitions` (snapshot.py) — intermediate grouping before phase resolution
-
-## Tier field on issues
-
-The `tier` field (1-4) on individual issues is **display metadata only**. It appears
-in `plan` table output as T1/T2/T3/T4 and contributes to narrative dimension
-weighting, but does NOT affect queue ordering. The sort key uses impact, not tier.

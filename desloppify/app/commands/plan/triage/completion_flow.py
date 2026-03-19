@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from collections import defaultdict
 from typing import Any
 
 from desloppify.base.output.terminal import colorize
+from desloppify.engine._plan.refresh_lifecycle import current_lifecycle_phase
+from desloppify.engine._state.progression import (
+    append_progression_event,
+    build_triage_complete_event,
+)
 from desloppify.engine._plan.constants import (
     WORKFLOW_CREATE_PLAN_ID,
     WORKFLOW_SCORE_CHECKPOINT_ID,
@@ -26,6 +32,8 @@ from .review_coverage import (
     triage_coverage,
 )
 from .services import TriageServices, default_triage_services
+
+_logger = logging.getLogger(__name__)
 
 
 def _normalize_summary_text(text: str | None) -> str:
@@ -187,6 +195,7 @@ def apply_completion(
     resolved_services = services or default_triage_services()
     runtime = resolved_services.command_runtime(args)
     state = runtime.state
+    phase_before = current_lifecycle_phase(plan)
 
     coverage_ids = coverage_open_ids(plan, state)
     organized, total, clusters = triage_coverage(plan, open_review_ids=coverage_ids)
@@ -218,6 +227,24 @@ def apply_completion(
         state=state,
     )
     resolved_services.save_plan(plan)
+
+    # --- Progression: triage_complete ---
+    try:
+        append_progression_event(
+            build_triage_complete_event(
+                plan,
+                state,
+                completion_mode=completion_mode,
+                strategy_summary=effective_strategy_summary,
+                organized=organized,
+                total=total,
+                clusters=clusters,
+                phase_before=phase_before,
+            )
+        )
+    except Exception:
+        _logger.warning("Failed to append triage_complete progression event", exc_info=True)
+
     _print_completion_summary(
         clusters=clusters,
         organized=organized,

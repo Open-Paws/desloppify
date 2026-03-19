@@ -318,7 +318,7 @@ def test_auto_cluster_grouping_filters_to_open_unsuppressed_non_manual_items(
     monkeypatch.setattr(
         auto_cluster_sync_mod,
         "DETECTORS",
-        {"unused": SimpleNamespace(name="unused", needs_judgment=False)},
+        {"unused": SimpleNamespace(name="unused", needs_judgment=False, auto_queue=True)},
     )
 
     issues = {
@@ -441,7 +441,7 @@ def test_sync_issue_clusters_handles_name_collisions_and_user_modified_clusters(
     monkeypatch.setattr(
         auto_cluster_sync_mod,
         "DETECTORS",
-        {"unused": SimpleNamespace(name="unused", needs_judgment=False)},
+        {"unused": SimpleNamespace(name="unused", needs_judgment=False, auto_queue=True)},
     )
 
     changes = auto_cluster_sync_mod.sync_issue_clusters(

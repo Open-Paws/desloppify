@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from dataclasses import dataclass
 from typing import Literal
 
@@ -36,9 +37,16 @@ from desloppify.engine._plan.constants import (
 )
 from desloppify.engine._plan.refresh_lifecycle import (
     LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT,
+    current_lifecycle_phase,
     set_lifecycle_phase,
 )
 from desloppify.engine._plan.sync import live_planned_queue_empty, reconcile_plan
+from desloppify.engine._state.progression import (
+    maybe_append_entered_planning,
+    maybe_append_execution_drain,
+)
+
+_logger = logging.getLogger(__name__)
 from desloppify.engine.plan_triage import (
     triage_manual_stage_command,
     triage_runner_commands,
@@ -342,6 +350,7 @@ def _reconcile_if_queue_drained(
     plan: dict,
     *,
     synthetic_ids: list[str],
+    phase_before: str | None,
 ) -> None:
     """Advance postflight when resolving a workflow item drains the live queue."""
     if not live_planned_queue_empty(plan):
@@ -353,6 +362,26 @@ def _reconcile_if_queue_drained(
         inject_triage_stages(plan)
         changed = set_lifecycle_phase(plan, LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT)
         save_plan(plan)
+        # --- Progression ---
+        try:
+            maybe_append_execution_drain(
+                state_data,
+                plan,
+                trigger_action="workflow_resolve",
+                issue_ids=synthetic_ids,
+                phase_before=phase_before,
+                source_command="plan resolve",
+            )
+            maybe_append_entered_planning(
+                state_data,
+                plan,
+                source_command="plan resolve",
+                trigger_action="workflow_resolve",
+                issue_ids=synthetic_ids,
+                phase_before=phase_before,
+            )
+        except Exception:
+            _logger.warning("Failed to append progression event after workflow resolve", exc_info=True)
         if changed:
             emit_transition_message(LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT)
         return
@@ -362,6 +391,26 @@ def _reconcile_if_queue_drained(
         target_strict=target_strict_score_from_config(state_data.get("config")),
     )
     save_plan(plan)
+    # --- Progression ---
+    try:
+        maybe_append_execution_drain(
+            state_data,
+            plan,
+            trigger_action="workflow_resolve",
+            issue_ids=synthetic_ids,
+            phase_before=phase_before,
+            source_command="plan resolve",
+        )
+        maybe_append_entered_planning(
+            state_data,
+            plan,
+            source_command="plan resolve",
+            trigger_action="workflow_resolve",
+            issue_ids=synthetic_ids,
+            phase_before=phase_before,
+        )
+    except Exception:
+        _logger.warning("Failed to append progression event after workflow resolve", exc_info=True)
     if result.lifecycle_phase_changed:
         emit_transition_message(result.lifecycle_phase)
 
@@ -420,12 +469,13 @@ def resolve_workflow_patterns(
         if blocked is not None:
             return blocked
 
+    phase_before = current_lifecycle_phase(plan)
     _finalize_workflow_resolution(
         plan,
         synthetic_ids=synthetic_ids,
         note=note,
     )
-    _reconcile_if_queue_drained(args, plan, synthetic_ids=synthetic_ids)
+    _reconcile_if_queue_drained(args, plan, synthetic_ids=synthetic_ids, phase_before=phase_before)
 
     if not real_patterns:
         return WorkflowResolveOutcome(status="handled", remaining_patterns=[])

@@ -45,3 +45,5 @@ AGENTS.md
 tasks/
 /scripts/
 cotton-desloppify/
+review/results/
+review/__pycache__/
