@@ -25,6 +25,7 @@ class ScoreTrajectory:
     trend: str
     best_scan_delta: float
     worst_scan_delta: float
+    cycle_start_score: float | None = None  # from plan_start_scores or previous
 
 
 @dataclass(frozen=True)
@@ -195,7 +196,12 @@ def _open_review_and_resolved_review_issues(
     return open_review, resolved_review
 
 
-def score_trajectory(scan_history: list[dict[str, Any]], window: int = 5) -> ScoreTrajectory:
+def score_trajectory(
+    scan_history: list[dict[str, Any]],
+    window: int = 5,
+    *,
+    cycle_start_score: float | None = None,
+) -> ScoreTrajectory:
     recent = [entry for entry in scan_history if isinstance(entry, dict)][-window:]
     strict_scores = [
         strict
@@ -203,18 +209,31 @@ def score_trajectory(scan_history: list[dict[str, Any]], window: int = 5) -> Sco
         if (strict := _as_float(entry.get("strict_score"))) is not None
     ]
     if not strict_scores:
-        return ScoreTrajectory([], 0.0, "stable", 0.0, 0.0)
+        return ScoreTrajectory([], 0.0, "stable", 0.0, 0.0, cycle_start_score=cycle_start_score)
     deltas = [
         round(current - previous, 2)
         for previous, current in zip(strict_scores, strict_scores[1:], strict=False)
     ]
     strict_delta = round(strict_scores[-1] - strict_scores[0], 2)
+
+    # Determine trend: if the window shows improvement but we're still below
+    # the cycle start score, the real trend is "recovering" (mapped to "stable"
+    # since the enum doesn't include "recovering")
+    trend = _trend_from_delta(strict_delta)
+    if (
+        trend == "improving"
+        and cycle_start_score is not None
+        and strict_scores[-1] < cycle_start_score - 0.5
+    ):
+        trend = "stable"
+
     return ScoreTrajectory(
         strict_scores=[round(score, 2) for score in strict_scores],
         strict_delta=strict_delta,
-        trend=_trend_from_delta(strict_delta),
+        trend=trend,
         best_scan_delta=max(deltas, default=0.0),
         worst_scan_delta=min(deltas, default=0.0),
+        cycle_start_score=cycle_start_score,
     )
 
 
@@ -609,8 +628,16 @@ def collect_strategist_input(
 
     inventory = lifecycle_inventory(state, plan)
 
+    # Extract cycle start score from plan for cross-cycle regression detection
+    _plan_start = plan.get("plan_start_scores") or {}
+    _prev_start = plan.get("previous_plan_start_scores") or {}
+    # Use the higher of plan_start or previous_plan_start as the cycle baseline
+    _start_strict = _as_float(_plan_start.get("strict")) if _plan_start else None
+    _prev_strict = _as_float(_prev_start.get("strict")) if _prev_start else None
+    _cycle_start = max(filter(None, [_start_strict, _prev_strict]), default=None)
+
     return StrategistInput(
-        score_trajectory=score_trajectory(scan_history, window=lookback_scans),
+        score_trajectory=score_trajectory(scan_history, window=lookback_scans, cycle_start_score=_cycle_start),
         dimension_trajectories=dimension_trajectories(
             scan_history,
             state.get("dimension_scores", {}) if isinstance(state.get("dimension_scores"), dict) else {},

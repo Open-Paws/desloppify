@@ -272,6 +272,9 @@ def cmd_stage_strategize(
     if strategic_issues:
         _create_strategic_work_items(state, plan, strategic_issues)
         resolved_services.save_plan(plan)
+        # Strategic issues create work items in state — save state too
+        from desloppify.app.commands.helpers.state_persistence import save_state_or_exit
+        save_state_or_exit(state, runtime.state_path)
 
     resolved_services.save_plan(plan)
     _append_progression_event(state=state, plan=plan, briefing=briefing)
