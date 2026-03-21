@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from desloppify.base.output.terminal import colorize
+from desloppify.engine._plan.cluster_semantics import cluster_is_active
 
 from ..review_coverage import cluster_issue_ids, manual_clusters_with_issues
 from ..stages.helpers import unclustered_review_issues, unenriched_clusters
@@ -302,9 +303,10 @@ def validate_backlog_promotions_executed(
         cluster = clusters.get(decision.cluster_name)
         if cluster is None:
             continue
-        # A promoted cluster should have been activated
-        execution_status = cluster.get("execution_status", "")
-        if execution_status not in ("active", "in_progress"):
+        # A promoted cluster should have been activated.
+        # Note: "in_progress" is a cluster *lifecycle* status (pending→in_progress→completed),
+        # not an execution status. The old check accepted it here by mistake.
+        if not cluster_is_active(cluster):
             warnings.append(
                 f"Reflect requested promoting {decision.cluster_name} "
                 f"but it was not promoted during organize."

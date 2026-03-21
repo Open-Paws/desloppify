@@ -6,7 +6,11 @@ from dataclasses import dataclass
 
 from desloppify.state_scoring import score_snapshot
 from desloppify.engine._plan.auto_cluster import auto_cluster_issues
-from desloppify.engine._plan.constants import QueueSyncResult, is_synthetic_id
+from desloppify.engine._plan.constants import (
+    PRE_REVIEW_WORKFLOW_IDS,
+    QueueSyncResult,
+    is_synthetic_id,
+)
 from desloppify.engine._plan.operations.meta import append_log_entry
 from desloppify.engine._plan.policy.subjective import compute_subjective_visibility
 from desloppify.engine._plan.policy.stale import open_review_ids
@@ -26,7 +30,6 @@ from desloppify.engine._plan.sync.triage import sync_triage_needed
 from desloppify.engine._plan.triage.snapshot import build_triage_snapshot
 from desloppify.engine._plan.sync.workflow import (
     ScoreSnapshot,
-    _subjective_review_current_for_cycle,
     sync_communicate_score_needed,
     sync_create_plan_needed,
 )
@@ -97,13 +100,9 @@ def _resolve_reconcile_phase(
     policy: object | None,
 ) -> str:
     order = [item for item in plan.get("queue_order", []) if isinstance(item, str)]
-    if result.workflow_injected_ids or any(item.startswith("workflow::") for item in order):
-        return LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT
 
-    if result.triage and (result.triage.injected or result.triage.deferred):
-        return LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT
-    if any(item.startswith("triage::") for item in order):
-        return LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT
+    if any(item in PRE_REVIEW_WORKFLOW_IDS for item in order):
+        return LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT
 
     subjective_ids = [item for item in order if item.startswith("subjective::")]
     if subjective_ids:
@@ -111,6 +110,14 @@ def _resolve_reconcile_phase(
         if any(item in unscored_ids for item in subjective_ids):
             return LIFECYCLE_PHASE_REVIEW_INITIAL
         return LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT
+
+    if result.workflow_injected_ids or any(item.startswith("workflow::") for item in order):
+        return LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT
+
+    if result.triage and (result.triage.injected or result.triage.deferred):
+        return LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT
+    if any(item.startswith("triage::") for item in order):
+        return LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT
 
     triage_snapshot = build_triage_snapshot(plan, state)
     if (
@@ -145,45 +152,32 @@ def live_planned_queue_empty(plan: dict) -> bool:
     )
 
 
-def reconcile_plan(plan: dict, state: dict, *, target_strict: float) -> ReconcileResult:
+def reconcile_plan(
+    plan: dict,
+    state: dict,
+    *,
+    target_strict: float,
+    force_rescan: bool = False,
+) -> ReconcileResult:
     """Run the shared boundary reconciliation pipeline."""
     result = ReconcileResult()
-    if not live_planned_queue_empty(plan):
-        return result
 
     policy = compute_subjective_visibility(
         state,
         target_strict=target_strict,
         plan=plan,
     )
-    cycle_just_completed = not plan.get("plan_start_scores")
 
-    # Skip subjective sync when workflow will supersede it: all dims are
-    # scored and communicate-score hasn't fired yet this cycle.  The phase
-    # cleanup safety net still prunes if this peek is wrong.
-    will_inject_workflow = (
-        "previous_plan_start_scores" not in plan
-        and _subjective_review_current_for_cycle(
-            plan,
-            state,
-            policy=policy,
-        )
+    result.subjective = sync_subjective_dimensions(
+        plan,
+        state,
+        policy=policy,
     )
-    if will_inject_workflow:
-        result.subjective = QueueSyncResult()
-    else:
-        result.subjective = sync_subjective_dimensions(
-            plan,
-            state,
-            policy=policy,
-            cycle_just_completed=cycle_just_completed,
-        )
-        if result.subjective.changes:
-            _log_gate_changes(plan, "sync_subjective", {"changes": True})
+    if result.subjective.changes:
+        _log_gate_changes(plan, "sync_subjective", {"changes": True})
 
-    if will_inject_workflow:
-        result.auto_cluster_changes = 0
-    else:
+    # Auto-clustering and heavier workflow reconciliation only runs at queue boundaries.
+    if live_planned_queue_empty(plan) or force_rescan:
         result.auto_cluster_changes = int(
             auto_cluster_issues(
                 plan,
@@ -195,30 +189,30 @@ def reconcile_plan(plan: dict, state: dict, *, target_strict: float) -> Reconcil
         if result.auto_cluster_changes:
             _log_gate_changes(plan, "auto_cluster", {"changes": True})
 
-    result.communicate_score = sync_communicate_score_needed(
-        plan,
-        state,
-        policy=policy,
-        current_scores=_current_scores(state),
-    )
-    if result.communicate_score.changes:
-        _log_gate_changes(plan, "sync_communicate_score", {"injected": True})
+        result.communicate_score = sync_communicate_score_needed(
+            plan,
+            state,
+            policy=policy,
+            current_scores=_current_scores(state),
+        )
+        if result.communicate_score.changes:
+            _log_gate_changes(plan, "sync_communicate_score", {"injected": True})
 
-    result.create_plan = sync_create_plan_needed(
-        plan,
-        state,
-        policy=policy,
-    )
-    if result.create_plan.changes:
-        _log_gate_changes(plan, "sync_create_plan", {"injected": True})
+        result.create_plan = sync_create_plan_needed(
+            plan,
+            state,
+            policy=policy,
+        )
+        if result.create_plan.changes:
+            _log_gate_changes(plan, "sync_create_plan", {"injected": True})
 
-    result.triage = sync_triage_needed(
-        plan,
-        state,
-        policy=policy,
-    )
-    if result.triage.injected:
-        _log_gate_changes(plan, "sync_triage", {"injected": True})
+        result.triage = sync_triage_needed(
+            plan,
+            state,
+            policy=policy,
+        )
+        if result.triage.injected:
+            _log_gate_changes(plan, "sync_triage", {"injected": True})
 
     result.lifecycle_phase = _resolve_reconcile_phase(
         plan,

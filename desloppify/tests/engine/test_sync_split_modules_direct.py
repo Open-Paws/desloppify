@@ -318,7 +318,7 @@ def test_auto_cluster_grouping_filters_to_open_unsuppressed_non_manual_items(
     monkeypatch.setattr(
         auto_cluster_sync_mod,
         "DETECTORS",
-        {"unused": SimpleNamespace(name="unused", needs_judgment=False)},
+        {"unused": SimpleNamespace(name="unused", needs_judgment=False, auto_queue=True)},
     )
 
     issues = {
@@ -441,7 +441,7 @@ def test_sync_issue_clusters_handles_name_collisions_and_user_modified_clusters(
     monkeypatch.setattr(
         auto_cluster_sync_mod,
         "DETECTORS",
-        {"unused": SimpleNamespace(name="unused", needs_judgment=False)},
+        {"unused": SimpleNamespace(name="unused", needs_judgment=False, auto_queue=True)},
     )
 
     changes = auto_cluster_sync_mod.sync_issue_clusters(
@@ -662,9 +662,7 @@ def test_sync_workflow_injection_removes_stale_skip_entries() -> None:
     assert "workflow::create-plan" not in plan["skipped"]
 
 
-def test_subjective_integrity_helpers_apply_penalty_threshold(monkeypatch) -> None:
-    monkeypatch.setattr(scoring_subjective_mod, "matches_target_score", lambda score, target: score >= target)
-
+def test_subjective_integrity_helpers_disabled_policy() -> None:
     assessments = {
         "naming_quality": {"score": 95},
         "design_coherence": {"score": 96},
@@ -674,9 +672,11 @@ def test_subjective_integrity_helpers_apply_penalty_threshold(monkeypatch) -> No
         assessments,
         target=95,
     )
-    assert meta["status"] == "penalized"
-    assert set(meta["reset_dimensions"]) == {"design_coherence", "naming_quality"}
-    assert adjusted["naming_quality"]["score"] == 0.0
+    assert meta["status"] == "disabled"
+    assert meta["reset_dimensions"] == []
+    # Scores are preserved — no penalty applied
+    assert adjusted["naming_quality"]["score"] == 95
+    assert adjusted["design_coherence"]["score"] == 96
 
     assert scoring_subjective_mod._coerce_subjective_score({"score": "101"}) == 100.0
     assert scoring_subjective_mod._normalize_integrity_target(120.0) == 100.0

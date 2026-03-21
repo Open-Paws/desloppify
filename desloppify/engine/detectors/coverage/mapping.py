@@ -50,13 +50,14 @@ def _graph_tested_imports(
                     graph_mapped.add(imp)
             tested |= graph_mapped
 
-        # Parse source imports as a supplement when graph imports are absent,
-        # or always for TypeScript where dynamic import('...') is common in
-        # coverage smoke tests and may be missed by static graph building.
-        if not graph_mapped or lang_name == "typescript":
-            tested |= _parse_test_imports(
-                tf, production_files, prod_by_module, lang_name
-            )
+        # Always supplement graph-based detection with source parsing.
+        # The import graph often resolves submodule imports (e.g.,
+        # `from megaplan.evaluation import X`) to the package __init__.py
+        # rather than the actual submodule file, causing false
+        # "transitive_only" reports for modules with dedicated test files.
+        tested |= _parse_test_imports(
+            tf, production_files, prod_by_module, lang_name
+        )
     return tested
 
 

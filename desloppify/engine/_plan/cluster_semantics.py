@@ -17,6 +17,8 @@ ACTION_TYPE_MANUAL_FIX = "manual_fix"
 ACTION_TYPE_REORGANIZE = "reorganize"
 EXECUTION_STATUS_ACTIVE = "active"
 EXECUTION_STATUS_REVIEW = "review"
+EXECUTION_STATUS_DEFERRED = "deferred"
+EXECUTION_STATUS_DONE = "done"
 VALID_ACTION_TYPES = frozenset(
     {
         ACTION_TYPE_AUTO_FIX,
@@ -38,6 +40,8 @@ VALID_EXECUTION_STATUSES = frozenset(
     {
         EXECUTION_STATUS_ACTIVE,
         EXECUTION_STATUS_REVIEW,
+        EXECUTION_STATUS_DEFERRED,
+        EXECUTION_STATUS_DONE,
     }
 )
 
@@ -87,6 +91,15 @@ def infer_cluster_execution_policy(
     explicit = str(cluster.get("execution_policy") or "").strip()
     if explicit in VALID_EXECUTION_POLICIES:
         return explicit
+    # Registry auto_queue tag — primary path for new clusters.
+    # When the detector is known, the registry is authoritative.
+    if cluster.get("auto") and detector:
+        meta = DETECTORS.get(detector)
+        if meta is not None:
+            if meta.auto_queue:
+                return EXECUTION_POLICY_EPHEMERAL_AUTOPROMOTE
+            return EXECUTION_POLICY_PLANNED_ONLY
+    # String-sniffing fallback — handles old clusters without detector context.
     if (
         cluster.get("auto")
         and infer_cluster_action_type(cluster, detector=detector) == ACTION_TYPE_AUTO_FIX
@@ -178,6 +191,8 @@ __all__ = [
     "ACTION_TYPE_REFACTOR",
     "ACTION_TYPE_REORGANIZE",
     "EXECUTION_STATUS_ACTIVE",
+    "EXECUTION_STATUS_DEFERRED",
+    "EXECUTION_STATUS_DONE",
     "EXECUTION_STATUS_REVIEW",
     "EXECUTION_POLICY_EPHEMERAL_AUTOPROMOTE",
     "EXECUTION_POLICY_PLANNED_ONLY",

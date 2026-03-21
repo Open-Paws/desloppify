@@ -146,11 +146,53 @@ def _sync_auto_clusters(
     return changes
 
 
+def _evictable_auto_cluster_issue_ids(plan: PlanModel) -> set[str]:
+    """Return queue_order IDs that belong to non-active auto-clusters.
+
+    After sync rewrites a cluster (e.g. Rust detectors losing auto_queue),
+    the cluster's execution_policy is already updated to planned_only and
+    execution_status to review. So we can't rely on the old policy value.
+    Instead: collect detector-based IDs from all non-active auto-clusters,
+    then subtract IDs owned by any active cluster (handles cross-cluster moves).
+
+    Synthetic IDs (subjective::*, triage::*, workflow::*) are never evicted
+    here — their lifecycle is managed by sync_subjective_dimensions.
+    """
+    from desloppify.engine._plan.constants import is_synthetic_id
+
+    active_ids: set[str] = set()
+    inactive_ids: set[str] = set()
+    for cluster in plan.get("clusters", {}).values():
+        if not isinstance(cluster, dict) or not cluster.get("auto"):
+            continue
+        ids = {
+            issue_id
+            for issue_id in cluster.get("issue_ids", [])
+            if isinstance(issue_id, str) and issue_id and not is_synthetic_id(issue_id)
+        }
+        if cluster_is_active(cluster):
+            active_ids |= ids
+        else:
+            inactive_ids |= ids
+    return inactive_ids - active_ids
+
+
 def _sync_active_auto_cluster_queue_membership(plan: PlanModel) -> int:
     order: list[str] = plan.get("queue_order", [])
     skipped = set(plan.get("skipped", {}).keys())
     existing = set(order)
-    added = 0
+    changes = 0
+
+    # Evict queue_order entries from non-active auto-clusters.
+    evict_ids = _evictable_auto_cluster_issue_ids(plan)
+    if evict_ids:
+        before = len(order)
+        plan["queue_order"] = [oid for oid in order if oid not in evict_ids]
+        order = plan["queue_order"]
+        existing = set(order)
+        changes += before - len(order)
+
+    # Append issue IDs from active auto-clusters.
     for cluster in plan.get("clusters", {}).values():
         if not isinstance(cluster, dict) or not cluster.get("auto") or not cluster_is_active(cluster):
             continue
@@ -164,8 +206,8 @@ def _sync_active_auto_cluster_queue_membership(plan: PlanModel) -> int:
                 continue
             order.append(issue_id)
             existing.add(issue_id)
-            added += 1
-    return added
+            changes += 1
+    return changes
 
 
 def auto_cluster_issues(

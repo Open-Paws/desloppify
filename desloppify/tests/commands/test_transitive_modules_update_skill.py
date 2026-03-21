@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 from unittest.mock import patch
 
+import pytest
+
 from desloppify.app.commands.update_skill import (
     _build_section,
     _replace_section,
@@ -12,6 +14,7 @@ from desloppify.app.commands.update_skill import (
     resolve_interface,
     update_installed_skill,
 )
+from desloppify.base.exception_sets import CommandError
 
 
 class TestBuildSection:
@@ -56,6 +59,12 @@ class TestReplaceSection:
         result = _replace_section(content, "new")
         assert "new" in result
         assert "before" in result
+
+    def test_raises_when_version_marker_but_no_begin_end(self):
+        """Content with a version marker but no begin/end markers should not silently append."""
+        content = "# My Custom Setup\n<!-- desloppify-skill-version: 3 -->\nOld skill content"
+        with pytest.raises(CommandError, match="missing.*desloppify-begin"):
+            _replace_section(content, "new section")
 
 
 class TestResolveInterface:

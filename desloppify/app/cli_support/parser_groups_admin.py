@@ -222,3 +222,15 @@ def _add_update_skill_parser(sub) -> None:
         help="Agent interface (amp, claude, codex, cursor, copilot, windsurf, gemini, hermes, droid, opencode). "
         "Auto-detected on updates if omitted.",
     )
+
+
+def _add_setup_parser(sub) -> None:
+    p = sub.add_parser(
+        "setup",
+        help="Install desloppify skill globally for AI coding assistants",
+    )
+    p.add_argument(
+        "--interface",
+        default=None,
+        help="Install for a specific interface only (claude, cursor)",
+    )

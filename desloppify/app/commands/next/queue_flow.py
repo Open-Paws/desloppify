@@ -17,6 +17,8 @@ from desloppify.base.output.user_message import print_user_message
 from desloppify.engine._state.filtering import path_scoped_issues
 from desloppify.engine._work_queue.context import queue_context
 from desloppify.engine._work_queue.core import QueueBuildOptions
+from desloppify.engine._work_queue.policy import explain_queue
+from desloppify.engine._work_queue.snapshot import build_queue_snapshot
 from desloppify.engine._work_queue.plan_order import (
     collapse_clusters,
     filter_cluster_focus,
@@ -136,6 +138,8 @@ def _write_next_payload(
     guardrail_warnings: list[str],
     write_query_fn,
     command_name: str,
+    explain_snapshot=None,
+    explain_plan: dict | None = None,
 ) -> dict:
     """Build and persist the payload for the current queue view."""
     payload = _build_next_payload(
@@ -148,6 +152,8 @@ def _write_next_payload(
     )
     if guardrail_warnings:
         payload["warnings"] = guardrail_warnings
+    if explain_snapshot is not None:
+        payload["queue_explanation"] = explain_queue(explain_snapshot, explain_plan)
     write_query_fn(payload)
     return payload
 
@@ -166,6 +172,7 @@ def _render_empty_queue_view(
     write_query_fn,
     command_name: str,
     show_plan_context: bool,
+    explain_snapshot=None,
 ) -> None:
     """Render and persist the empty queue state."""
     strict_score = score_snapshot(state).strict
@@ -176,7 +183,7 @@ def _render_empty_queue_view(
             plan_data=plan_for_queue,
             context=ctx,
         )
-    _render_queue_header(queue, opts.explain)
+    _render_queue_header(queue, opts.explain, snapshot=explain_snapshot, plan=plan_for_queue)
     _show_empty_queue(
         queue,
         strict_score,
@@ -192,6 +199,8 @@ def _render_empty_queue_view(
         guardrail_warnings=guardrail_warnings,
         write_query_fn=write_query_fn,
         command_name=command_name,
+        explain_snapshot=explain_snapshot,
+        explain_plan=plan_for_queue,
     )
 
 
@@ -208,6 +217,7 @@ def _render_terminal_queue_view(
     ctx,
     show_plan_context: bool,
     show_execution_prompt: bool,
+    explain_snapshot=None,
 ) -> None:
     """Render terminal output for a non-empty queue."""
     dim_scores = state.get("dimension_scores", {})
@@ -225,7 +235,7 @@ def _render_terminal_queue_view(
         )
     queue_total = breakdown.queue_total if breakdown else 0
 
-    _render_queue_header(queue, opts.explain)
+    _render_queue_header(queue, opts.explain, snapshot=explain_snapshot, plan=plan_for_queue)
     strict_score = score_snapshot(state).strict
     if _show_empty_queue(
         queue,
@@ -356,6 +366,7 @@ def _render_non_empty_queue(
     target_strict: float,
     ctx,
     resolve_lang_fn,
+    explain_snapshot=None,
 ) -> None:
     lang = resolve_lang_fn(args)
     lang_name = lang.name if lang else None
@@ -372,6 +383,8 @@ def _render_non_empty_queue(
         guardrail_warnings=guardrail_warnings,
         write_query_fn=write_query_fn,
         command_name=view.command_name,
+        explain_snapshot=explain_snapshot,
+        explain_plan=plan_for_queue,
     )
 
     if _emit_requested_output(opts, payload, items, command_name=view.command_name):
@@ -389,6 +402,7 @@ def _render_non_empty_queue(
         ctx=ctx,
         show_plan_context=view.show_plan_context,
         show_execution_prompt=view.show_execution_prompt,
+        explain_snapshot=explain_snapshot,
     )
 
 
@@ -425,6 +439,19 @@ def _build_and_render_queue_view(
         collapse_plan_clusters=view.collapse_plan_clusters,
     )
 
+    explain_snapshot = None
+    if opts.explain:
+        explain_snapshot = build_queue_snapshot(
+            state,
+            options=QueueBuildOptions(
+                scope=opts.scope,
+                status=opts.status,
+                include_skipped=opts.include_skipped,
+                context=ctx,
+            ),
+            target_strict=target_strict,
+        )
+
     if not items:
         _render_empty_queue_view(
             queue=queue,
@@ -439,6 +466,7 @@ def _build_and_render_queue_view(
             write_query_fn=deps.write_query_fn,
             command_name=view.command_name,
             show_plan_context=view.show_plan_context,
+            explain_snapshot=explain_snapshot,
         )
         return
 
@@ -457,6 +485,7 @@ def _build_and_render_queue_view(
         target_strict=target_strict,
         ctx=ctx,
         resolve_lang_fn=deps.resolve_lang_fn,
+        explain_snapshot=explain_snapshot,
     )
 
 

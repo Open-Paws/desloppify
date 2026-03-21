@@ -18,15 +18,28 @@ from desloppify.languages.typescript.detectors.knip_adapter import detect_with_k
 
 
 class TestKnipAdapter:
-    def _run_detect(self, stdout: str):
+    def _run_detect(self, stdout: str, tmp_path: Path | None = None):
         """Patch subprocess.run to return a synthetic Knip result."""
         mock_result = MagicMock()
         mock_result.stdout = stdout
-        with patch(
-            "desloppify.languages.typescript.detectors.knip_adapter.shutil.which",
-            return_value="/usr/bin/npx",
-        ), patch("subprocess.run", return_value=mock_result):
-            return detect_with_knip(Path("/fake/project"))
+        if tmp_path is None:
+            # Use a temp dir so the node_modules pre-check passes
+            import tempfile
+            with tempfile.TemporaryDirectory() as td:
+                p = Path(td)
+                (p / "node_modules" / ".bin").mkdir(parents=True)
+                (p / "node_modules" / ".bin" / "knip").touch()
+                with patch(
+                    "desloppify.languages.typescript.detectors.knip_adapter.shutil.which",
+                    return_value="/usr/bin/npx",
+                ), patch("subprocess.run", return_value=mock_result):
+                    return detect_with_knip(p)
+        else:
+            with patch(
+                "desloppify.languages.typescript.detectors.knip_adapter.shutil.which",
+                return_value="/usr/bin/npx",
+            ), patch("subprocess.run", return_value=mock_result):
+                return detect_with_knip(tmp_path)
 
     def test_returns_none_when_knip_not_installed(self):
         with patch(
@@ -53,6 +66,8 @@ class TestKnipAdapter:
         assert result == []
 
     def test_parses_dead_exports(self, tmp_path):
+        (tmp_path / "node_modules" / ".bin").mkdir(parents=True)
+        (tmp_path / "node_modules" / ".bin" / "knip").touch()
         f = tmp_path / "utils.ts"
         f.write_text("export function unused() {}")
         payload = json.dumps(
@@ -81,6 +96,8 @@ class TestKnipAdapter:
         assert result[0]["line"] == 1
 
     def test_parses_dead_type_exports(self, tmp_path):
+        (tmp_path / "node_modules" / ".bin").mkdir(parents=True)
+        (tmp_path / "node_modules" / ".bin" / "knip").touch()
         f = tmp_path / "types.ts"
         f.write_text("export type MyType = string;")
         payload = json.dumps(
@@ -104,6 +121,8 @@ class TestKnipAdapter:
         assert any(e["kind"] == "type" and e["name"] == "MyType" for e in result)
 
     def test_skips_files_outside_scan_path(self, tmp_path):
+        (tmp_path / "node_modules" / ".bin").mkdir(parents=True)
+        (tmp_path / "node_modules" / ".bin" / "knip").touch()
         payload = json.dumps(
             {
                 "issues": [

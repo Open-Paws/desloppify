@@ -132,6 +132,8 @@ def _resolve_default_path(args: argparse.Namespace) -> None:
     """
     if getattr(args, "path", None) is not None:
         return
+    if not hasattr(args, "path"):
+        return
     runtime_root = get_project_root()
     if getattr(args, "command", None) == "review":
         try:
@@ -270,11 +272,16 @@ def main() -> None:
             if inferred is not None:
                 runtime.project_root = inferred
             _warn_if_running_installed_package_from_checkout()
-            _resolve_default_path(args)
-            _load_shared_runtime(args)
 
-            handler = _resolve_handler(args.command)
-            handler(args)
+            # Lightweight commands that don't need state/config/exclusions.
+            if args.command in {"setup", "update-skill"}:
+                handler = _resolve_handler(args.command)
+                handler(args)
+            else:
+                _resolve_default_path(args)
+                _load_shared_runtime(args)
+                handler = _resolve_handler(args.command)
+                handler(args)
     except CommandError as exc:
         print(colorize(f"  {exc.message}", "red"), file=sys.stderr)
         sys.exit(exc.exit_code)

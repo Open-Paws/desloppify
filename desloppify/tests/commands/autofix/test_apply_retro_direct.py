@@ -120,6 +120,37 @@ def test_cascade_unused_import_cleanup_resolves_cascade_issues(monkeypatch, caps
     assert "auto-resolved 1 import issues" in out
 
 
+# -- Tests for generic fixer result shape (no "removed" key) --
+# Bug found by @AugusteBalas in PR #484: generic fixers return {file, line}
+# or {file, fixed} without a "removed" key, causing KeyError in the pipeline.
+
+
+def test_resolve_fixer_results_handles_generic_fixer_shape() -> None:
+    """Generic fixer results ({file, fixed} without 'removed') must not crash."""
+    state = _state_with_issue("eslint-warning::src/a.ts::no-unused-vars")
+    generic_results = [
+        {"file": "src/a.ts", "fixed": True},
+        {"file": "src/b.ts", "fixed": True},
+    ]
+    resolved = retro_mod._resolve_fixer_results(
+        state, generic_results, "eslint-warning", "eslint-warning"
+    )
+    # No "removed" key means no symbols to match — nothing resolved, but no crash
+    assert resolved == []
+
+
+def test_generic_fixer_total_items_count() -> None:
+    """The total_items count in cmd.py uses 'else 1' for results without 'removed'."""
+    # This reproduces the exact pattern from cmd.py line 40:
+    #   sum(len(r["removed"]) if "removed" in r else 1 for r in results)
+    results = [
+        {"file": "a.ts", "fixed": True},                          # generic: no "removed"
+        {"file": "b.ts", "removed": ["x", "y"], "lines_removed": 3},  # native: has "removed"
+    ]
+    total = sum(len(r["removed"]) if "removed" in r else 1 for r in results)
+    assert total == 3  # 1 (generic) + 2 (native)
+
+
 def test_print_fix_retro_renders_skip_reason_labels(capsys) -> None:
     retro_mod._print_fix_retro(
         fixer_name="unused-vars",

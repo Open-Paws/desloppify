@@ -135,6 +135,43 @@ class TestSyncPostflightScanCompletionAndLog:
 
 
 # ---------------------------------------------------------------------------
+# Tests: _refresh_plan_start_baseline
+# ---------------------------------------------------------------------------
+
+class TestRefreshPlanStartBaseline:
+
+    def test_refreshes_scores_and_scan_gate_without_clearing_sentinels(self):
+        plan = empty_plan()
+        plan["plan_start_scores"] = {
+            "strict": 50.0,
+            "overall": 51.0,
+            "objective": 52.0,
+            "verified": 53.0,
+        }
+        plan["previous_plan_start_scores"] = {"strict": 40.0}
+        plan["scan_count_at_plan_start"] = 2
+        state = _make_state(
+            strict_score=86.4,
+            overall_score=88.2,
+            objective_score=87.1,
+            verified_strict_score=84.0,
+            scan_count=5,
+        )
+
+        changed = reconcile_mod._refresh_plan_start_baseline(plan, state)
+
+        assert changed is True
+        assert plan["plan_start_scores"] == {
+            "strict": 86.4,
+            "overall": 88.2,
+            "objective": 87.1,
+            "verified": 84.0,
+        }
+        assert plan["previous_plan_start_scores"] == {"strict": 40.0}
+        assert plan["scan_count_at_plan_start"] == 5
+
+
+# ---------------------------------------------------------------------------
 # Tests: reconcile_plan_post_scan (full orchestration)
 # ---------------------------------------------------------------------------
 
@@ -145,7 +182,6 @@ class TestReconcilePlanPostScan:
         plan["queue_order"] = ["issue-1", "issue-2"]
         plan["overrides"] = {"issue-1": {"issue_id": "issue-1"}}
         state = _make_state(issues={
-            "issue-1": _make_issue(status="resolved"),
             "issue-2": _make_issue(status="open"),
         })
 
@@ -218,8 +254,20 @@ class TestReconcilePlanPostScan:
     def test_force_rescan_marks_postflight_scan_complete(self, monkeypatch):
         plan = empty_plan()
         plan["queue_order"] = ["workflow::run-scan"]
-        plan["plan_start_scores"] = {"strict": 86.4}
-        state = _make_state(scan_count=5)
+        plan["plan_start_scores"] = {
+            "strict": 50.0,
+            "overall": 51.0,
+            "objective": 52.0,
+            "verified": 53.0,
+        }
+        plan["scan_count_at_plan_start"] = 2
+        state = _make_state(
+            strict_score=86.4,
+            overall_score=88.2,
+            objective_score=87.1,
+            verified_strict_score=84.0,
+            scan_count=5,
+        )
 
         saved: list[dict] = []
         monkeypatch.setattr(reconcile_mod, "load_plan", lambda _path=None: plan)
@@ -228,8 +276,74 @@ class TestReconcilePlanPostScan:
         reconcile_mod.reconcile_plan_post_scan(_runtime(state=state, force_rescan=True))
 
         assert len(saved) == 1
-        assert saved[0]["plan_start_scores"] == {"strict": 86.4}
+        assert saved[0]["plan_start_scores"] == {
+            "strict": 86.4,
+            "overall": 88.2,
+            "objective": 87.1,
+            "verified": 84.0,
+        }
+        assert saved[0]["scan_count_at_plan_start"] == 5
         assert saved[0]["refresh_state"]["postflight_scan_completed_at_scan_count"] == 5
+
+    def test_force_rescan_with_objective_backlog_injects_stale_reviews(self, monkeypatch):
+        plan = empty_plan()
+        plan["queue_order"] = ["workflow::run-scan"]
+        plan["plan_start_scores"] = {
+            "strict": 70.0,
+            "overall": 71.0,
+            "objective": 72.0,
+            "verified": 69.0,
+        }
+        plan["refresh_state"] = {"postflight_scan_completed_at_scan_count": 5}
+        plan["subjective_defer_meta"] = {
+            "deferred_review_ids": ["subjective::design_coherence"],
+        }
+        state = _make_state(
+            issues={
+                "smells::src/app.py::abc123": _make_issue(
+                    detector="smells",
+                    file="src/app.py",
+                    status="open",
+                ),
+            },
+            strict_score=86.4,
+            overall_score=88.2,
+            objective_score=87.1,
+            verified_strict_score=84.0,
+            scan_count=5,
+        )
+        state["dimension_scores"] = {
+            "design_coherence": {
+                "score": 70.0,
+                "strict": 70.0,
+                "checks": 1,
+                "failing": 0,
+                "detectors": {
+                    "subjective_assessment": {
+                        "dimension_key": "design_coherence",
+                        "placeholder": False,
+                    }
+                },
+            }
+        }
+        state["subjective_assessments"] = {
+            "design_coherence": {
+                "score": 70.0,
+                "needs_review_refresh": True,
+                "refresh_reason": "mechanical_issues_changed",
+                "stale_since": "2025-01-01T00:00:00+00:00",
+            }
+        }
+
+        saved: list[dict] = []
+        monkeypatch.setattr(reconcile_mod, "load_plan", lambda _path=None: plan)
+        monkeypatch.setattr(reconcile_mod, "save_plan", lambda p, _path=None: saved.append(p))
+
+        reconcile_mod.reconcile_plan_post_scan(_runtime(state=state, force_rescan=True))
+
+        assert len(saved) == 1
+        assert "subjective::design_coherence" in saved[0]["queue_order"]
+        assert "subjective_defer_meta" not in saved[0]
 
     def test_superseded_issue_removed_from_clusters(self, monkeypatch):
         plan = empty_plan()
@@ -241,7 +355,6 @@ class TestReconcilePlanPostScan:
             }
         }
         state = _make_state(issues={
-            "issue-1": _make_issue(status="resolved"),
             "issue-2": _make_issue(status="open"),
         })
 
@@ -265,9 +378,7 @@ class TestReconcilePlanPostScan:
                 "skipped_at_scan": 1, "review_after": 5,
             },
         }
-        state = _make_state(issues={
-            "issue-1": _make_issue(status="resolved"),
-        })
+        state = _make_state(issues={})
 
         saved: list[dict] = []
         monkeypatch.setattr(reconcile_mod, "load_plan", lambda _path=None: plan)
@@ -285,7 +396,7 @@ class TestReconcilePlanPostScan:
         plan["queue_order"] = ["issue-1"]
         plan["overrides"] = {"issue-1": {"issue_id": "issue-1"}}
         state = _make_state(
-            issues={"issue-1": _make_issue(status="resolved")},
+            issues={},
             strict_score=85.0, overall_score=90.0,
             objective_score=88.0, verified_strict_score=80.0,
         )
@@ -347,9 +458,7 @@ class TestReconcilePlanPostScan:
         plan = empty_plan()
         plan["queue_order"] = ["issue-1"]
         plan["overrides"] = {"issue-1": {"issue_id": "issue-1"}}
-        state = _make_state(issues={
-            "issue-1": _make_issue(status="resolved"),
-        })
+        state = _make_state(issues={})
 
         saved: list[dict] = []
         monkeypatch.setattr(reconcile_mod, "load_plan", lambda _path=None: plan)
@@ -371,8 +480,6 @@ class TestReconcilePlanPostScan:
             "c": {"issue_id": "c"},
         }
         state = _make_state(issues={
-            "a": _make_issue(status="resolved"),
-            "b": _make_issue(status="resolved"),
             "c": _make_issue(status="open"),
         })
 

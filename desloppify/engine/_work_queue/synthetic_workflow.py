@@ -12,6 +12,7 @@ from desloppify.engine._plan.constants import (
     WORKFLOW_IMPORT_SCORES_ID,
     WORKFLOW_RUN_SCAN_ID,
     WORKFLOW_SCORE_CHECKPOINT_ID,
+    is_synthetic_id,
 )
 from desloppify.engine._plan.refresh_lifecycle import (
     postflight_scan_pending,
@@ -128,8 +129,8 @@ def _create_plan_planning_tools(plan: dict) -> list[dict[str, str]]:
             manual_fallback=triage_manual_stage_command(stage),
         )
     return _runner_planning_tools(
-        only_stages="observe",
-        manual_fallback=triage_manual_stage_command("observe"),
+        only_stages="strategize",
+        manual_fallback=triage_manual_stage_command("strategize"),
     )
 
 
@@ -154,11 +155,11 @@ def build_score_checkpoint_item(plan: dict, state: dict) -> WorkflowActionItem |
             "plan_start_strict": plan_start,
             "delta": delta,
             "planning_tools": _runner_planning_tools(
-                only_stages="observe",
-                manual_fallback=triage_manual_stage_command("observe"),
+                only_stages="strategize",
+                manual_fallback=triage_manual_stage_command("strategize"),
             ),
         },
-        primary_command=triage_run_stages_command(only_stages="observe"),
+        primary_command=triage_run_stages_command(only_stages="strategize"),
     )
 
 
@@ -269,7 +270,13 @@ def _temporary_skipped_ids(plan: dict) -> list[str]:
         if not isinstance(entry, dict):
             continue
         if str(entry.get("kind", "temporary")) == "temporary":
-            deferred.append(str(issue_id))
+            candidate = str(issue_id)
+            # Synthetic queue IDs (workflow/triage/subjective) are not real
+            # deferred issue work and can create phantom deferred loops.
+            # Fix by @ryexLLC in PR #485.
+            if is_synthetic_id(candidate):
+                continue
+            deferred.append(candidate)
     deferred.sort()
     return deferred
 

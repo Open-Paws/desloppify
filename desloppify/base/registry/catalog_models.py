@@ -68,6 +68,7 @@ class DetectorMeta:
     tool: str = ""  # "move" or empty
     structural: bool = False  # Merges under "structural" in display
     needs_judgment: bool = False  # Issues need LLM design judgment (vs clear-cut fixes)
+    auto_queue: bool = False  # Auto-inject into execution queue without triage
     standalone_threshold: str | None = None  # Min confidence for standalone queue item
     tier: int = 2  # T1-T4 scoring weight
     marks_dims_stale: bool = False  # Mechanical changes should stale subjective dimensions
