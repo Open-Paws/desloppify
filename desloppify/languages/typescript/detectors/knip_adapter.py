@@ -29,10 +29,16 @@ def _run_knip(path: Path, timeout: int = 120) -> dict | None:
     if not npx_path:
         logger.debug("knip: npx not found")
         return None
+    # Fast-fail when knip is not a local dependency — avoids npx interactive
+    # prompt that hangs forever when stdin is captured.
+    if not (path / "node_modules" / ".bin" / "knip").exists():
+        logger.debug("knip: not installed in node_modules, skipping")
+        return None
     try:
         result = subprocess.run(
             [
                 npx_path,
+                "--yes",
                 "knip",
                 "--reporter",
                 "json",
@@ -40,6 +46,7 @@ def _run_knip(path: Path, timeout: int = 120) -> dict | None:
             ],
             capture_output=True,
             text=True,
+            stdin=subprocess.DEVNULL,
             cwd=str(path),
             timeout=timeout,
         )  # nosec B603
