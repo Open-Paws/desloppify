@@ -9,8 +9,13 @@ import re
 _PY_DEF_RE = re.compile(r"^\s*(?:async\s+)?def\s+", re.MULTILINE)
 
 # Import parsing helpers
+# Match both single-line and parenthesized multi-line imports:
+#   from megaplan.evaluation import build_evaluation
+#   from megaplan.evaluation import (build_evaluation, ...)
+#   import megaplan.evaluation
 PY_IMPORT_RE = re.compile(
-    r"^\s*(?:from\s+([\w.]+)\s+import\s+(\w+)|import\s+([\w.]+))", re.MULTILINE
+    r"^\s*(?:from\s+([\w.]+)\s+import\s+\(?\s*(\w+)|import\s+([\w.]+))",
+    re.MULTILINE,
 )
 
 ASSERT_PATTERNS = [
