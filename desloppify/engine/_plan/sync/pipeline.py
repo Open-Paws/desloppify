@@ -6,7 +6,11 @@ from dataclasses import dataclass
 
 from desloppify.state_scoring import score_snapshot
 from desloppify.engine._plan.auto_cluster import auto_cluster_issues
-from desloppify.engine._plan.constants import QueueSyncResult, is_synthetic_id
+from desloppify.engine._plan.constants import (
+    PRE_REVIEW_WORKFLOW_IDS,
+    QueueSyncResult,
+    is_synthetic_id,
+)
 from desloppify.engine._plan.operations.meta import append_log_entry
 from desloppify.engine._plan.policy.subjective import compute_subjective_visibility
 from desloppify.engine._plan.policy.stale import open_review_ids
@@ -96,13 +100,9 @@ def _resolve_reconcile_phase(
     policy: object | None,
 ) -> str:
     order = [item for item in plan.get("queue_order", []) if isinstance(item, str)]
-    if result.workflow_injected_ids or any(item.startswith("workflow::") for item in order):
-        return LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT
 
-    if result.triage and (result.triage.injected or result.triage.deferred):
-        return LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT
-    if any(item.startswith("triage::") for item in order):
-        return LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT
+    if any(item in PRE_REVIEW_WORKFLOW_IDS for item in order):
+        return LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT
 
     subjective_ids = [item for item in order if item.startswith("subjective::")]
     if subjective_ids:
@@ -110,6 +110,14 @@ def _resolve_reconcile_phase(
         if any(item in unscored_ids for item in subjective_ids):
             return LIFECYCLE_PHASE_REVIEW_INITIAL
         return LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT
+
+    if result.workflow_injected_ids or any(item.startswith("workflow::") for item in order):
+        return LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT
+
+    if result.triage and (result.triage.injected or result.triage.deferred):
+        return LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT
+    if any(item.startswith("triage::") for item in order):
+        return LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT
 
     triage_snapshot = build_triage_snapshot(plan, state)
     if (

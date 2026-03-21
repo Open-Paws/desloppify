@@ -56,6 +56,13 @@ WORKFLOW_PRIORITY_ORDER = (
     WORKFLOW_SCORE_CHECKPOINT_ID,
     WORKFLOW_CREATE_PLAN_ID,
 )
+PRE_REVIEW_WORKFLOW_IDS = frozenset(
+    {
+        WORKFLOW_DEFERRED_DISPOSITION_ID,
+        WORKFLOW_RUN_SCAN_ID,
+        WORKFLOW_IMPORT_SCORES_ID,
+    }
+)
 STRATEGY_PREFIX = "strategy::"
 SYNTHETIC_PREFIXES = ("triage::", "workflow::", "subjective::", "strategy::")
 
@@ -178,6 +185,7 @@ __all__ = [
     "is_synthetic_id",
     "is_triage_id",
     "is_workflow_id",
+    "PRE_REVIEW_WORKFLOW_IDS",
     "recorded_unconfirmed_triage_stage_names",
     "STRATEGY_PREFIX",
     "SUBJECTIVE_PREFIX",
