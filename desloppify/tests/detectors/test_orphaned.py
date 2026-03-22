@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from desloppify.engine.detectors.orphaned import (
     OrphanedDetectionOptions,
+    _has_dunder_all,
     _is_dynamically_imported,
     detect_orphaned_files,
 )
@@ -406,3 +407,111 @@ class TestDetectOrphanedFiles:
         assert set(entries[0].keys()) == {"file", "loc", "import_count"}
         assert entries[0]["loc"] == 25
         assert entries[0]["import_count"] == 0
+
+    def test_dunder_all_file_not_orphaned(self, tmp_path):
+        """Files defining __all__ are public API surfaces and not orphaned."""
+        api_file = tmp_path / "api.py"
+        api_file.write_text(
+            "__all__ = ['Foo', 'Bar']\n"
+            + "\n".join(f"line {i}" for i in range(30))
+        )
+        orphan_file = _write_file(tmp_path / "orphan.py", lines=30)
+
+        graph = {
+            str(api_file): _graph_entry(importer_count=0),
+            str(orphan_file): _graph_entry(importer_count=0),
+        }
+
+        with patch(
+            "desloppify.engine.detectors.orphaned.rel",
+            side_effect=lambda p: str(Path(p).relative_to(tmp_path)),
+        ):
+            entries, total = detect_orphaned_files(tmp_path, graph, [".py"])
+
+        assert total == 2
+        assert len(entries) == 1
+        assert entries[0]["file"] == str(orphan_file)
+
+    def test_dunder_all_with_type_annotation(self, tmp_path):
+        """Files using ``__all__: list[str] = [...]`` syntax are also excluded."""
+        api_file = tmp_path / "api.py"
+        api_file.write_text(
+            "__all__: list[str] = ['Foo']\n"
+            + "\n".join(f"line {i}" for i in range(30))
+        )
+
+        graph = {
+            str(api_file): _graph_entry(importer_count=0),
+        }
+
+        with patch(
+            "desloppify.engine.detectors.orphaned.rel",
+            side_effect=lambda p: str(Path(p).relative_to(tmp_path)),
+        ):
+            entries, total = detect_orphaned_files(tmp_path, graph, [".py"])
+
+        assert total == 1
+        assert entries == []
+
+    def test_dunder_all_in_comment_not_excluded(self, tmp_path):
+        """A comment mentioning __all__ does not suppress the orphan finding."""
+        f = tmp_path / "orphan.py"
+        f.write_text(
+            "# This file does not define __all__ = [...]\n"
+            "x = 1\n" + "\n".join(f"line {i}" for i in range(30))
+        )
+
+        graph = {
+            str(f): _graph_entry(importer_count=0),
+        }
+
+        with patch(
+            "desloppify.engine.detectors.orphaned.rel",
+            side_effect=lambda p: str(Path(p).relative_to(tmp_path)),
+        ):
+            entries, total = detect_orphaned_files(tmp_path, graph, [".py"])
+
+        # The regex requires __all__ at the start of a line, so a comment line
+        # starting with # won't match.
+        assert len(entries) == 1
+
+
+# ===================================================================
+# _has_dunder_all unit tests
+# ===================================================================
+
+
+class TestHasDunderAll:
+    """Unit tests for the _has_dunder_all helper."""
+
+    def test_simple_assignment(self, tmp_path):
+        f = tmp_path / "mod.py"
+        f.write_text("__all__ = ['foo', 'bar']\n")
+        assert _has_dunder_all(str(f)) is True
+
+    def test_type_annotated_assignment(self, tmp_path):
+        f = tmp_path / "mod.py"
+        f.write_text("__all__: list[str] = ['foo']\n")
+        assert _has_dunder_all(str(f)) is True
+
+    def test_no_dunder_all(self, tmp_path):
+        f = tmp_path / "mod.py"
+        f.write_text("x = 1\ny = 2\n")
+        assert _has_dunder_all(str(f)) is False
+
+    def test_dunder_all_in_string(self, tmp_path):
+        """__all__ inside a string on its own line still matches (acceptable)."""
+        f = tmp_path / "mod.py"
+        f.write_text('"""\n__all__ = ["x"]\n"""\n')
+        # This is a known acceptable false-negative (would suppress orphan
+        # detection), but in practice __all__ in a docstring is extremely rare.
+        assert _has_dunder_all(str(f)) is True
+
+    def test_nonexistent_file(self, tmp_path):
+        assert _has_dunder_all(str(tmp_path / "nope.py")) is False
+
+    def test_dunder_all_not_at_line_start(self, tmp_path):
+        """__all__ preceded by other text on the same line is not matched."""
+        f = tmp_path / "mod.py"
+        f.write_text("x = __all__\n")
+        assert _has_dunder_all(str(f)) is False

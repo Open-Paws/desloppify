@@ -179,6 +179,43 @@ def is_env_lookup(line: str) -> bool:
     return any(lookup in line for lookup in ENV_LOOKUPS)
 
 
+# Field-name pattern: lowercase words joined by underscores.
+# e.g. "token_usage", "transition_token", "some_config_key"
+_FIELD_NAME_RE = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$")
+
+# Non-alphanumeric separators that indicate a label/prefix, not a secret.
+_HAS_LABEL_SEPARATORS_RE = re.compile(r"[@:/\s]")
+
+
+def _looks_like_non_secret_value(value: str) -> bool:
+    """Heuristic: return True if value is clearly not a secret.
+
+    Catches field-name constants, dict keys, sentinel markers, and other
+    non-secret string values that happen to live in variables with
+    secret-sounding names (e.g. TOKEN_USAGE = "token_usage").
+    """
+    stripped = value.strip()
+    if not stripped:
+        return True
+
+    # Pure field-name pattern: lowercase words joined by underscores.
+    # e.g. "token_usage", "transition_token"
+    if _FIELD_NAME_RE.match(stripped):
+        return True
+
+    # Contains spaces — likely a sentinel/label, not a secret.
+    # e.g. " flow ticket_flow start "
+    if " " in stripped:
+        return True
+
+    # Contains label-like separators (@, :, /) and is all lowercase.
+    # e.g. "agent_workspace@", "redis://localhost"
+    if _HAS_LABEL_SEPARATORS_RE.search(stripped) and stripped == stripped.lower():
+        return True
+
+    return False
+
+
 def is_placeholder(value: str) -> bool:
     """Check if a value is a placeholder, not a real secret."""
     lower = value.lower().strip()
@@ -186,4 +223,9 @@ def is_placeholder(value: str) -> bool:
         return True
     if any(lower.startswith(prefix) for prefix in PLACEHOLDER_PREFIXES):
         return True
-    return len(value) < 8
+    if len(value) < 8:
+        return True
+    # Heuristic: non-secret-looking values (field names, identifiers, etc.)
+    if _looks_like_non_secret_value(value):
+        return True
+    return False

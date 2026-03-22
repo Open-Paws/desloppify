@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 from desloppify.base.discovery.file_paths import rel
 from desloppify.base.discovery.file_paths import count_lines
+
+_DUNDER_ALL_RE = re.compile(r"^__all__\s*[:=]", re.MULTILINE)
 
 
 @dataclass
@@ -18,6 +21,15 @@ class OrphanedDetectionOptions:
     extra_barrel_names: set[str] | None = None
     dynamic_import_finder: Callable[[Path, list[str]], set[str]] | None = None
     alias_resolver: Callable[[str], str] | None = None
+
+
+def _has_dunder_all(filepath: str) -> bool:
+    """Return True if the file defines ``__all__``, signaling a public API surface."""
+    try:
+        text = Path(filepath).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    return _DUNDER_ALL_RE.search(text) is not None
 
 
 def _is_dynamically_imported(
@@ -80,6 +92,9 @@ def detect_orphaned_files(
         if dynamic_targets and _is_dynamically_imported(
             filepath, dynamic_targets, alias_resolver
         ):
+            continue
+
+        if _has_dunder_all(filepath):
             continue
 
         try:

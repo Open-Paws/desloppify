@@ -177,6 +177,103 @@ class TestDeferredImports:
         assert graph[lazy_key]["import_count"] >= 1
 
 
+# ── TYPE_CHECKING guard ──────────────────────────────────
+
+
+class TestTypeCheckingGuard:
+    """Imports inside ``if TYPE_CHECKING:`` blocks are not runtime imports.
+
+    They should be tracked as deferred so cycle detection skips them.
+    """
+
+    def test_type_checking_import_marked_deferred(self, tmp_path):
+        """from-import inside ``if TYPE_CHECKING:`` should land in deferred_imports."""
+        pkg = _make_pkg(
+            tmp_path,
+            {
+                "__init__.py": "",
+                "models.py": "class Model: pass\n",
+                "service.py": textwrap.dedent("""\
+                    from typing import TYPE_CHECKING
+                    if TYPE_CHECKING:
+                        from .models import Model
+                    def run() -> None: ...
+                """),
+            },
+        )
+        graph = build_dep_graph(pkg)
+        svc_key = next(k for k in graph if k.endswith("service.py"))
+        models_key = next(k for k in graph if k.endswith("models.py"))
+        # Import is recorded in imports (for general analysis)
+        assert models_key in graph[svc_key]["imports"]
+        # But also flagged as deferred (excluded from cycle detection)
+        assert models_key in graph[svc_key]["deferred_imports"]
+
+    def test_qualified_typing_type_checking(self, tmp_path):
+        """``if typing.TYPE_CHECKING:`` should also be detected."""
+        pkg = _make_pkg(
+            tmp_path,
+            {
+                "__init__.py": "",
+                "types.py": "MyType = int\n",
+                "consumer.py": textwrap.dedent("""\
+                    import typing
+                    if typing.TYPE_CHECKING:
+                        from .types import MyType
+                """),
+            },
+        )
+        graph = build_dep_graph(pkg)
+        consumer_key = next(k for k in graph if k.endswith("consumer.py"))
+        types_key = next(k for k in graph if k.endswith("types.py"))
+        assert types_key in graph[consumer_key]["deferred_imports"]
+
+    def test_regular_import_not_deferred(self, tmp_path):
+        """A normal top-level import must NOT be marked as deferred."""
+        pkg = _make_pkg(
+            tmp_path,
+            {
+                "__init__.py": "",
+                "utils.py": "def helper(): pass\n",
+                "main.py": "from .utils import helper\n",
+            },
+        )
+        graph = build_dep_graph(pkg)
+        main_key = next(k for k in graph if k.endswith("main.py"))
+        utils_key = next(k for k in graph if k.endswith("utils.py"))
+        assert utils_key in graph[main_key]["imports"]
+        assert utils_key not in graph[main_key].get("deferred_imports", set())
+
+    def test_type_checking_cycle_not_reported(self, tmp_path):
+        """A cycle that exists only via TYPE_CHECKING imports should not be detected."""
+        from desloppify.engine.detectors.graph import detect_cycles
+
+        pkg = _make_pkg(
+            tmp_path,
+            {
+                "__init__.py": "",
+                "a.py": textwrap.dedent("""\
+                    from typing import TYPE_CHECKING
+                    from .b import real_fn
+                    if TYPE_CHECKING:
+                        from .b import SomeType
+                """),
+                "b.py": textwrap.dedent("""\
+                    from typing import TYPE_CHECKING
+                    if TYPE_CHECKING:
+                        from .a import something
+                    def real_fn(): pass
+                """),
+            },
+        )
+        graph = build_dep_graph(pkg)
+        # b.py -> a.py is only via TYPE_CHECKING, so with skip_deferred the
+        # cycle (a imports b at runtime, b imports a only under TYPE_CHECKING)
+        # should not be flagged.
+        cycles, _ = detect_cycles(graph, skip_deferred=True)
+        assert cycles == [], f"Expected no cycles but got: {cycles}"
+
+
 # ── Edge cases ────────────────────────────────────────────
 
 

@@ -25,6 +25,24 @@ from desloppify.languages.python.detectors.deps_resolution import (
 
 logger = logging.getLogger(__name__)
 
+
+def _is_type_checking_guard(node: ast.If) -> bool:
+    """Return True if an ``if`` node tests ``TYPE_CHECKING`` or ``typing.TYPE_CHECKING``."""
+    test = node.test
+    # Plain: if TYPE_CHECKING:
+    if isinstance(test, ast.Name) and test.id == "TYPE_CHECKING":
+        return True
+    # Qualified: if typing.TYPE_CHECKING:
+    if (
+        isinstance(test, ast.Attribute)
+        and test.attr == "TYPE_CHECKING"
+        and isinstance(test.value, ast.Name)
+        and test.value.id == "typing"
+    ):
+        return True
+    return False
+
+
 def build_dep_graph(
     path: Path,
     roslyn_cmd: str | None = None,
@@ -65,10 +83,14 @@ def build_dep_graph(
         source_resolved = resolve_path(filepath)
         graph[source_resolved]  # ensure entry
 
-        # Collect top-level function/class line ranges to detect deferred imports
+        # Collect top-level function/class line ranges to detect deferred imports,
+        # plus `if TYPE_CHECKING:` blocks whose imports never run at runtime.
         top_level_scopes: list[tuple[int, int]] = []
         for node in ast.iter_child_nodes(tree):
             if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+                end = getattr(node, "end_lineno", node.lineno)
+                top_level_scopes.append((node.lineno, end))
+            elif isinstance(node, ast.If) and _is_type_checking_guard(node):
                 end = getattr(node, "end_lineno", node.lineno)
                 top_level_scopes.append((node.lineno, end))
 
