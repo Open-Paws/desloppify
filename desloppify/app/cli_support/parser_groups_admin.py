@@ -232,5 +232,6 @@ def _add_setup_parser(sub) -> None:
     p.add_argument(
         "--interface",
         default=None,
-        help="Install for a specific interface only (claude, cursor)",
+        choices=["amp", "claude", "codex", "gemini", "opencode"],
+        help="Install for a specific interface only",
     )

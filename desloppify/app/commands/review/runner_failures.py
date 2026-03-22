@@ -182,7 +182,7 @@ def _skill_file_hint(text: str) -> str | None:
         return None
     return (
         "Codex loaded an invalid local skill file. Fix/remove malformed "
-        "SKILL.md entries under `~/.codex/skills` to reduce runner noise."
+        "entries under `~/.codex/` (AGENTS.md or skills/) to reduce runner noise."
     )
 
 
