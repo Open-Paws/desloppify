@@ -224,7 +224,8 @@ def cmd_stage_strategize(
     if briefing is None:
         return
 
-    # --- Fix 1: Validate trends against computed data ---
+    # Override trend fields if the briefing disagrees with computed history.
+    # The strategist only sees sampled data; the harness has the authoritative trend.
     computed_score_trend = strategist_input.score_trajectory.trend
     briefing_score_trend = briefing.get("score_trend", "stable")
     if briefing_score_trend != computed_score_trend:
@@ -245,7 +246,7 @@ def cmd_stage_strategize(
         ))
         briefing["debt_trend"] = computed_debt_trend
 
-    # --- Fix 3b: Parse and validate strategic_issues ---
+    # strategic_issues are cross-cutting concerns the strategist flagged — optional but validated.
     strategic_issues = _parse_strategic_issues(briefing)
 
     meta["strategist_briefing"] = briefing
@@ -268,7 +269,7 @@ def cmd_stage_strategize(
             "focus_dimensions": _focus_dimension_names(briefing),
         },
     )
-    # --- Fix 3c/d: Create work items and insert at front of queue ---
+    # Create state work items for strategic issues and push them to the front of the queue.
     if strategic_issues:
         _create_strategic_work_items(state, plan, strategic_issues)
         resolved_services.save_plan(plan)

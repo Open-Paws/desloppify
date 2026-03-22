@@ -42,9 +42,12 @@ desloppify review --prepare    # then follow your runner's review workflow
 After reviews, triage stages and plan creation appear in the execution queue surfaced by `next`. Complete them in order — `next` tells you what each stage expects in the `--report`:
 ```bash
 desloppify next                                        # shows the next execution workflow step
+desloppify plan triage --stage strategize --report '{"score_trend":"...","debt_trend":"...","executive_summary":"...","focus_dimensions":[{"name":"..."}],"observe_guidance":"...","reflect_guidance":"...","organize_guidance":"...","sense_check_guidance":"..."}'  # JSON — auto-confirmed on record
 desloppify plan triage --stage observe --report "themes and root causes..."
 desloppify plan triage --stage reflect --report "comparison against completed work..."
 desloppify plan triage --stage organize --report "summary of priorities..."
+desloppify plan triage --stage enrich --report "implementation steps with file paths per cluster..."
+desloppify plan triage --stage sense-check --report "coherence check and final risk assessment..."
 desloppify plan triage --complete --strategy "execution plan..."
 ```
 

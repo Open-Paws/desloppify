@@ -30,11 +30,12 @@ Run `desloppify review --prepare` first to generate review data, then use Claude
 
 Orchestrate triage with per-stage subagents:
 1. `desloppify plan triage --run-stages --runner claude` — prints orchestrator instructions
-2. For each stage (observe → reflect → organize → enrich):
+2. For each stage (strategize → observe → reflect → organize → enrich → sense-check):
    - Get prompt: `desloppify plan triage --stage-prompt <stage>`
    - Launch a subagent with that prompt
    - Verify: `desloppify plan triage` (check dashboard)
    - Confirm: `desloppify plan triage --confirm <stage> --attestation "..."`
+   - Note: `strategize` is auto-confirmed on record — `--confirm` is optional for that stage only
 3. Complete: `desloppify plan triage --complete --strategy "..." --attestation "..."`
 
 <!-- desloppify-overlay: claude -->
