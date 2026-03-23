@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from desloppify.engine._plan.refresh_lifecycle import carry_forward_subjective_review
 from desloppify.engine.planning.queue_policy import (
     build_backlog_queue,
     build_execution_queue,
@@ -863,6 +864,56 @@ def test_fresh_under_target_postflight_review_preempts_persisted_workflow() -> N
     assert [item["id"] for item in queue["items"]] == ["subjective::naming_quality"]
 
     plan["refresh_state"]["subjective_review_completed_at_scan_count"] = 19
+    queue = build_work_queue(state, count=None, include_subjective=True, plan=plan)
+    assert [item["id"] for item in queue["items"]] == [
+        "workflow::communicate-score",
+        "workflow::create-plan",
+    ]
+
+
+def test_force_rescan_carry_forward_keeps_below_target_review_suppressed() -> None:
+    state = _state(
+        [],
+        dimension_scores={
+            "Naming quality": {
+                "score": 82.0,
+                "strict": 82.0,
+                "failing": 0,
+                "checks": 1,
+                "detectors": {
+                    "subjective_assessment": {
+                        "dimension_key": "naming_quality",
+                        "placeholder": False,
+                    },
+                },
+            },
+        },
+    )
+    state["scan_count"] = 20
+    state["subjective_assessments"] = {
+        "naming_quality": {
+            "score": 82.0,
+            "placeholder": False,
+        }
+    }
+    plan = {
+        "queue_order": ["workflow::communicate-score", "workflow::create-plan"],
+        "queue_skipped": {},
+        "refresh_state": {
+            "postflight_scan_completed_at_scan_count": 19,
+            "subjective_review_completed_at_scan_count": 19,
+            "lifecycle_phase": "plan",
+        },
+    }
+
+    changed = carry_forward_subjective_review(
+        plan,
+        old_postflight_scan_count=19,
+        new_scan_count=20,
+    )
+    plan["refresh_state"]["postflight_scan_completed_at_scan_count"] = 20
+
+    assert changed is True
     queue = build_work_queue(state, count=None, include_subjective=True, plan=plan)
     assert [item["id"] for item in queue["items"]] == [
         "workflow::communicate-score",

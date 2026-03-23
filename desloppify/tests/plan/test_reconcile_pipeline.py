@@ -17,7 +17,9 @@ from desloppify.engine._plan.auto_cluster import auto_cluster_issues
 from desloppify.engine._plan.constants import (
     WORKFLOW_COMMUNICATE_SCORE_ID,
     WORKFLOW_CREATE_PLAN_ID,
+    WORKFLOW_DEFERRED_DISPOSITION_ID,
     WORKFLOW_IMPORT_SCORES_ID,
+    WORKFLOW_RUN_SCAN_ID,
 )
 from desloppify.engine._plan.policy.stale import review_issue_snapshot_hash
 from desloppify.engine._plan.refresh_lifecycle import (
@@ -30,6 +32,10 @@ from desloppify.engine._plan.refresh_lifecycle import (
 )
 from desloppify.engine._plan.schema import empty_plan
 from desloppify.engine._plan.sync import live_planned_queue_empty, reconcile_plan
+from desloppify.engine._plan.sync.pipeline import (
+    ReconcileResult,
+    _resolve_reconcile_display_phase,
+)
 from desloppify.engine._plan.sync.workflow import clear_score_communicated_sentinel
 from desloppify.engine._work_queue.snapshot import build_queue_snapshot
 
@@ -280,15 +286,65 @@ def test_stale_subjective_phase_beats_queued_triage() -> None:
     ]
 
 
-def test_import_scores_stays_ahead_of_stale_subjective_phase() -> None:
+def test_assessment_phase_stays_ahead_of_import_scores() -> None:
     state = _stale_subjective_state()
     plan = empty_plan()
     plan["queue_order"] = [WORKFLOW_IMPORT_SCORES_ID]
 
     result = reconcile_plan(plan, state, target_strict=95.0)
 
-    assert result.lifecycle_phase == LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT
+    assert result.lifecycle_phase == LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT
     assert WORKFLOW_IMPORT_SCORES_ID in plan["queue_order"]
+
+
+@pytest.mark.parametrize(
+    "workflow_id",
+    [WORKFLOW_RUN_SCAN_ID, WORKFLOW_DEFERRED_DISPOSITION_ID],
+)
+def test_scan_phase_workflow_ids_resolve_to_scan(workflow_id: str) -> None:
+    plan = empty_plan()
+    plan["queue_order"] = [workflow_id]
+    plan["plan_start_scores"] = {"strict": 80.0}
+
+    result = reconcile_plan(plan, {"issues": {}, "work_items": {}, "scan_count": 1}, target_strict=95.0)
+
+    assert result.lifecycle_phase == LIFECYCLE_PHASE_SCAN
+
+
+def test_open_review_findings_do_not_override_objective_execution_phase() -> None:
+    state = {
+        "issues": {
+            "unused::obj": _issue("unused::obj"),
+            "review::rev": _issue("review::rev", detector="review"),
+        },
+        "work_items": {
+            "unused::obj": _issue("unused::obj"),
+            "review::rev": _issue("review::rev", detector="review"),
+        },
+        "scan_count": 5,
+    }
+    plan = empty_plan()
+    plan["queue_order"] = ["unused::obj"]
+    plan["plan_start_scores"] = {"strict": 80.0}
+
+    result = reconcile_plan(plan, state, target_strict=95.0)
+
+    assert result.lifecycle_phase == LIFECYCLE_PHASE_EXECUTE
+
+
+def test_pipeline_review_signal_falls_back_without_objective_work() -> None:
+    state = _review_issue_state("review::rev")
+    plan = empty_plan()
+    plan["plan_start_scores"] = {"strict": 80.0}
+
+    phase = _resolve_reconcile_display_phase(
+        plan,
+        state,
+        result=ReconcileResult(),
+        policy=None,
+    )
+
+    assert phase == LIFECYCLE_PHASE_REVIEW_POSTFLIGHT
 
 
 @pytest.mark.parametrize(
@@ -490,6 +546,25 @@ def test_phase_isolation_mixed_objective_and_unpromoted_review() -> None:
     assert "review::rev" not in execution_ids
 
 
+def test_queue_snapshot_execute_mode_keeps_execution_phase_with_scan_item() -> None:
+    """Persisted execute mode keeps queued work live even when re-scan is pending."""
+    state = {
+        "issues": {
+            "unused::obj": _issue("unused::obj"),
+        }
+    }
+    plan = empty_plan()
+    plan["queue_order"] = ["unused::obj"]
+    plan["plan_start_scores"] = {"strict": 80.0}
+    plan["refresh_state"] = {"lifecycle_phase": "execute"}
+
+    snapshot = build_queue_snapshot(state, plan=plan)
+
+    assert snapshot.phase == LIFECYCLE_PHASE_EXECUTE
+    assert [item["id"] for item in snapshot.execution_items] == ["unused::obj"]
+    assert WORKFLOW_RUN_SCAN_ID in [item["id"] for item in snapshot.all_scan_items]
+
+
 def test_postflight_phase_stays_exclusive_when_new_execute_items_exist() -> None:
     """Fresh execute work discovered during postflight stays backlog-only until postflight ends."""
     state = {
@@ -518,7 +593,7 @@ def test_postflight_phase_stays_exclusive_when_new_execute_items_exist() -> None
     ]
     plan["refresh_state"] = {
         "postflight_scan_completed_at_scan_count": 5,
-        "lifecycle_phase": "review",
+        "lifecycle_phase": "plan",
     }
     plan["plan_start_scores"] = {"strict": 70.0, "overall": 70.0}
 
@@ -542,7 +617,7 @@ def test_postflight_execute_items_reappear_after_postflight_drains() -> None:
     plan["queue_order"] = ["unused::obj"]
     plan["refresh_state"] = {
         "postflight_scan_completed_at_scan_count": 5,
-        "lifecycle_phase": "workflow",
+        "lifecycle_phase": "plan",
     }
 
     snapshot = build_queue_snapshot(state, plan=plan)
@@ -559,7 +634,7 @@ def test_sticky_postflight_advances_through_remaining_subphases() -> None:
     workflow_plan["queue_order"] = ["workflow::communicate-score", "triage::observe"]
     workflow_plan["refresh_state"] = {
         "postflight_scan_completed_at_scan_count": 5,
-        "lifecycle_phase": "workflow",
+        "lifecycle_phase": "plan",
     }
     workflow_snapshot = build_queue_snapshot(state, plan=workflow_plan)
     assert workflow_snapshot.phase == LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT
@@ -568,7 +643,7 @@ def test_sticky_postflight_advances_through_remaining_subphases() -> None:
     triage_plan["queue_order"] = ["triage::observe"]
     triage_plan["refresh_state"] = {
         "postflight_scan_completed_at_scan_count": 5,
-        "lifecycle_phase": "triage",
+        "lifecycle_phase": "plan",
     }
     triage_snapshot = build_queue_snapshot(state, plan=triage_plan)
     assert triage_snapshot.phase == LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT

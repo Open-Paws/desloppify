@@ -27,6 +27,7 @@ from desloppify.engine._plan.refresh_lifecycle import (
     LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT,
     LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT,
     current_lifecycle_phase,
+    derive_display_phase,
 )
 from desloppify.engine._plan.triage.snapshot import build_triage_snapshot
 from desloppify.engine._state.filtering import path_scoped_issues
@@ -273,28 +274,20 @@ def _phase_for_snapshot(
     postflight_workflow_items: list[WorkQueueItem],
     triage_items: list[WorkQueueItem],
 ) -> str:
-    if not isinstance(plan, dict):
-        if fresh_boundary and initial_review_items:
-            return LIFECYCLE_PHASE_REVIEW_INITIAL
-        if anchored_execution_items or explicit_queue_items:
-            return LIFECYCLE_PHASE_EXECUTE
-        return _derive_display_phase(
-            fresh_boundary=fresh_boundary,
-            initial_review_items=initial_review_items,
-            anchored_execution_items=anchored_execution_items,
-            explicit_queue_items=explicit_queue_items,
-            scan_items=scan_items,
-            prefer_scan=False,
-            postflight_assessment_items=postflight_assessment_items,
-            postflight_review_items=postflight_review_items,
-            postflight_workflow_items=postflight_workflow_items,
-            triage_items=triage_items,
-        )
-
-    raw_phase = current_lifecycle_phase(plan)
-
-    if raw_phase == "execute" and (anchored_execution_items or explicit_queue_items):
-        return LIFECYCLE_PHASE_EXECUTE
+    has_execution = bool(anchored_execution_items or explicit_queue_items)
+    raw_phase = current_lifecycle_phase(plan) if isinstance(plan, dict) else None
+    # Suppress postflight signals (assessment/workflow/triage/review) when
+    # execution work exists and we're either in execute mode or have no plan.
+    # Without a plan, objective work always takes priority over postflight items.
+    suppress_postflight_signals = has_execution and (
+        raw_phase == "execute" or raw_phase is None
+    )
+    prefer_scan = raw_phase == "execute" and not has_execution
+    if suppress_postflight_signals:
+        postflight_assessment_items = []
+        postflight_review_items = []
+        postflight_workflow_items = []
+        triage_items = []
 
     return _derive_display_phase(
         fresh_boundary=fresh_boundary,
@@ -302,7 +295,7 @@ def _phase_for_snapshot(
         anchored_execution_items=anchored_execution_items,
         explicit_queue_items=explicit_queue_items,
         scan_items=scan_items,
-        prefer_scan=(raw_phase == "execute"),
+        prefer_scan=prefer_scan,
         postflight_assessment_items=postflight_assessment_items,
         postflight_review_items=postflight_review_items,
         postflight_workflow_items=postflight_workflow_items,
@@ -328,26 +321,16 @@ def _derive_display_phase(
     Keep this equivalent to ``pipeline._resolve_reconcile_display_phase`` for
     materialized plan states. See ``test_phase_derivation_equivalence_matrix``.
     """
-    if fresh_boundary and initial_review_items:
-        return LIFECYCLE_PHASE_REVIEW_INITIAL
-
-    if prefer_scan and scan_items:
-        return LIFECYCLE_PHASE_SCAN
-
-    if postflight_assessment_items:
-        return LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT
-    if postflight_workflow_items:
-        return LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT
-    if triage_items:
-        return LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT
-
-    if postflight_review_items:
-        return LIFECYCLE_PHASE_REVIEW_POSTFLIGHT
-
-    if anchored_execution_items or explicit_queue_items:
-        return LIFECYCLE_PHASE_EXECUTE
-
-    return LIFECYCLE_PHASE_SCAN
+    return derive_display_phase(
+        has_initial_review=bool(initial_review_items),
+        has_postflight_assessment=bool(postflight_assessment_items),
+        has_workflow=bool(postflight_workflow_items),
+        has_triage=bool(triage_items),
+        has_review_postflight=bool(postflight_review_items),
+        has_execution=bool(anchored_execution_items or explicit_queue_items),
+        fresh_boundary=fresh_boundary,
+        prefer_scan=prefer_scan and bool(scan_items),
+    )
 
 
 # ---------------------------------------------------------------------------

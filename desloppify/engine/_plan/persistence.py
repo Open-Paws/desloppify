@@ -23,6 +23,7 @@ from desloppify.engine._plan.schema import (
     ensure_plan_defaults,
     validate_plan,
 )
+from desloppify.engine._plan.refresh_lifecycle import migrate_legacy_phase
 from desloppify.engine._state.schema import (
     get_state_dir,
     json_default,
@@ -120,6 +121,7 @@ def _load_validated_plan(plan_path: Path) -> PlanModel:
         )
 
     ensure_plan_defaults(data)
+    migrate_legacy_phase(data)
     validate_plan(data)
     return cast(PlanModel, data)
 

@@ -1098,7 +1098,7 @@ def test_build_subjective_items_suppresses_same_cycle_review_refresh_during_work
         threshold=95.0,
         plan={
             "refresh_state": {
-                "lifecycle_phase": "workflow",
+                "lifecycle_phase": "plan",
                 "postflight_scan_completed_at_scan_count": 1,
             }
         },
