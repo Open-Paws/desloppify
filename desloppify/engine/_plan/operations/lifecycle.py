@@ -17,6 +17,9 @@ def set_focus(plan: PlanModel, cluster_name: str) -> None:
     ensure_plan_defaults(plan)
     if cluster_name not in plan["clusters"]:
         raise ValueError(f"Cluster {cluster_name!r} does not exist")
+    cluster = plan["clusters"][cluster_name]
+    if cluster.get("execution_status") == "done":
+        raise ValueError(f"Cluster {cluster_name!r} is already completed")
     plan["active_cluster"] = cluster_name
 
 

@@ -117,7 +117,8 @@ def _render_plan_focus(plan: dict[str, Any] | None) -> bool:
         return False
     cluster_name = plan["active_cluster"]
     cluster = plan.get("clusters", {}).get(cluster_name, {})
-    remaining = len(cluster.get("issue_ids", []))
+    queue_set = set(plan.get("queue_order", []))
+    remaining = sum(1 for fid in cluster.get("issue_ids", []) if fid in queue_set)
     desc = cluster.get("description") or ""
     desc_str = f" — {desc}" if desc else ""
     print(

@@ -57,7 +57,8 @@ def _print_plan_agent_block(plan: dict, *, header: str = "  AGENT PLAN:") -> Non
     print(colorize(f"  Living plan active: {headline}", "dim"))
     if active:
         cluster = plan.get("clusters", {}).get(active, {})
-        remaining = len(cluster.get("issue_ids", []))
+        queue_set = set(plan.get("queue_order", []))
+        remaining = sum(1 for fid in cluster.get("issue_ids", []) if fid in queue_set)
         print(colorize(f"  Focused on: {active} ({remaining} items remaining).", "dim"))
     print(colorize("  Next command: `desloppify next`", "dim"))
     print(colorize("  View plan: `desloppify plan`", "dim"))

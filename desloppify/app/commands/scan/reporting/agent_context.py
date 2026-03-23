@@ -399,7 +399,8 @@ def _print_living_plan_notice(plan_snapshot: dict[str, object]) -> None:
     if isinstance(active, str) and active:
         cluster = plan_snapshot.get("clusters", {}).get(active)
         issue_ids = cluster.get("issue_ids", []) if isinstance(cluster, dict) else []
-        remaining = len(issue_ids) if isinstance(issue_ids, list) else 0
+        queue_set = set(plan_snapshot.get("queue_order", []))
+        remaining = sum(1 for fid in issue_ids if fid in queue_set) if isinstance(issue_ids, list) else 0
         print(f"Focused on: {active} ({remaining} items remaining).")
     print("The plan is the single source of truth for work order.")
     print("Use `desloppify next` which respects the plan.")
