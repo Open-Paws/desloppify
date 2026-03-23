@@ -18,12 +18,16 @@ import desloppify.app.commands.plan.reorder_handlers as reorder_handlers_mod
 from desloppify.base.exception_sets import CommandError
 
 
-def test_override_io_snapshot_restore_and_plan_file_resolution(monkeypatch, tmp_path) -> None:
+def test_override_io_snapshot_restore_and_plan_file_resolution(
+    monkeypatch, tmp_path
+) -> None:
     assert override_io_mod._plan_file_for_state(None) is None
 
     state_path = tmp_path / "state.json"
     expected_plan_path = tmp_path / "state.plan.json"
-    monkeypatch.setattr(override_io_mod, "plan_path_for_state", lambda _path: expected_plan_path)
+    monkeypatch.setattr(
+        override_io_mod, "plan_path_for_state", lambda _path: expected_plan_path
+    )
     assert override_io_mod._plan_file_for_state(state_path) == expected_plan_path
 
     target = tmp_path / "sample.txt"
@@ -40,7 +44,9 @@ def test_override_io_snapshot_restore_and_plan_file_resolution(monkeypatch, tmp_
     assert not target.exists()
 
 
-def test_override_resolve_helpers_cover_synthetic_split_and_blocked_stages(capsys) -> None:
+def test_override_resolve_helpers_cover_synthetic_split_and_blocked_stages(
+    capsys,
+) -> None:
     synthetic, remaining = resolve_helpers_mod.split_synthetic_patterns(
         ["triage::reflect", "workflow::create-plan", "unused::src/a.py::X"]
     )
@@ -102,7 +108,9 @@ def test_override_resolve_cmd_confirm_requires_note(capsys) -> None:
     assert "--confirm requires --note" in out
 
 
-def test_override_resolve_cmd_handles_synthetic_only_resolution(monkeypatch, capsys) -> None:
+def test_override_resolve_cmd_handles_synthetic_only_resolution(
+    monkeypatch, capsys
+) -> None:
     plan = {"queue_order": ["triage::observe"], "clusters": {}}
     calls: list[tuple[str, list[str]]] = []
 
@@ -142,7 +150,9 @@ def test_override_resolve_cmd_handles_synthetic_only_resolution(monkeypatch, cap
     assert ("purge", ["triage::observe"]) in calls
 
 
-def test_resolve_workflow_patterns_triage_gate_blocks_and_logs(monkeypatch, capsys) -> None:
+def test_resolve_workflow_patterns_triage_gate_blocks_and_logs(
+    monkeypatch, capsys
+) -> None:
     plan = {
         "queue_order": [resolve_workflow_mod.WORKFLOW_CREATE_PLAN_ID],
         "epic_triage_meta": {"triage_stages": {}},
@@ -152,7 +162,9 @@ def test_resolve_workflow_patterns_triage_gate_blocks_and_logs(monkeypatch, caps
 
     monkeypatch.setattr(resolve_workflow_mod, "load_plan", lambda: plan)
     monkeypatch.setattr(resolve_workflow_mod, "blocked_triage_stages", lambda _plan: {})
-    monkeypatch.setattr(resolve_workflow_mod, "has_triage_in_queue", lambda _plan: False)
+    monkeypatch.setattr(
+        resolve_workflow_mod, "has_triage_in_queue", lambda _plan: False
+    )
     monkeypatch.setattr(
         resolve_workflow_mod,
         "inject_triage_stages",
@@ -165,7 +177,9 @@ def test_resolve_workflow_patterns_triage_gate_blocks_and_logs(monkeypatch, caps
         lambda _plan, action, **kwargs: logs.append((action, kwargs)),
     )
 
-    args = argparse.Namespace(force_resolve=False, state=None, lang=None, path=".", exclude=None)
+    args = argparse.Namespace(
+        force_resolve=False, state=None, lang=None, path=".", exclude=None
+    )
     outcome = resolve_workflow_mod.resolve_workflow_patterns(
         args,
         synthetic_ids=[resolve_workflow_mod.WORKFLOW_CREATE_PLAN_ID],
@@ -182,7 +196,9 @@ def test_resolve_workflow_patterns_triage_gate_blocks_and_logs(monkeypatch, caps
     assert any(action == "workflow_blocked" for action, _ in logs)
 
 
-def test_resolve_workflow_patterns_force_resolve_requires_long_note(monkeypatch, capsys) -> None:
+def test_resolve_workflow_patterns_force_resolve_requires_long_note(
+    monkeypatch, capsys
+) -> None:
     plan = {
         "queue_order": [resolve_workflow_mod.WORKFLOW_CREATE_PLAN_ID],
         "epic_triage_meta": {"triage_stages": {}},
@@ -191,9 +207,13 @@ def test_resolve_workflow_patterns_force_resolve_requires_long_note(monkeypatch,
     monkeypatch.setattr(resolve_workflow_mod, "blocked_triage_stages", lambda _plan: {})
     monkeypatch.setattr(resolve_workflow_mod, "has_triage_in_queue", lambda _plan: True)
     monkeypatch.setattr(resolve_workflow_mod, "save_plan", lambda *_a, **_k: None)
-    monkeypatch.setattr(resolve_workflow_mod, "append_log_entry", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        resolve_workflow_mod, "append_log_entry", lambda *_a, **_k: None
+    )
 
-    args = argparse.Namespace(force_resolve=True, state=None, lang=None, path=".", exclude=None)
+    args = argparse.Namespace(
+        force_resolve=True, state=None, lang=None, path=".", exclude=None
+    )
     outcome = resolve_workflow_mod.resolve_workflow_patterns(
         args,
         synthetic_ids=[resolve_workflow_mod.WORKFLOW_CREATE_PLAN_ID],
@@ -206,7 +226,9 @@ def test_resolve_workflow_patterns_force_resolve_requires_long_note(monkeypatch,
     assert "--force-resolve still requires --note (min 50 chars)" in out
 
 
-def test_resolve_workflow_patterns_scan_gate_blocks_without_new_scan(monkeypatch, capsys) -> None:
+def test_resolve_workflow_patterns_scan_gate_blocks_without_new_scan(
+    monkeypatch, capsys
+) -> None:
     plan = {
         "queue_order": [resolve_workflow_mod.WORKFLOW_SCORE_CHECKPOINT_ID],
         "epic_triage_meta": {
@@ -221,15 +243,21 @@ def test_resolve_workflow_patterns_scan_gate_blocks_without_new_scan(monkeypatch
     monkeypatch.setattr(resolve_workflow_mod, "load_plan", lambda: plan)
     monkeypatch.setattr(resolve_workflow_mod, "blocked_triage_stages", lambda _plan: {})
     monkeypatch.setattr(resolve_workflow_mod, "save_plan", lambda *_a, **_k: None)
-    monkeypatch.setattr(resolve_workflow_mod, "state_path", lambda _args: Path("state.json"))
-    monkeypatch.setattr(resolve_workflow_mod.state_mod, "load_state", lambda _path: {"scan_count": 9})
+    monkeypatch.setattr(
+        resolve_workflow_mod, "state_path", lambda _args: Path("state.json")
+    )
+    monkeypatch.setattr(
+        resolve_workflow_mod.state_mod, "load_state", lambda _path: {"scan_count": 9}
+    )
     monkeypatch.setattr(
         resolve_workflow_mod,
         "append_log_entry",
         lambda _plan, action, **kwargs: logs.append((action, kwargs)),
     )
 
-    args = argparse.Namespace(force_resolve=False, state=None, lang=None, path=".", exclude=None)
+    args = argparse.Namespace(
+        force_resolve=False, state=None, lang=None, path=".", exclude=None
+    )
     outcome = resolve_workflow_mod.resolve_workflow_patterns(
         args,
         synthetic_ids=[resolve_workflow_mod.WORKFLOW_SCORE_CHECKPOINT_ID],
@@ -244,7 +272,9 @@ def test_resolve_workflow_patterns_scan_gate_blocks_without_new_scan(monkeypatch
     assert any(action == "scan_gate_blocked" for action, _ in logs)
 
 
-def test_resolve_workflow_patterns_reconciles_when_create_plan_drains_queue(monkeypatch) -> None:
+def test_resolve_workflow_patterns_reconciles_when_create_plan_drains_queue(
+    monkeypatch,
+) -> None:
     plan = {
         "queue_order": [resolve_workflow_mod.WORKFLOW_CREATE_PLAN_ID],
         "epic_triage_meta": {
@@ -257,8 +287,12 @@ def test_resolve_workflow_patterns_reconciles_when_create_plan_drains_queue(monk
 
     monkeypatch.setattr(resolve_workflow_mod, "load_plan", lambda: plan)
     monkeypatch.setattr(resolve_workflow_mod, "blocked_triage_stages", lambda _plan: {})
-    monkeypatch.setattr(resolve_workflow_mod, "save_plan", lambda *_a, **_k: seen.append("save"))
-    monkeypatch.setattr(resolve_workflow_mod, "state_path", lambda _args: Path("state.json"))
+    monkeypatch.setattr(
+        resolve_workflow_mod, "save_plan", lambda *_a, **_k: seen.append("save")
+    )
+    monkeypatch.setattr(
+        resolve_workflow_mod, "state_path", lambda _args: Path("state.json")
+    )
     monkeypatch.setattr(
         resolve_workflow_mod.state_mod,
         "load_state",
@@ -269,22 +303,11 @@ def test_resolve_workflow_patterns_reconciles_when_create_plan_drains_queue(monk
         "append_log_entry",
         lambda *_a, **_k: None,
     )
-    monkeypatch.setattr(resolve_workflow_mod, "live_planned_queue_empty", lambda _plan: True)
-    monkeypatch.setattr(resolve_workflow_mod, "has_open_review_issues", lambda _state: True)
     monkeypatch.setattr(
-        resolve_workflow_mod,
-        "ensure_active_triage_issue_ids",
-        lambda _plan, _state: seen.append(("active_triage", True)),
+        resolve_workflow_mod, "live_planned_queue_empty", lambda _plan: True
     )
     monkeypatch.setattr(
-        resolve_workflow_mod,
-        "inject_triage_stages",
-        lambda _plan: seen.append(("inject_triage", True)),
-    )
-    monkeypatch.setattr(
-        resolve_workflow_mod,
-        "set_lifecycle_phase",
-        lambda _plan, phase: seen.append(("phase", phase)) or True,
+        resolve_workflow_mod, "has_open_review_issues", lambda _state: True
     )
     monkeypatch.setattr(
         resolve_workflow_mod,
@@ -295,11 +318,23 @@ def test_resolve_workflow_patterns_reconciles_when_create_plan_drains_queue(monk
         resolve_workflow_mod,
         "reconcile_plan",
         lambda _plan, _state, *, target_strict: seen.append(
-            ("reconcile", list(_plan.get("queue_order", [])), target_strict)
-        ),
+            (
+                "reconcile",
+                list(_plan.get("queue_order", [])),
+                target_strict,
+                _plan.get("refresh_state", {}).get("workflow_plan_just_resolved"),
+            )
+        )
+        or type(
+            "Result",
+            (),
+            {"lifecycle_phase_changed": False, "lifecycle_phase": "triage"},
+        )(),
     )
 
-    args = argparse.Namespace(force_resolve=False, state=None, lang=None, path=".", exclude=None)
+    args = argparse.Namespace(
+        force_resolve=False, state=None, lang=None, path=".", exclude=None
+    )
     outcome = resolve_workflow_mod.resolve_workflow_patterns(
         args,
         synthetic_ids=[resolve_workflow_mod.WORKFLOW_CREATE_PLAN_ID],
@@ -308,11 +343,13 @@ def test_resolve_workflow_patterns_reconciles_when_create_plan_drains_queue(monk
     )
 
     assert outcome.status == "handled"
-    assert ("active_triage", True) in seen
-    assert ("inject_triage", True) in seen
-    assert ("phase", "plan") in seen
-    assert ("target", {"target_strict_score": 96}) not in seen
-    assert not any(isinstance(item, tuple) and item[:1] == ("reconcile",) for item in seen)
+    assert ("target", {"target_strict_score": 96}) in seen
+    assert (
+        "reconcile",
+        [],
+        96.0,
+        True,
+    ) in seen
 
 
 def test_cmd_plan_resolve_workflow_gate_integration_paths(monkeypatch, capsys) -> None:
@@ -325,9 +362,15 @@ def test_cmd_plan_resolve_workflow_gate_integration_paths(monkeypatch, capsys) -
     monkeypatch.setattr(resolve_workflow_mod, "blocked_triage_stages", lambda _plan: {})
     monkeypatch.setattr(resolve_workflow_mod, "has_triage_in_queue", lambda _plan: True)
     monkeypatch.setattr(resolve_workflow_mod, "save_plan", lambda *_a, **_k: None)
-    monkeypatch.setattr(resolve_workflow_mod, "append_log_entry", lambda *_a, **_k: None)
-    monkeypatch.setattr(resolve_workflow_mod, "state_path", lambda _args: Path("state.json"))
-    monkeypatch.setattr(resolve_workflow_mod.state_mod, "load_state", lambda _path: state)
+    monkeypatch.setattr(
+        resolve_workflow_mod, "append_log_entry", lambda *_a, **_k: None
+    )
+    monkeypatch.setattr(
+        resolve_workflow_mod, "state_path", lambda _args: Path("state.json")
+    )
+    monkeypatch.setattr(
+        resolve_workflow_mod.state_mod, "load_state", lambda _path: state
+    )
     monkeypatch.setattr(
         override_resolve_cmd_mod,
         "cmd_resolve",
@@ -413,10 +456,18 @@ def test_override_misc_focus_and_scan_gate_paths(monkeypatch, capsys) -> None:
     monkeypatch.setattr(override_misc_mod, "load_plan", lambda: plan)
     monkeypatch.setattr(override_misc_mod, "append_log_entry", lambda *_a, **_k: None)
     monkeypatch.setattr(override_misc_mod, "save_plan", lambda *_a, **_k: None)
-    monkeypatch.setattr(override_misc_mod, "set_focus", lambda p, name: p.update({"active_cluster": name}))
-    monkeypatch.setattr(override_misc_mod, "clear_focus", lambda p: p.update({"active_cluster": None}))
+    monkeypatch.setattr(
+        override_misc_mod,
+        "set_focus",
+        lambda p, name: p.update({"active_cluster": name}),
+    )
+    monkeypatch.setattr(
+        override_misc_mod, "clear_focus", lambda p: p.update({"active_cluster": None})
+    )
 
-    override_misc_mod.cmd_plan_focus(argparse.Namespace(clear=False, cluster_name="alpha"))
+    override_misc_mod.cmd_plan_focus(
+        argparse.Namespace(clear=False, cluster_name="alpha")
+    )
     out_focus = capsys.readouterr().out
     assert "Focused on: alpha" in out_focus
     assert plan["active_cluster"] == "alpha"
@@ -425,14 +476,20 @@ def test_override_misc_focus_and_scan_gate_paths(monkeypatch, capsys) -> None:
     out_clear = capsys.readouterr().out
     assert "Focus cleared" in out_clear
 
-    monkeypatch.setattr(override_misc_mod, "state_path", lambda _args: Path("state.json"))
-    monkeypatch.setattr(override_misc_mod, "load_state", lambda _path: {"scan_count": 3})
+    monkeypatch.setattr(
+        override_misc_mod, "state_path", lambda _args: Path("state.json")
+    )
+    monkeypatch.setattr(
+        override_misc_mod, "load_state", lambda _path: {"scan_count": 3}
+    )
 
     override_misc_mod.cmd_plan_scan_gate(argparse.Namespace(skip=False, note=None))
     out_blocked = capsys.readouterr().out
     assert "Scan gate: BLOCKED" in out_blocked
 
-    override_misc_mod.cmd_plan_scan_gate(argparse.Namespace(skip=True, note="too short"))
+    override_misc_mod.cmd_plan_scan_gate(
+        argparse.Namespace(skip=True, note="too short")
+    )
     out_short = capsys.readouterr().out
     assert "requires --note with at least 50 chars" in out_short
 
@@ -452,10 +509,14 @@ def test_plan_promote_moves_backlog_items_into_queue(monkeypatch, capsys) -> Non
     moved: list[tuple[list[str], str, str | None]] = []
 
     monkeypatch.setattr(reorder_handlers_mod, "command_runtime", lambda _args: runtime)
-    monkeypatch.setattr(reorder_handlers_mod, "require_issue_inventory", lambda _state: True)
+    monkeypatch.setattr(
+        reorder_handlers_mod, "require_issue_inventory", lambda _state: True
+    )
     monkeypatch.setattr(reorder_handlers_mod, "load_plan", lambda: plan)
     monkeypatch.setattr(reorder_handlers_mod, "save_plan", lambda *_a, **_k: None)
-    monkeypatch.setattr(reorder_handlers_mod, "append_log_entry", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        reorder_handlers_mod, "append_log_entry", lambda *_a, **_k: None
+    )
     monkeypatch.setattr(
         reorder_handlers_mod,
         "resolve_ids_from_patterns",
@@ -481,7 +542,9 @@ def test_plan_promote_moves_backlog_items_into_queue(monkeypatch, capsys) -> Non
 
 
 def test_override_skip_helpers_and_commands(monkeypatch, capsys) -> None:
-    monkeypatch.setattr(override_skip_mod, "skip_kind_requires_attestation", lambda _kind: True)
+    monkeypatch.setattr(
+        override_skip_mod, "skip_kind_requires_attestation", lambda _kind: True
+    )
     monkeypatch.setattr(
         override_skip_mod,
         "validate_attestation",
@@ -507,15 +570,21 @@ def test_override_skip_helpers_and_commands(monkeypatch, capsys) -> None:
         )
         is None
     )
-    monkeypatch.setattr(override_skip_mod, "skip_kind_requires_attestation", lambda _kind: False)
+    monkeypatch.setattr(
+        override_skip_mod, "skip_kind_requires_attestation", lambda _kind: False
+    )
 
     runtime = SimpleNamespace(
         state={"last_scan": "2026-03-01T00:00:00+00:00", "scan_count": 2, "issues": {}},
         state_path=None,
     )
     monkeypatch.setattr(override_skip_mod, "command_runtime", lambda _args: runtime)
-    monkeypatch.setattr(override_skip_mod, "require_issue_inventory", lambda _state: True)
-    monkeypatch.setattr(override_skip_mod, "load_plan", lambda _plan_file=None: {"queue_order": []})
+    monkeypatch.setattr(
+        override_skip_mod, "require_issue_inventory", lambda _state: True
+    )
+    monkeypatch.setattr(
+        override_skip_mod, "load_plan", lambda _plan_file=None: {"queue_order": []}
+    )
     monkeypatch.setattr(
         override_skip_mod,
         "resolve_ids_from_patterns",
@@ -565,11 +634,269 @@ def test_override_skip_helpers_and_commands(monkeypatch, capsys) -> None:
         lambda **_kwargs: None,
     )
 
-    override_skip_mod.cmd_plan_unskip(
-        argparse.Namespace(patterns=["i1"], force=False)
-    )
+    override_skip_mod.cmd_plan_unskip(argparse.Namespace(patterns=["i1"], force=False))
     out = capsys.readouterr().out
     assert "Unskipped 1 item(s)" in out
+
+
+def test_cmd_plan_skip_reconciles_with_fresh_state_after_invalidation(
+    monkeypatch,
+) -> None:
+    runtime_state = {
+        "scan_count": 2,
+        "issues": {},
+        "config": {"target_strict_score": 90},
+    }
+    fresh_state = {"scan_count": 2, "issues": {}, "config": {"target_strict_score": 91}}
+    runtime = SimpleNamespace(state=runtime_state, state_path=None)
+    plan = {"queue_order": ["i1"]}
+    seen: list[tuple[str, object]] = []
+
+    monkeypatch.setattr(override_skip_mod, "command_runtime", lambda _args: runtime)
+    monkeypatch.setattr(
+        override_skip_mod, "require_issue_inventory", lambda _state: True
+    )
+    monkeypatch.setattr(override_skip_mod, "load_plan", lambda _plan_file=None: plan)
+    monkeypatch.setattr(
+        override_skip_mod, "resolve_ids_from_patterns", lambda *_a, **_k: ["i1"]
+    )
+    monkeypatch.setattr(
+        override_skip_mod, "_apply_state_skip_resolution", lambda **_k: fresh_state
+    )
+    monkeypatch.setattr(override_skip_mod, "skip_items", lambda *_a, **_k: 1)
+    monkeypatch.setattr(override_skip_mod, "append_log_entry", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        override_skip_mod, "invalidate_postflight_scan", lambda *_a, **_k: True
+    )
+    monkeypatch.setattr(
+        override_skip_mod,
+        "target_strict_score_from_config",
+        lambda config: seen.append(("target", config)) or 91.0,
+    )
+    monkeypatch.setattr(
+        override_skip_mod,
+        "reconcile_plan",
+        lambda _plan, _state, *, target_strict: seen.append(
+            ("reconcile", _state, target_strict)
+        )
+        or type(
+            "Result",
+            (),
+            {"lifecycle_phase_changed": True, "lifecycle_phase": "execute"},
+        )(),
+    )
+    monkeypatch.setattr(
+        override_skip_mod, "save_plan_state_transactional", lambda **_k: None
+    )
+    monkeypatch.setattr(
+        override_skip_mod,
+        "emit_transition_message",
+        lambda phase: seen.append(("emit", phase)),
+    )
+    monkeypatch.setattr(override_skip_mod, "print_user_message", lambda _msg: None)
+
+    override_skip_mod.cmd_plan_skip(
+        argparse.Namespace(
+            patterns=["i1"],
+            reason=None,
+            review_after=None,
+            permanent=False,
+            false_positive=False,
+            note=None,
+            attest=None,
+            confirm=False,
+        )
+    )
+
+    assert ("target", {"target_strict_score": 91}) in seen
+    assert ("reconcile", fresh_state, 91.0) in seen
+    assert ("emit", "execute") in seen
+
+
+def test_cmd_plan_unskip_reconciles_with_reopened_state(monkeypatch) -> None:
+    runtime_state = {"issues": {}, "config": {"target_strict_score": 90}}
+    fresh_state = {
+        "issues": {"i1": {"status": "wontfix"}},
+        "config": {"target_strict_score": 92},
+    }
+    runtime = SimpleNamespace(state=runtime_state, state_path=None)
+    plan = {"queue_order": ["i1"], "skipped": {"i1": {"kind": "temporary"}}}
+    seen: list[tuple[str, object]] = []
+
+    monkeypatch.setattr(override_skip_mod, "command_runtime", lambda _args: runtime)
+    monkeypatch.setattr(
+        override_skip_mod, "require_issue_inventory", lambda _state: True
+    )
+    monkeypatch.setattr(override_skip_mod, "load_plan", lambda _plan_file=None: plan)
+    monkeypatch.setattr(
+        override_skip_mod, "resolve_ids_from_patterns", lambda *_a, **_k: ["i1"]
+    )
+    monkeypatch.setattr(
+        override_skip_mod, "unskip_items", lambda *_a, **_k: (1, ["i1"], [])
+    )
+    monkeypatch.setattr(override_skip_mod, "append_log_entry", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        override_skip_mod.state_mod, "load_state", lambda _path: fresh_state
+    )
+    monkeypatch.setattr(
+        override_skip_mod.state_mod,
+        "resolve_issues",
+        lambda _state, fid, _status: [fid],
+    )
+    monkeypatch.setattr(
+        override_skip_mod, "invalidate_postflight_scan", lambda *_a, **_k: True
+    )
+    monkeypatch.setattr(
+        override_skip_mod,
+        "target_strict_score_from_config",
+        lambda config: seen.append(("target", config)) or 92.0,
+    )
+    monkeypatch.setattr(
+        override_skip_mod,
+        "reconcile_plan",
+        lambda _plan, _state, *, target_strict: seen.append(
+            ("reconcile", _state, target_strict)
+        )
+        or type(
+            "Result",
+            (),
+            {"lifecycle_phase_changed": True, "lifecycle_phase": "execute"},
+        )(),
+    )
+    monkeypatch.setattr(
+        override_skip_mod, "save_plan_state_transactional", lambda **_k: None
+    )
+    monkeypatch.setattr(
+        override_skip_mod,
+        "emit_transition_message",
+        lambda phase: seen.append(("emit", phase)),
+    )
+
+    override_skip_mod.cmd_plan_unskip(argparse.Namespace(patterns=["i1"], force=False))
+
+    assert ("target", {"target_strict_score": 92}) in seen
+    assert ("reconcile", fresh_state, 92.0) in seen
+    assert ("emit", "execute") in seen
+
+
+def test_cmd_plan_backlog_reconciles_after_invalidation(monkeypatch) -> None:
+    runtime_state = {"issues": {}, "config": {"target_strict_score": 90}}
+    runtime = SimpleNamespace(state=runtime_state, state_path=None)
+    state_data = {
+        "work_items": {"i1": {"status": "deferred"}},
+        "config": {"target_strict_score": 93},
+    }
+    plan = {"queue_order": ["i1"], "skipped": {"i1": {"kind": "temporary"}}}
+    seen: list[tuple[str, object]] = []
+
+    monkeypatch.setattr(override_skip_mod, "command_runtime", lambda _args: runtime)
+    monkeypatch.setattr(
+        override_skip_mod, "require_issue_inventory", lambda _state: True
+    )
+    monkeypatch.setattr(override_skip_mod, "load_plan", lambda _plan_file=None: plan)
+    monkeypatch.setattr(
+        override_skip_mod, "resolve_ids_from_patterns", lambda *_a, **_k: ["i1"]
+    )
+    monkeypatch.setattr(override_skip_mod, "backlog_items", lambda *_a, **_k: ["i1"])
+    monkeypatch.setattr(
+        override_skip_mod.state_mod, "load_state", lambda _path: state_data
+    )
+    monkeypatch.setattr(
+        override_skip_mod.state_mod,
+        "resolve_issues",
+        lambda _state, fid, _status: [fid],
+    )
+    monkeypatch.setattr(override_skip_mod, "append_log_entry", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        override_skip_mod, "invalidate_postflight_scan", lambda *_a, **_k: True
+    )
+    monkeypatch.setattr(
+        override_skip_mod,
+        "target_strict_score_from_config",
+        lambda config: seen.append(("target", config)) or 93.0,
+    )
+    monkeypatch.setattr(
+        override_skip_mod,
+        "reconcile_plan",
+        lambda _plan, _state, *, target_strict: seen.append(
+            ("reconcile", _state, target_strict)
+        )
+        or type(
+            "Result",
+            (),
+            {"lifecycle_phase_changed": True, "lifecycle_phase": "execute"},
+        )(),
+    )
+    monkeypatch.setattr(
+        override_skip_mod, "save_plan_state_transactional", lambda **_k: None
+    )
+    monkeypatch.setattr(
+        override_skip_mod,
+        "emit_transition_message",
+        lambda phase: seen.append(("emit", phase)),
+    )
+
+    override_skip_mod.cmd_plan_backlog(argparse.Namespace(patterns=["i1"]))
+
+    assert ("target", {"target_strict_score": 93}) in seen
+    assert ("reconcile", state_data, 93.0) in seen
+    assert ("emit", "execute") in seen
+
+
+def test_cmd_plan_reopen_reconciles_after_invalidation(monkeypatch) -> None:
+    state_data = {"config": {"target_strict_score": 94}}
+    plan = {"queue_order": [], "skipped": {}}
+    seen: list[tuple[str, object]] = []
+
+    monkeypatch.setattr(
+        override_misc_mod, "state_path", lambda _args: Path("state.json")
+    )
+    monkeypatch.setattr(override_misc_mod, "load_state", lambda _path: state_data)
+    monkeypatch.setattr(
+        override_misc_mod, "_plan_file_for_state", lambda _path: Path("state.plan.json")
+    )
+    monkeypatch.setattr(override_misc_mod, "load_plan", lambda _path=None: plan)
+    monkeypatch.setattr(
+        override_misc_mod, "resolve_issues", lambda _state, _pattern, _status: ["i1"]
+    )
+    monkeypatch.setattr(
+        override_misc_mod, "purge_uncommitted_ids", lambda *_a, **_k: None
+    )
+    monkeypatch.setattr(override_misc_mod, "append_log_entry", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        override_misc_mod, "invalidate_postflight_scan", lambda *_a, **_k: True
+    )
+    monkeypatch.setattr(
+        override_misc_mod,
+        "target_strict_score_from_config",
+        lambda config: seen.append(("target", config)) or 94.0,
+    )
+    monkeypatch.setattr(
+        override_misc_mod,
+        "reconcile_plan",
+        lambda _plan, _state, *, target_strict: seen.append(
+            ("reconcile", _state, target_strict)
+        )
+        or type(
+            "Result",
+            (),
+            {"lifecycle_phase_changed": True, "lifecycle_phase": "execute"},
+        )(),
+    )
+    monkeypatch.setattr(
+        override_misc_mod, "save_plan_state_transactional", lambda **_k: None
+    )
+    monkeypatch.setattr(
+        override_misc_mod,
+        "emit_transition_message",
+        lambda phase: seen.append(("emit", phase)),
+    )
+
+    override_misc_mod.cmd_plan_reopen(argparse.Namespace(patterns=["i1"]))
+
+    assert ("target", {"target_strict_score": 94}) in seen
+    assert ("reconcile", state_data, 94.0) in seen
+    assert ("emit", "execute") in seen
 
 
 def test_cmd_plan_skip_invalid_permanent_skip_exits_nonzero(monkeypatch) -> None:
@@ -578,7 +905,9 @@ def test_cmd_plan_skip_invalid_permanent_skip_exits_nonzero(monkeypatch) -> None
         state_path=None,
     )
     monkeypatch.setattr(override_skip_mod, "command_runtime", lambda _args: runtime)
-    monkeypatch.setattr(override_skip_mod, "require_issue_inventory", lambda _state: True)
+    monkeypatch.setattr(
+        override_skip_mod, "require_issue_inventory", lambda _state: True
+    )
 
     with pytest.raises(CommandError) as excinfo:
         override_skip_mod.cmd_plan_skip(

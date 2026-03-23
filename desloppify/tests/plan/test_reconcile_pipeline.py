@@ -11,12 +11,15 @@ Covers the gate matrix from centralize-postflight-pipeline.md:
 
 from __future__ import annotations
 
+import pytest
+
 from desloppify.engine._plan.auto_cluster import auto_cluster_issues
 from desloppify.engine._plan.constants import (
     WORKFLOW_COMMUNICATE_SCORE_ID,
     WORKFLOW_CREATE_PLAN_ID,
     WORKFLOW_IMPORT_SCORES_ID,
 )
+from desloppify.engine._plan.policy.stale import review_issue_snapshot_hash
 from desloppify.engine._plan.refresh_lifecycle import (
     LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT,
     LIFECYCLE_PHASE_EXECUTE,
@@ -66,6 +69,11 @@ def _stale_subjective_state() -> dict:
             },
         },
     }
+
+
+def _review_issue_state(*issue_ids: str) -> dict:
+    issues = {issue_id: _issue(issue_id, detector="review") for issue_id in issue_ids}
+    return {"issues": issues, "work_items": dict(issues), "scan_count": 5}
 
 
 # ---------------------------------------------------------------------------
@@ -190,8 +198,10 @@ def test_reconcile_plan_second_call_is_noop() -> None:
     assert result2.workflow_injected_ids == []
 
 
-def test_reconcile_plan_holds_workflow_until_current_scan_subjective_review_completes() -> None:
-    """Postflight review must run before communicate-score/create-plan."""
+def test_reconcile_plan_holds_workflow_until_current_scan_subjective_review_completes() -> (
+    None
+):
+    """Postflight review must run before score checkpointing and create-plan."""
     state = {
         "issues": {"unused::a": _issue("unused::a")},
         "scan_count": 19,
@@ -279,6 +289,82 @@ def test_import_scores_stays_ahead_of_stale_subjective_phase() -> None:
 
     assert result.lifecycle_phase == LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT
     assert WORKFLOW_IMPORT_SCORES_ID in plan["queue_order"]
+
+
+@pytest.mark.parametrize(
+    ("build_case", "expected_phase"),
+    [
+        (
+            lambda: (empty_plan(), {"issues": {}, "work_items": {}, "scan_count": 1}),
+            LIFECYCLE_PHASE_SCAN,
+        ),
+        (
+            lambda: (
+                {"queue_order": ["unused::a"], "plan_start_scores": {"strict": 80.0}},
+                {"issues": {"unused::a": _issue("unused::a")}},
+            ),
+            LIFECYCLE_PHASE_EXECUTE,
+        ),
+        (
+            lambda: (
+                {
+                    "queue_order": ["unused::a"],
+                    "plan_start_scores": {"strict": 80.0},
+                },
+                {
+                    **_stale_subjective_state(),
+                    "issues": {"unused::a": _issue("unused::a")},
+                },
+            ),
+            LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT,
+        ),
+        (
+            lambda: (
+                {
+                    "queue_order": [WORKFLOW_CREATE_PLAN_ID],
+                    "refresh_state": {"lifecycle_phase": "plan"},
+                },
+                {"issues": {}, "work_items": {}, "scan_count": 19},
+            ),
+            LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT,
+        ),
+        (
+            lambda: (
+                {
+                    "queue_order": ["triage::observe"],
+                    "refresh_state": {"lifecycle_phase": "plan"},
+                },
+                _review_issue_state("review::a"),
+            ),
+            LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT,
+        ),
+        (
+            lambda: (
+                {
+                    "queue_order": [],
+                    "refresh_state": {"lifecycle_phase": "plan"},
+                    "epic_triage_meta": {
+                        "last_completed_at": "2026-03-23T00:00:00Z",
+                        "triaged_ids": ["review::a"],
+                        "issue_snapshot_hash": review_issue_snapshot_hash(
+                            _review_issue_state("review::a")
+                        ),
+                    },
+                },
+                _review_issue_state("review::a"),
+            ),
+            LIFECYCLE_PHASE_REVIEW_POSTFLIGHT,
+        ),
+    ],
+)
+def test_phase_derivation_equivalence_matrix(build_case, expected_phase) -> None:
+    plan, state = build_case()
+
+    result = reconcile_plan(plan, state, target_strict=95.0)
+    snapshot = build_queue_snapshot(state, plan=plan)
+
+    assert result.lifecycle_phase == expected_phase
+    assert snapshot.phase == expected_phase
 
 
 # ---------------------------------------------------------------------------
@@ -439,7 +525,9 @@ def test_postflight_phase_stays_exclusive_when_new_execute_items_exist() -> None
     snapshot = build_queue_snapshot(state, plan=plan)
 
     assert snapshot.phase == LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT
-    assert [item["id"] for item in snapshot.execution_items] == ["subjective::naming_quality"]
+    assert [item["id"] for item in snapshot.execution_items] == [
+        "subjective::naming_quality"
+    ]
     assert "unused::obj" in [item["id"] for item in snapshot.backlog_items]
 
 
@@ -517,7 +605,8 @@ def test_phantom_resurrection_guard_overrides_not_in_queue() -> None:
 
     # Phase should NOT be EXECUTE — queue is empty
     assert snapshot.phase != LIFECYCLE_PHASE_EXECUTE or not any(
-        item["id"] == "unused::ghost" for item in snapshot.execution_items
+        item["id"] == "unused::ghost"
+        for item in snapshot.execution_items
         if not item.get("kind") == "cluster"
     )
 

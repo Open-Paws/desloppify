@@ -69,9 +69,7 @@ def _touches_objective_issue(
         return True
 
     real_issue_ids = [
-        issue_id
-        for issue_id in issue_ids
-        if _is_real_queue_issue(str(issue_id))
+        issue_id for issue_id in issue_ids if _is_real_queue_issue(str(issue_id))
     ]
     if not real_issue_ids:
         return False
@@ -113,7 +111,8 @@ def current_lifecycle_phase(plan: PlanModel) -> str:
                 if migrated == "plan" and plan.get("plan_start_scores"):
                     queue_order = plan.get("queue_order", [])
                     has_plan_work = any(
-                        isinstance(item_id, str) and (
+                        isinstance(item_id, str)
+                        and (
                             item_id.startswith("workflow::")
                             or item_id.startswith("triage::")
                         )
@@ -131,7 +130,7 @@ def current_lifecycle_phase(plan: PlanModel) -> str:
     return "execute"
 
 
-def set_lifecycle_phase(plan: PlanModel, phase: str) -> bool:
+def _set_lifecycle_phase(plan: PlanModel, phase: str) -> bool:
     """Persist the current queue lifecycle mode (``"plan"`` or ``"execute"``)."""
     if phase not in _VALID_PHASES:
         raise ValueError(f"Unsupported lifecycle phase: {phase}")
@@ -200,7 +199,7 @@ def mark_subjective_review_completed(
     return True
 
 
-def clear_postflight_scan_completion(
+def invalidate_postflight_scan(
     plan: PlanModel,
     *,
     issue_ids: Iterable[str] | None = None,
@@ -212,7 +211,6 @@ def clear_postflight_scan_completion(
     refresh_state = _refresh_state(plan)
     if _POSTFLIGHT_SCAN_KEY not in refresh_state:
         return False
-    refresh_state[_LIFECYCLE_PHASE_KEY] = "execute"
     refresh_state.pop(_POSTFLIGHT_SCAN_KEY, None)
     return True
 
@@ -225,11 +223,10 @@ __all__ = [
     "LIFECYCLE_PHASE_SCAN",
     "LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT",
     "LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT",
-    "clear_postflight_scan_completion",
+    "invalidate_postflight_scan",
     "current_lifecycle_phase",
     "mark_postflight_scan_completed",
     "mark_subjective_review_completed",
     "postflight_scan_pending",
-    "set_lifecycle_phase",
     "subjective_review_completed_for_scan",
 ]

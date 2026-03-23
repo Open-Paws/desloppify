@@ -13,6 +13,10 @@ from desloppify.engine._plan.constants import (
 )
 from desloppify.engine._plan.schema import PlanModel, ensure_plan_defaults
 from desloppify.engine._plan.policy.subjective import SubjectiveVisibility
+from desloppify.engine._plan.triage.lifecycle import (
+    ensure_active_triage_issue_ids,
+    inject_triage_stages,
+)
 from desloppify.engine._state.schema import StateModel
 
 from .defer_policy import (
@@ -26,11 +30,13 @@ from .triage_start_policy import decide_triage_start
 _TRIAGE_DEFER_META_KEY = "triage_defer_state"
 _TRIAGE_DEFER_IDS_FIELD = "deferred_review_ids"
 _TRIAGE_FORCE_VISIBLE_KEY = "triage_force_visible"
+_WORKFLOW_PLAN_JUST_RESOLVED_KEY = "workflow_plan_just_resolved"
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _new_review_ids_since_triage(
     state: StateModel,
@@ -175,8 +181,7 @@ def _backfill_partial_triage_snapshot(
 ) -> None:
     stages = meta.get("triage_stages", {})
     has_completed_stage = any(
-        isinstance(v, dict) and v.get("confirmed_at")
-        for v in stages.values()
+        isinstance(v, dict) and v.get("confirmed_at") for v in stages.values()
     )
     if not has_completed_stage or meta.get("triaged_ids") or last_hash:
         return
@@ -185,6 +190,17 @@ def _backfill_partial_triage_snapshot(
         meta["triaged_ids"] = current_review
         meta["issue_snapshot_hash"] = stale_policy_mod.review_issue_snapshot_hash(state)
         plan["epic_triage_meta"] = meta
+
+
+def _consume_workflow_plan_resolution_marker(plan: PlanModel, meta: dict) -> bool:
+    """Consume the transient marker written before reconcile by workflow resolve."""
+    refresh_state = plan.get("refresh_state")
+    consumed = False
+    if isinstance(refresh_state, dict):
+        consumed = bool(refresh_state.pop(_WORKFLOW_PLAN_JUST_RESOLVED_KEY, None))
+    if meta.pop(_WORKFLOW_PLAN_JUST_RESOLVED_KEY, None):
+        consumed = True
+    return consumed
 
 
 def _defer_or_inject_triage(
@@ -274,6 +290,7 @@ def _sync_hash_change(
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def is_triage_stale(plan: PlanModel, state: StateModel) -> bool:
     """Side-effect-free check: is triage needed?
 
@@ -331,8 +348,19 @@ def sync_triage_needed(
     result = QueueSyncResult()
     order: list[str] = plan["queue_order"]
     meta = plan.get("epic_triage_meta", {})
+    if not isinstance(meta, dict):
+        meta = {}
+        plan["epic_triage_meta"] = meta
     confirmed = confirmed_triage_stage_names(meta)
     recorded_unconfirmed = recorded_unconfirmed_triage_stage_names(meta)
+
+    if _consume_workflow_plan_resolution_marker(plan, meta):
+        if stale_policy_mod.open_review_ids(state):
+            ensure_active_triage_issue_ids(plan, state)
+            _mark_triage_ready(plan, meta)
+            injected = inject_triage_stages(plan)
+            return QueueSyncResult(injected=injected)
+        _store_triage_meta(plan, meta)
 
     # Check if any triage stage is already in queue
     already_present = any(sid in order for sid in TRIAGE_IDS)

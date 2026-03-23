@@ -82,6 +82,7 @@ class QueueSnapshot:
 # Internal helpers — option resolution, item classification
 # ---------------------------------------------------------------------------
 
+
 def _option_value(options: object | None, name: str, default: Any) -> Any:
     if options is None:
         return default
@@ -90,7 +91,10 @@ def _option_value(options: object | None, name: str, default: Any) -> Any:
 
 def _resolved_scan_path(options: object | None, state: StateModel) -> str | None:
     scan_path = _option_value(options, "scan_path", state.get("scan_path"))
-    if hasattr(scan_path, "__class__") and scan_path.__class__.__name__ == "_ScanPathFromState":
+    if (
+        hasattr(scan_path, "__class__")
+        and scan_path.__class__.__name__ == "_ScanPathFromState"
+    ):
         return state.get("scan_path")
     return scan_path
 
@@ -113,17 +117,11 @@ def _is_objective_item(item: WorkQueueItem, *, skipped_ids: set[str]) -> bool:
 
 
 def _review_issue_items(items: Iterable[WorkQueueItem]) -> list[WorkQueueItem]:
-    return [
-        item for item in items
-        if is_triage_finding(item)
-    ]
+    return [item for item in items if is_triage_finding(item)]
 
 
 def _assessment_request_items(items: Iterable[WorkQueueItem]) -> list[WorkQueueItem]:
-    return [
-        item for item in items
-        if is_assessment_request(item)
-    ]
+    return [item for item in items if is_assessment_request(item)]
 
 
 def _active_cluster_issue_ids(plan: dict | None) -> set[str]:
@@ -221,7 +219,9 @@ def _subjective_partitions(
     threshold: float,
     plan: dict | None,
 ) -> tuple[list[WorkQueueItem], list[WorkQueueItem]]:
-    candidates = build_subjective_items(state, scoped_issues, threshold=threshold, plan=plan)
+    candidates = build_subjective_items(
+        state, scoped_issues, threshold=threshold, plan=plan
+    )
     initial = [item for item in candidates if item.get("initial_review")]
     postflight = [item for item in candidates if not item.get("initial_review")]
     return initial, postflight
@@ -323,7 +323,11 @@ def _derive_display_phase(
     postflight_workflow_items: list[WorkQueueItem],
     triage_items: list[WorkQueueItem],
 ) -> str:
-    """Derive the display phase from queue item partitions."""
+    """Derive the display phase from queue item partitions.
+
+    Keep this equivalent to ``pipeline._resolve_reconcile_display_phase`` for
+    materialized plan states. See ``test_phase_derivation_equivalence_matrix``.
+    """
     if fresh_boundary and initial_review_items:
         return LIFECYCLE_PHASE_REVIEW_INITIAL
 
@@ -350,6 +354,7 @@ def _derive_display_phase(
 # Execution item selection
 # ---------------------------------------------------------------------------
 
+
 def _execution_items_for_phase(
     phase: str,
     *,
@@ -367,15 +372,13 @@ def _execution_items_for_phase(
         return explicit_queue_items
     if phase == LIFECYCLE_PHASE_SCAN:
         deferred_items = [
-            item for item in scan_items
+            item
+            for item in scan_items
             if item.get("id") == WORKFLOW_DEFERRED_DISPOSITION_ID
         ]
         if deferred_items:
             return deferred_items
-        return [
-            item for item in scan_items
-            if item.get("id") == WORKFLOW_RUN_SCAN_ID
-        ]
+        return [item for item in scan_items if item.get("id") == WORKFLOW_RUN_SCAN_ID]
     if phase == LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT:
         return postflight_assessment_items
     if phase == LIFECYCLE_PHASE_REVIEW_POSTFLIGHT:
@@ -390,6 +393,7 @@ def _execution_items_for_phase(
 # ---------------------------------------------------------------------------
 # Item partition building
 # ---------------------------------------------------------------------------
+
 
 class _Partitions(NamedTuple):
     """All item lists computed from state + plan, before phase resolution."""
@@ -420,7 +424,8 @@ def _build_item_partitions(
     """Build all item partitions from state and plan."""
     skipped_ids = set((effective_plan or {}).get("skipped", {}).keys())
     scoped_issues = path_scoped_issues(
-        (state.get("work_items") or state.get("issues", {})), scan_path,
+        (state.get("work_items") or state.get("issues", {})),
+        scan_path,
     )
 
     all_issue_items = build_issue_items(
@@ -432,7 +437,8 @@ def _build_item_partitions(
         forced_ids=_live_planned_queue_ids(effective_plan),
     )
     objective_items = [
-        item for item in all_issue_items
+        item
+        for item in all_issue_items
         if _is_objective_item(item, skipped_ids=skipped_ids)
     ]
     executable_objective_ids = _executable_objective_ids(
@@ -447,17 +453,22 @@ def _build_item_partitions(
     ):
         executable_objective_ids -= all_clustered_ids
     explicit_objective_items = [
-        item for item in objective_items
+        item
+        for item in objective_items
         if item.get("id", "") in executable_objective_ids
     ]
 
     review_issue_items = _review_issue_items(all_issue_items)
     assessment_request_items_list = _assessment_request_items(all_issue_items)
     executable_review_items = _executable_review_issue_items(
-        effective_plan, state, review_issue_items,
+        effective_plan,
+        state,
+        review_issue_items,
     )
     review_issue_ids = {item.get("id", "") for item in review_issue_items}
-    assessment_request_ids = {item.get("id", "") for item in assessment_request_items_list}
+    assessment_request_ids = {
+        item.get("id", "") for item in assessment_request_items_list
+    }
 
     explicit_queue_items, anchored_execution_items = _merge_execution_candidates(
         all_issue_items=all_issue_items,
@@ -468,7 +479,10 @@ def _build_item_partitions(
     )
 
     initial_review_items, subjective_postflight_items = _subjective_partitions(
-        state, scoped_issues=scoped_issues, threshold=target_strict, plan=effective_plan,
+        state,
+        scoped_issues=scoped_issues,
+        threshold=target_strict,
+        plan=effective_plan,
     )
     # Suppress subjective dimension items when review issues already cover
     # the same dimension — the review issues are more actionable.
@@ -483,7 +497,8 @@ def _build_item_partitions(
     postflight_review_items = list(executable_review_items)
 
     scan_items, postflight_workflow_items, triage_items = _workflow_partitions(
-        effective_plan, state,
+        effective_plan,
+        state,
     )
 
     return _Partitions(
@@ -507,7 +522,8 @@ def _build_backlog(
     execution_ids: set[str],
 ) -> list[WorkQueueItem]:
     return [
-        item for item in (
+        item
+        for item in (
             [
                 *p.objective_items,
                 *p.initial_review_items,
@@ -526,6 +542,7 @@ def _build_backlog(
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def build_queue_snapshot(
     state: StateModel,
     *,
@@ -535,8 +552,10 @@ def build_queue_snapshot(
 ) -> QueueSnapshot:
     """Build the canonical queue snapshot for the current state."""
     context = _option_value(options, "context", None)
-    effective_plan = context.plan if context is not None else (
-        plan if plan is not None else _option_value(options, "plan", None)
+    effective_plan = (
+        context.plan
+        if context is not None
+        else (plan if plan is not None else _option_value(options, "plan", None))
     )
 
     p = _build_item_partitions(
@@ -604,7 +623,8 @@ def build_queue_snapshot(
         subjective_postflight_count=len(p.subjective_postflight_items),
         workflow_postflight_count=len(p.postflight_workflow_items),
         triage_pending_count=len(p.triage_items),
-        has_unplanned_objective_blockers=len(p.explicit_objective_items) < len(p.objective_items),
+        has_unplanned_objective_blockers=len(p.explicit_objective_items)
+        < len(p.objective_items),
     )
 
 

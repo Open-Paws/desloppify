@@ -22,8 +22,9 @@ from desloppify.engine._plan.refresh_lifecycle import (
     LIFECYCLE_PHASE_SCAN,
     LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT,
     LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT,
+    _set_lifecycle_phase,
     current_lifecycle_phase,
-    set_lifecycle_phase,
+    user_facing_mode,
 )
 from desloppify.engine._plan.sync.dimensions import sync_subjective_dimensions
 from desloppify.engine._plan.sync.phase_cleanup import prune_synthetic_for_phase
@@ -57,12 +58,10 @@ class ReconcileResult:
                 self.auto_cluster_changes > 0,
                 self.communicate_score is not None
                 and bool(self.communicate_score.changes),
-                self.create_plan is not None
-                and bool(self.create_plan.changes),
+                self.create_plan is not None and bool(self.create_plan.changes),
                 self.triage is not None
                 and bool(
-                    self.triage.changes
-                    or getattr(self.triage, "deferred", False)
+                    self.triage.changes or getattr(self.triage, "deferred", False)
                 ),
                 self.lifecycle_phase_changed,
                 bool(self.phase_cleanup_pruned),
@@ -104,6 +103,9 @@ def _resolve_reconcile_display_phase(
 
     Returns a SHORT display name (review, assessment, workflow, triage,
     execute, scan) — never a persisted mode.
+
+    Keep this equivalent to ``snapshot._derive_display_phase`` for materialized
+    plan states. See ``test_phase_derivation_equivalence_matrix``.
     """
     order = [item for item in plan.get("queue_order", []) if isinstance(item, str)]
 
@@ -117,7 +119,9 @@ def _resolve_reconcile_display_phase(
             return LIFECYCLE_PHASE_REVIEW_INITIAL
         return LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT
 
-    if result.workflow_injected_ids or any(item.startswith("workflow::") for item in order):
+    if result.workflow_injected_ids or any(
+        item.startswith("workflow::") for item in order
+    ):
         return LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT
 
     if result.triage and (result.triage.injected or result.triage.deferred):
@@ -175,7 +179,8 @@ def _migrate_prune_stale_subjective(plan: dict) -> None:
     if not isinstance(queue_order, list):
         return
     cleaned = [
-        item_id for item_id in queue_order
+        item_id
+        for item_id in queue_order
         if not (isinstance(item_id, str) and item_id.startswith("subjective::"))
     ]
     if len(cleaned) < len(queue_order):
@@ -273,7 +278,7 @@ def reconcile_plan(
         policy=policy,
     )
     mode = _display_phase_to_mode(result.lifecycle_phase)
-    result.lifecycle_phase_changed = set_lifecycle_phase(plan, mode)
+    result.lifecycle_phase_changed = _set_lifecycle_phase(plan, mode)
     if result.lifecycle_phase_changed:
         _log_gate_changes(
             plan,
@@ -281,12 +286,17 @@ def reconcile_plan(
             {"phase": result.lifecycle_phase},
         )
 
-    result.phase_cleanup_pruned = prune_synthetic_for_phase(plan, result.lifecycle_phase)
+    result.phase_cleanup_pruned = prune_synthetic_for_phase(
+        plan, result.lifecycle_phase
+    )
     if result.phase_cleanup_pruned:
         _log_gate_changes(
             plan,
             "phase_transition_cleanup",
-            {"phase": result.lifecycle_phase, "pruned": list(result.phase_cleanup_pruned)},
+            {
+                "phase": result.lifecycle_phase,
+                "pruned": list(result.phase_cleanup_pruned),
+            },
         )
 
     return result

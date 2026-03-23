@@ -5,36 +5,16 @@ from __future__ import annotations
 from typing import Any
 
 from desloppify.base.output.terminal import colorize
-from desloppify.engine._plan.constants import normalize_queue_workflow_and_triage_prefix
+from desloppify.engine._plan.triage.lifecycle import (
+    clear_triage_stage_skips,
+    has_triage_in_queue,
+    inject_triage_stages,
+)
 from desloppify.engine.plan_ops import purge_ids
 from desloppify.engine.plan_state import PlanModel
-from desloppify.engine.plan_triage import TRIAGE_IDS, TRIAGE_STAGE_IDS
-
-from .plan_state_access import ensure_queue_order, ensure_skipped_map
+from desloppify.engine.plan_triage import TRIAGE_STAGE_IDS
 
 STAGE_ORDER = ["strategize", "observe", "reflect", "organize", "enrich", "sense-check"]
-
-
-def has_triage_in_queue(plan: PlanModel) -> bool:
-    """Return True when any triage stage IDs are currently queued."""
-    order = set(ensure_queue_order(plan))
-    return bool(order & TRIAGE_IDS)
-
-
-def clear_triage_stage_skips(plan: PlanModel) -> None:
-    """Remove skipped markers for triage stages before reinjection."""
-    skipped = ensure_skipped_map(plan)
-    for sid in TRIAGE_STAGE_IDS:
-        skipped.pop(sid, None)
-
-
-def inject_triage_stages(plan: PlanModel) -> None:
-    """Inject the canonical triage stage IDs at the queue front."""
-    order = ensure_queue_order(plan)
-    clear_triage_stage_skips(plan)
-    remaining = [issue_id for issue_id in order if issue_id not in TRIAGE_IDS]
-    order[:] = [*remaining, *TRIAGE_STAGE_IDS]
-    normalize_queue_workflow_and_triage_prefix(order)
 
 
 def purge_triage_stage(plan: PlanModel, stage_name: str) -> None:
@@ -71,7 +51,7 @@ def cascade_clear_later_confirmations(
     except ValueError:
         return []
     cleared: list[str] = []
-    for later in STAGE_ORDER[idx + 1:]:
+    for later in STAGE_ORDER[idx + 1 :]:
         if later in stages and stages[later].get("confirmed_at"):
             stages[later].pop("confirmed_at", None)
             stages[later].pop("confirmed_text", None)

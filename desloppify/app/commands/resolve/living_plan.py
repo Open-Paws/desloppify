@@ -20,8 +20,8 @@ from desloppify.engine.plan_ops import (
     purge_ids,
 )
 from desloppify.engine._plan.refresh_lifecycle import (
-    clear_postflight_scan_completion,
     current_lifecycle_phase,
+    invalidate_postflight_scan,
 )
 from desloppify.engine._state.progression import (
     maybe_append_entered_planning,
@@ -45,21 +45,6 @@ class ClusterContext(NamedTuple):
     cluster_remaining: int
 
 
-def _reconcile_if_queue_drained(plan: dict, state: dict | None) -> str | None:
-    """Advance the living plan when a resolve drains the explicit live queue.
-
-    Returns the new lifecycle phase if a transition occurred, so the caller
-    can emit the directive after all other output.
-    """
-    if state is None or not live_planned_queue_empty(plan):
-        return None
-    target_strict = target_strict_score_from_config(state.get("config"))
-    result = reconcile_plan(plan, state, target_strict=target_strict)
-    if result is not None and result.lifecycle_phase_changed:
-        return result.lifecycle_phase
-    return None
-
-
 def capture_cluster_context(plan: dict, resolved_ids: list[str]) -> ClusterContext:
     """Determine cluster membership for resolved issues before purge."""
     clusters = plan.get("clusters") or {}
@@ -71,7 +56,9 @@ def capture_cluster_context(plan: dict, resolved_ids: list[str]) -> ClusterConte
             cluster_name = override["cluster"]
             break
     if not cluster_name or cluster_name not in clusters:
-        return ClusterContext(cluster_name=None, cluster_completed=False, cluster_remaining=0)
+        return ClusterContext(
+            cluster_name=None, cluster_completed=False, cluster_remaining=0
+        )
     current_ids = set(clusters[cluster_name].get("issue_ids") or [])
     remaining = current_ids - set(resolved_ids)
     return ClusterContext(
@@ -92,7 +79,9 @@ def update_living_plan_after_resolve(
     """Apply resolve side effects to the living plan when it exists."""
     plan_path = plan_path_for_state(Path(state_file)) if state_file else None
     plan = None
-    ctx = ClusterContext(cluster_name=None, cluster_completed=False, cluster_remaining=0)
+    ctx = ClusterContext(
+        cluster_name=None, cluster_completed=False, cluster_remaining=0
+    )
     try:
         if not has_living_plan(plan_path):
             return None, ctx
@@ -120,7 +109,9 @@ def update_living_plan_after_resolve(
                 actor="user",
             )
             # Mark cluster as done so cluster_is_active() returns False
-            plan["clusters"][ctx.cluster_name]["execution_status"] = EXECUTION_STATUS_DONE
+            plan["clusters"][ctx.cluster_name]["execution_status"] = (
+                EXECUTION_STATUS_DONE
+            )
             # Clear focus when cluster is done
             if plan.get("active_cluster") == ctx.cluster_name:
                 plan["active_cluster"] = None
@@ -132,13 +123,15 @@ def update_living_plan_after_resolve(
         elif args.status == "open":
             purge_uncommitted_ids(plan, all_resolved)
         transition_phase: str | None = None
-        if clear_postflight_scan_completion(plan, issue_ids=all_resolved, state=state):
-            transition_phase = "execute"
-        queue_drained = False
-        reconcile_phase = _reconcile_if_queue_drained(plan, state)
-        if reconcile_phase:
-            transition_phase = reconcile_phase
-            queue_drained = True
+        invalidated = invalidate_postflight_scan(
+            plan, issue_ids=all_resolved, state=state
+        )
+        queue_drained = state is not None and live_planned_queue_empty(plan)
+        if state is not None and (invalidated or queue_drained):
+            target_strict = target_strict_score_from_config(state.get("config"))
+            result = reconcile_plan(plan, state, target_strict=target_strict)
+            if result.lifecycle_phase_changed:
+                transition_phase = result.lifecycle_phase
         save_plan(plan, plan_path)
 
         # --- Progression: execution_drain (only when queue actually drained)
@@ -163,10 +156,14 @@ def update_living_plan_after_resolve(
                     phase_before=phase_before,
                 )
             except Exception:
-                _logger.warning("Failed to append progression event after resolve", exc_info=True)
+                _logger.warning(
+                    "Failed to append progression event after resolve", exc_info=True
+                )
 
         if purged:
-            print(colorize(f"  Plan updated: {purged} item(s) removed from queue.", "dim"))
+            print(
+                colorize(f"  Plan updated: {purged} item(s) removed from queue.", "dim")
+            )
         if transition_phase:
             emit_transition_message(transition_phase)
     except PLAN_LOAD_EXCEPTIONS as exc:
@@ -179,4 +176,8 @@ def update_living_plan_after_resolve(
     return plan, ctx
 
 
-__all__ = ["ClusterContext", "capture_cluster_context", "update_living_plan_after_resolve"]
+__all__ = [
+    "ClusterContext",
+    "capture_cluster_context",
+    "update_living_plan_after_resolve",
+]
