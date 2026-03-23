@@ -254,8 +254,8 @@ def apply_completion(
     )
 
 
-def count_log_activity_since(plan: PlanModel, since: str) -> dict[str, int]:
-    """Count execution-log activity by action since a timestamp string."""
+def count_log_activity_since(plan: PlanModel, since: str | None) -> dict[str, int]:
+    """Count execution-log activity by action since a timestamp, or across all history."""
     counts: dict[str, int] = defaultdict(int)
     for raw_entry in ensure_execution_log(plan):
         if "timestamp" not in raw_entry or "action" not in raw_entry:
@@ -264,8 +264,9 @@ def count_log_activity_since(plan: PlanModel, since: str) -> dict[str, int]:
         action = raw_entry["action"]
         if not isinstance(timestamp, str) or not isinstance(action, str):
             continue
-        if timestamp >= since:
-            counts[action] += 1
+        if since is not None and timestamp < since:
+            continue
+        counts[action] += 1
     return dict(counts)
 
 

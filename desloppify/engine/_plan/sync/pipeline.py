@@ -47,6 +47,10 @@ class ReconcileResult:
     lifecycle_phase: str = ""
     lifecycle_phase_changed: bool = False
     phase_cleanup_pruned: list[str] | None = None
+    # Snapshot of plan_start_scores captured when communicate_score auto-resolves,
+    # before post-reconcile clearing can wipe them.
+    checkpoint_plan_start: dict | None = None
+    checkpoint_prev_start: dict | None = None
 
     @property
     def dirty(self) -> bool:
@@ -158,6 +162,7 @@ def reconcile_plan(
     *,
     target_strict: float,
     force_rescan: bool = False,
+    defer_if_subjective_queued: bool = False,
 ) -> ReconcileResult:
     """Run the shared boundary reconciliation pipeline."""
     result = ReconcileResult()
@@ -194,9 +199,14 @@ def reconcile_plan(
             state,
             policy=policy,
             current_scores=_current_scores(state),
+            defer_if_subjective_queued=defer_if_subjective_queued,
         )
         if result.communicate_score.changes:
-            _log_gate_changes(plan, "sync_communicate_score", {"injected": True})
+            _log_gate_changes(plan, "sync_communicate_score", {"auto_resolved": True})
+            # Snapshot rebaseline fields now, before post-reconcile clearing
+            if result.communicate_score.auto_resolved:
+                result.checkpoint_plan_start = dict(plan.get("plan_start_scores", {}))
+                result.checkpoint_prev_start = dict(plan.get("previous_plan_start_scores", {}))
 
         result.create_plan = sync_create_plan_needed(
             plan,

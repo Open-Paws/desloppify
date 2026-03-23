@@ -460,6 +460,7 @@ def sync_communicate_score_needed(
     *,
     policy: SubjectiveVisibility | None = None,
     current_scores: ScoreSnapshot | None = None,
+    defer_if_subjective_queued: bool = False,
 ) -> QueueSyncResult:
     """Inject ``workflow::communicate-score`` and rebaseline scores.
 
@@ -480,6 +481,10 @@ def sync_communicate_score_needed(
     order: list[str] = plan["queue_order"]
 
     if WORKFLOW_COMMUNICATE_SCORE_ID in order:
+        return _EMPTY()
+    if defer_if_subjective_queued and any(
+        item.startswith("subjective::") for item in order
+    ):
         return _EMPTY()
     # Already communicated this cycle — previous_plan_start_scores is set
     # at injection time and cleared at cycle boundaries.

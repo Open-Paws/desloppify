@@ -6,6 +6,9 @@ import logging
 from typing import Any
 
 from desloppify import state as state_mod
+from desloppify.app.commands.plan.triage.completion_flow import (
+    count_log_activity_since,
+)
 from desloppify.base.exception_sets import PLAN_LOAD_EXCEPTIONS
 from desloppify.base.output.fallbacks import log_best_effort_failure
 from desloppify.base.output.terminal import colorize
@@ -36,8 +39,10 @@ from desloppify.engine._plan.sync.workflow import (
 from desloppify.engine._state.progression import (
     _execution_log_ids_since,
     append_progression_event,
+    build_plan_checkpoint_event,
     build_postflight_scan_event,
     build_scan_complete_event,
+    last_plan_checkpoint_timestamp,
     maybe_append_entered_planning,
 )
 from desloppify.engine.work_queue import build_deferred_disposition_item
@@ -361,6 +366,7 @@ def reconcile_plan_post_scan(runtime: Any) -> None:
             runtime.state,
             target_strict=target_strict_score_from_config(runtime.config),
             force_rescan=force_rescan,
+            defer_if_subjective_queued=True,
         )
         _display_reconcile_results(
             result,
@@ -380,27 +386,51 @@ def reconcile_plan_post_scan(runtime: Any) -> None:
     if _sync_postflight_scan_completion_and_log(plan, runtime.state, phase_before=phase_before):
         dirty = True
 
+    save_succeeded = False
     if dirty:
         try:
             save_plan(plan, plan_path)
+            save_succeeded = True
         except PLAN_LOAD_EXCEPTIONS as exc:
             logger.warning("Plan reconciliation save failed: %s", exc)
 
+    _emit_checkpoint = (
+        boundary_crossed
+        and save_succeeded
+        and result.checkpoint_plan_start is not None
+    )
+    if _emit_checkpoint:
+        try:
+            last_cp_ts = last_plan_checkpoint_timestamp()
+            cp_resolved, cp_skipped = _execution_log_ids_since(plan, last_cp_ts)
+            cp_exec_summary = count_log_activity_since(plan, last_cp_ts)
+            append_progression_event(
+                build_plan_checkpoint_event(
+                    runtime.state,
+                    plan,
+                    phase_before=phase_before,
+                    trigger="no_subjective_review_needed",
+                    source_command="scan",
+                    plan_start_scores_snapshot=result.checkpoint_plan_start,
+                    prev_plan_start_scores_snapshot=result.checkpoint_prev_start,
+                    resolved_since_last=cp_resolved or None,
+                    skipped_since_last=cp_skipped or None,
+                    execution_summary=cp_exec_summary,
+                )
+            )
+        except Exception:
+            logger.warning("Failed to append plan_checkpoint progression event", exc_info=True)
+
     # --- Progression: scan_complete (unconditional) ---
     try:
-        from desloppify.app.commands.plan.triage.completion_flow import count_log_activity_since
-
         prev_last_scan = getattr(runtime, "prev_last_scan", None)
-        execution_summary = (
-            count_log_activity_since(plan, prev_last_scan) if prev_last_scan else {}
-        )
+        execution_summary = count_log_activity_since(plan, prev_last_scan)
         resolved_ids, skipped_ids = _execution_log_ids_since(plan, prev_last_scan)
         append_progression_event(
             build_scan_complete_event(
                 runtime.state,
                 plan,
                 getattr(runtime, "scan_diff", None) or {},
-                prev_scores=getattr(runtime, "prev_scores", None),
                 lang=runtime.lang.name if getattr(runtime, "lang", None) else None,
                 phase_before=phase_before,
                 execution_summary=execution_summary,

@@ -43,7 +43,9 @@ class EnrichStageDeps:
         resolve_reusable_report
     )
     record_enrich_stage: Callable[..., list[str]] = record_enrich_stage
-    count_log_activity_since: Callable[[dict, str], dict[str, int]] = count_log_activity_since
+    count_log_activity_since: Callable[[dict, str | None], dict[str, int]] = (
+        count_log_activity_since
+    )
     colorize: ColorizeFn = colorize
     print_user_message: Callable[[str], None] = print_user_message
     print_cascade_clear_feedback: Callable[[list[str], dict], None] = print_cascade_clear_feedback

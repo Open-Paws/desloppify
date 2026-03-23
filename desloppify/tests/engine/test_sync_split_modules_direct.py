@@ -641,6 +641,75 @@ def test_sync_communicate_score_reinjects_after_trusted_score_import_when_sentin
     assert plan["plan_start_scores"]["strict"] == 74.5
 
 
+def test_sync_communicate_score_defers_when_subjective_items_still_queued() -> None:
+    plan = {
+        "queue_order": ["subjective::naming_quality", "triage::observe"],
+        "plan_start_scores": {"strict": 70.0},
+    }
+
+    result = sync_workflow_mod.sync_communicate_score_needed(
+        plan,
+        state={"issues": {}},
+        policy=SimpleNamespace(unscored_ids=set(), has_objective_backlog=True),
+        current_scores=sync_workflow_mod.ScoreSnapshot(
+            strict=74.5,
+            overall=74.5,
+            objective=97.5,
+            verified=97.4,
+        ),
+        defer_if_subjective_queued=True,
+    )
+
+    assert result.changes == 0
+    assert result.auto_resolved == []
+    assert "previous_plan_start_scores" not in plan
+
+
+def test_sync_communicate_score_still_auto_resolves_when_no_subjective_items_queued() -> None:
+    plan = {
+        "queue_order": ["triage::observe"],
+        "plan_start_scores": {"strict": 70.0},
+    }
+
+    result = sync_workflow_mod.sync_communicate_score_needed(
+        plan,
+        state={"issues": {}},
+        policy=SimpleNamespace(unscored_ids=set(), has_objective_backlog=True),
+        current_scores=sync_workflow_mod.ScoreSnapshot(
+            strict=74.5,
+            overall=74.5,
+            objective=97.5,
+            verified=97.4,
+        ),
+        defer_if_subjective_queued=True,
+    )
+
+    assert result.auto_resolved == ["workflow::communicate-score"]
+    assert plan["previous_plan_start_scores"]["strict"] == 70.0
+
+
+def test_sync_communicate_score_default_behavior_ignores_subjective_queue_contents() -> None:
+    plan = {
+        "queue_order": ["subjective::naming_quality", "triage::observe"],
+        "plan_start_scores": {"strict": 70.0},
+    }
+
+    result = sync_workflow_mod.sync_communicate_score_needed(
+        plan,
+        state={"issues": {}},
+        policy=SimpleNamespace(unscored_ids=set(), has_objective_backlog=True),
+        current_scores=sync_workflow_mod.ScoreSnapshot(
+            strict=74.5,
+            overall=74.5,
+            objective=97.5,
+            verified=97.4,
+        ),
+    )
+
+    assert result.auto_resolved == ["workflow::communicate-score"]
+    assert plan["previous_plan_start_scores"]["strict"] == 70.0
+
+
 def test_sync_workflow_injection_removes_stale_skip_entries() -> None:
     plan = {
         "queue_order": [],

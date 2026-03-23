@@ -13,6 +13,7 @@ import desloppify.app.commands.review.importing.output as import_output_mod
 import desloppify.app.commands.review.importing.plan_sync as plan_sync_mod
 import desloppify.app.commands.review.importing.results as results_mod
 import desloppify.engine._plan.constants as plan_constants_mod
+from desloppify.engine._state.progression import append_progression_event, load_progression
 import desloppify.intelligence.review.importing.holistic as holistic_import_mod
 from desloppify.state import empty_state as build_empty_state
 
@@ -218,6 +219,261 @@ def test_sync_plan_after_import_scopes_living_plan_to_state_file(monkeypatch, tm
 
     assert seen["state_path"] == state_file
     assert seen["has_living_plan_path"] == tmp_path / "plan.json"
+
+
+def test_sync_plan_after_import_emits_plan_checkpoint_when_subjective_review_clears(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    progression_file = tmp_path / "progression.jsonl"
+    plan = {
+        "queue_order": ["subjective::naming_quality"],
+        "plan_start_scores": {
+            "strict": 70.0,
+            "overall": 72.0,
+            "objective": 80.0,
+            "verified": 68.0,
+        },
+        "execution_log": [
+            {
+                "timestamp": "2026-01-02T00:00:00Z",
+                "action": "resolve",
+                "issue_ids": ["issue-before"],
+            },
+            {
+                "timestamp": "2026-01-04T00:00:00Z",
+                "action": "resolve",
+                "issue_ids": ["issue-after"],
+            },
+            {
+                "timestamp": "2026-01-05T00:00:00Z",
+                "action": "done",
+                "issue_ids": ["issue-done"],
+            },
+            {
+                "timestamp": "2026-01-06T00:00:00Z",
+                "action": "skip",
+                "issue_ids": ["issue-skip"],
+            },
+        ],
+        "refresh_state": {},
+    }
+    saved: list[dict] = []
+    append_progression_event(
+        {
+            "event_type": "plan_checkpoint",
+            "timestamp": "2026-01-03T00:00:00Z",
+            "schema_version": 1,
+            "payload": {},
+        },
+        path=progression_file,
+    )
+
+    monkeypatch.setattr(plan_sync_mod, "has_living_plan", lambda _path=None: True)
+    monkeypatch.setattr(plan_sync_mod, "load_plan", lambda _path=None: plan)
+    monkeypatch.setattr(
+        "desloppify.engine._state.progression.progression_path",
+        lambda: progression_file,
+    )
+    monkeypatch.setattr(
+        plan_sync_mod,
+        "save_plan",
+        lambda current_plan, _path=None: saved.append(dict(current_plan)),
+    )
+    monkeypatch.setattr(
+        plan_sync_mod,
+        "live_planned_queue_empty",
+        lambda _plan: True,
+    )
+    monkeypatch.setattr(
+        plan_sync_mod,
+        "sync_plan_after_review_import",
+        lambda _plan, _state, inject_triage=False: None,
+    )
+    monkeypatch.setattr(
+        plan_sync_mod,
+        "sync_import_scores_needed",
+        lambda _plan, _state, assessment_mode, **_kwargs: _no_changes(),
+    )
+    monkeypatch.setattr(plan_sync_mod, "append_log_entry", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        plan_sync_mod,
+        "maybe_append_entered_planning",
+        lambda *_a, **_k: None,
+    )
+
+    def fake_reconcile(_plan, _state, target_strict):
+        _plan["queue_order"] = []
+        _plan["previous_plan_start_scores"] = {
+            "strict": 70.0,
+            "overall": 72.0,
+            "objective": 80.0,
+            "verified": 68.0,
+        }
+        _plan["plan_start_scores"] = {
+            "strict": 74.5,
+            "overall": 76.0,
+            "objective": 90.0,
+            "verified": 73.5,
+        }
+        return plan_sync_mod.ReconcileResult(
+            communicate_score=plan_constants_mod.QueueSyncResult(
+                auto_resolved=["workflow::communicate-score"]
+            )
+        )
+
+    monkeypatch.setattr(plan_sync_mod, "reconcile_plan", fake_reconcile)
+
+    plan_sync_mod.sync_plan_after_import(
+        state={
+            "scan_count": 7,
+            "issues": {},
+            "strict_score": 74.5,
+            "overall_score": 76.0,
+            "objective_score": 90.0,
+            "verified_strict_score": 73.5,
+            "dimension_scores": {
+                "Naming quality": {"score": 82.0, "strict": 82.0}
+            },
+        },
+        diff={"new": 0, "reopened": 0, "auto_resolved": 0},
+        assessment_mode="trusted_internal",
+        request=_sync_request(
+            import_payload={"assessments": {"Naming Quality": 82}, "issues": []},
+        ),
+    )
+
+    events = load_progression(progression_file)
+    checkpoint = [e for e in events if e["event_type"] == "plan_checkpoint"][-1]
+    payload = checkpoint["payload"]
+    assert saved
+    assert payload["trigger"] == "subjective_review_cleared"
+    assert checkpoint["source_command"] == "review"
+    assert "source_command" not in payload
+    assert payload["plan_start_scores"]["strict"] == 74.5
+    assert payload["previous_plan_start_scores"]["strict"] == 70.0
+    assert payload["queue_summary"] == {}
+    assert payload["resolved_since_last"] == ["issue-after", "issue-done"]
+    assert payload["skipped_since_last"] == ["issue-skip"]
+    assert payload["execution_summary"] == {
+        "resolve": 1,
+        "done": 1,
+        "skip": 1,
+    }
+
+
+def test_sync_plan_after_import_does_not_emit_plan_checkpoint_when_boundary_not_ready(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    progression_file = tmp_path / "progression.jsonl"
+    plan = {"queue_order": ["subjective::naming_quality"], "refresh_state": {}}
+
+    monkeypatch.setattr(plan_sync_mod, "has_living_plan", lambda _path=None: True)
+    monkeypatch.setattr(plan_sync_mod, "load_plan", lambda _path=None: plan)
+    monkeypatch.setattr(plan_sync_mod, "save_plan", lambda _plan, _path=None: None)
+    monkeypatch.setattr(
+        "desloppify.engine._state.progression.progression_path",
+        lambda: progression_file,
+    )
+    monkeypatch.setattr(
+        plan_sync_mod,
+        "live_planned_queue_empty",
+        lambda _plan: False,
+    )
+    monkeypatch.setattr(
+        plan_sync_mod,
+        "sync_plan_after_review_import",
+        lambda _plan, _state, inject_triage=False: None,
+    )
+    monkeypatch.setattr(
+        plan_sync_mod,
+        "sync_import_scores_needed",
+        lambda _plan, _state, assessment_mode, **_kwargs: _no_changes(),
+    )
+    monkeypatch.setattr(plan_sync_mod, "append_log_entry", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        plan_sync_mod,
+        "maybe_append_entered_planning",
+        lambda *_a, **_k: None,
+    )
+    monkeypatch.setattr(
+        plan_sync_mod,
+        "reconcile_plan",
+        lambda *_a, **_k: pytest.fail("reconcile_plan should not run"),
+    )
+
+    plan_sync_mod.sync_plan_after_import(
+        state={"scan_count": 7, "issues": {}, "dimension_scores": {}},
+        diff={"new": 0, "reopened": 0, "auto_resolved": 0},
+        assessment_mode="trusted_internal",
+        request=_sync_request(
+            import_payload={"assessments": {"Naming Quality": 82}, "issues": []},
+        ),
+    )
+
+    events = load_progression(progression_file)
+    assert not any(e["event_type"] == "plan_checkpoint" for e in events)
+
+
+def test_sync_plan_after_import_does_not_emit_plan_checkpoint_when_already_resolved(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    progression_file = tmp_path / "progression.jsonl"
+    plan = {
+        "queue_order": ["subjective::naming_quality"],
+        "previous_plan_start_scores": {"strict": 70.0},
+        "refresh_state": {},
+    }
+
+    monkeypatch.setattr(plan_sync_mod, "has_living_plan", lambda _path=None: True)
+    monkeypatch.setattr(plan_sync_mod, "load_plan", lambda _path=None: plan)
+    monkeypatch.setattr(plan_sync_mod, "save_plan", lambda _plan, _path=None: None)
+    monkeypatch.setattr(
+        "desloppify.engine._state.progression.progression_path",
+        lambda: progression_file,
+    )
+    monkeypatch.setattr(
+        plan_sync_mod,
+        "live_planned_queue_empty",
+        lambda _plan: True,
+    )
+    monkeypatch.setattr(
+        plan_sync_mod,
+        "sync_plan_after_review_import",
+        lambda _plan, _state, inject_triage=False: None,
+    )
+    monkeypatch.setattr(
+        plan_sync_mod,
+        "sync_import_scores_needed",
+        lambda _plan, _state, assessment_mode, **_kwargs: _no_changes(),
+    )
+    monkeypatch.setattr(plan_sync_mod, "append_log_entry", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        plan_sync_mod,
+        "maybe_append_entered_planning",
+        lambda *_a, **_k: None,
+    )
+    monkeypatch.setattr(
+        plan_sync_mod,
+        "reconcile_plan",
+        lambda *_a, **_k: plan_sync_mod.ReconcileResult(
+            communicate_score=plan_constants_mod.QueueSyncResult()
+        ),
+    )
+
+    plan_sync_mod.sync_plan_after_import(
+        state={"scan_count": 7, "issues": {}, "dimension_scores": {}},
+        diff={"new": 0, "reopened": 0, "auto_resolved": 0},
+        assessment_mode="trusted_internal",
+        request=_sync_request(
+            import_payload={"assessments": {"Naming Quality": 82}, "issues": []},
+        ),
+    )
+
+    events = load_progression(progression_file)
+    assert not any(e["event_type"] == "plan_checkpoint" for e in events)
 
 
 def test_sync_plan_after_import_handles_plan_exceptions(monkeypatch, capsys) -> None:

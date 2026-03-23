@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from desloppify.engine._plan.constants import is_synthetic_id
 from desloppify.engine._state.schema import get_state_dir, utc_now
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,17 @@ def load_progression(path: Path | None = None) -> list[dict[str, Any]]:
     except OSError as exc:
         logger.warning("Could not read progression log: %s", exc)
     return events
+
+
+def last_plan_checkpoint_timestamp(path: Path | None = None) -> str | None:
+    """Return the most recent plan-checkpoint timestamp from the progression log."""
+    for event in reversed(load_progression(path)):
+        if event.get("event_type") != "plan_checkpoint":
+            continue
+        timestamp = event.get("timestamp")
+        if isinstance(timestamp, str):
+            return timestamp
+    return None
 
 
 def append_progression_event(
@@ -274,6 +286,25 @@ def _open_issue_count(state: dict[str, Any]) -> int:
     )
 
 
+def _queue_summary(plan: dict[str, Any] | None) -> dict[str, int]:
+    if not isinstance(plan, dict):
+        return {}
+    order = plan.get("queue_order")
+    skipped = plan.get("skipped")
+    if not isinstance(order, list):
+        return {}
+    skipped_ids = set(skipped.keys()) if isinstance(skipped, dict) else set()
+    summary: dict[str, int] = {}
+    for item in order:
+        if not isinstance(item, str) or item in skipped_ids:
+            continue
+        bucket = "objective"
+        if is_synthetic_id(item):
+            bucket = item.split("::", 1)[0] or "synthetic"
+        summary[bucket] = summary.get(bucket, 0) + 1
+    return summary
+
+
 # ---------------------------------------------------------------------------
 # Envelope builder
 # ---------------------------------------------------------------------------
@@ -339,7 +370,6 @@ def build_scan_complete_event(
     plan: dict[str, Any] | None,
     diff: dict[str, Any],
     *,
-    prev_scores: dict[str, Any] | None,
     lang: str | None,
     phase_before: str | None,
     execution_summary: dict[str, int] | None,
@@ -351,8 +381,6 @@ def build_scan_complete_event(
 
     supp = suppression_metrics(state)
     payload: dict[str, Any] = {
-        "scores": _scores_snapshot(state),
-        "prev_scores": prev_scores or {},
         "dimension_scores": _dimensions_snapshot(state),
         "scan_diff": {
             "new": diff.get("new", 0),
@@ -425,7 +453,6 @@ def build_review_complete_event(
     provenance: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
-        "scores": _scores_snapshot(state),
         "dimension_scores": _dimensions_snapshot(state),
         "open_count": _open_issue_count(state),
         "assessment_mode": assessment_mode,
@@ -495,7 +522,6 @@ def build_triage_complete_event(
         source_command="plan triage",
         phase_before=phase_before,
         payload={
-            "scores": _scores_snapshot(state),
             "completion_mode": completion_mode,
             "strategy_summary": strategy_summary,
             "cluster_count": len(clusters),
@@ -547,12 +573,63 @@ def build_execution_drain_event(
         source_command=source_command,
         phase_before=phase_before,
         payload={
-            "scores": _scores_snapshot(state),
             "open_count": _open_issue_count(state),
             "trigger_action": trigger_action,
             "issue_ids": issue_ids,
             "cluster_name": cluster_name,
         },
+    )
+
+
+def build_plan_checkpoint_event(
+    state: dict[str, Any],
+    plan: dict[str, Any],
+    *,
+    phase_before: str | None,
+    trigger: str,
+    source_command: str,
+    plan_start_scores_snapshot: dict[str, Any] | None = None,
+    prev_plan_start_scores_snapshot: dict[str, Any] | None = None,
+    resolved_since_last: list[str] | None = None,
+    skipped_since_last: list[str] | None = None,
+    execution_summary: dict[str, int] | None = None,
+) -> dict[str, Any]:
+    """Build the canonical score checkpoint event.
+
+    *plan_start_scores_snapshot* and *prev_plan_start_scores_snapshot* are
+    captured by ``ReconcileResult`` at the moment communicate-score fires,
+    before post-reconcile clearing can wipe them.  When provided they take
+    precedence over the (possibly already cleared) plan dict values.
+    """
+    payload = {
+        "scores": _scores_snapshot(state),
+        "dimension_scores": _dimensions_snapshot(state),
+        "plan_start_scores": (
+            dict(plan_start_scores_snapshot)
+            if isinstance(plan_start_scores_snapshot, dict)
+            else dict(plan.get("plan_start_scores", {}) or {})
+        ),
+        "previous_plan_start_scores": (
+            dict(prev_plan_start_scores_snapshot)
+            if isinstance(prev_plan_start_scores_snapshot, dict)
+            else dict(plan.get("previous_plan_start_scores", {}) or {})
+        ),
+        "open_count": _open_issue_count(state),
+        "queue_summary": _queue_summary(plan),
+        "trigger": trigger,
+        "execution_summary": execution_summary or {},
+    }
+    if resolved_since_last:
+        payload["resolved_since_last"] = resolved_since_last
+    if skipped_since_last:
+        payload["skipped_since_last"] = skipped_since_last
+    return _make_envelope(
+        "plan_checkpoint",
+        state,
+        plan,
+        source_command=source_command,
+        phase_before=phase_before,
+        payload=payload,
     )
 
 
@@ -638,15 +715,18 @@ __all__ = [
     "append_progression_event",
     "build_entered_planning_event",
     "build_execution_drain_event",
+    "build_plan_checkpoint_event",
     "build_postflight_scan_event",
     "build_review_complete_event",
     "build_scan_complete_event",
     "build_scan_preflight_event",
     "build_triage_complete_event",
+    "last_plan_checkpoint_timestamp",
     "load_progression",
     "maybe_append_entered_planning",
     "maybe_append_execution_drain",
     "progression_path",
+    "_queue_summary",
     "_execution_log_ids_since",
     "_extract_review_payload_detail",
 ]
