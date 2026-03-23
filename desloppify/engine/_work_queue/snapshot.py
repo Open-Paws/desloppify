@@ -19,8 +19,14 @@ from desloppify.engine._plan.schema import (
     live_planned_queue_ids as _live_planned_queue_ids,
 )
 from desloppify.engine._plan.refresh_lifecycle import (
+    LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT,
+    LIFECYCLE_PHASE_EXECUTE,
+    LIFECYCLE_PHASE_REVIEW_INITIAL,
+    LIFECYCLE_PHASE_REVIEW_POSTFLIGHT,
+    LIFECYCLE_PHASE_SCAN,
+    LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT,
+    LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT,
     current_lifecycle_phase,
-    postflight_scan_pending,
 )
 from desloppify.engine._plan.triage.snapshot import build_triage_snapshot
 from desloppify.engine._state.filtering import path_scoped_issues
@@ -44,24 +50,6 @@ from desloppify.engine._work_queue.synthetic_workflow import (
     build_score_checkpoint_item,
 )
 from desloppify.engine._work_queue.types import WorkQueueItem
-
-# Short display-phase names used by all consumers.
-PHASE_REVIEW_INITIAL = "review_initial"
-PHASE_EXECUTE = "execute"
-PHASE_SCAN = "scan"
-PHASE_ASSESSMENT_POSTFLIGHT = "assessment"
-PHASE_REVIEW_POSTFLIGHT = "review"
-PHASE_WORKFLOW_POSTFLIGHT = "workflow"
-PHASE_TRIAGE_POSTFLIGHT = "triage"
-
-# Maps display phase → partition field that must be non-empty for it to be valid.
-_DISPLAY_PHASE_ITEM_MAP: dict[str, str | None] = {
-    "review_initial": "initial_review_items",
-    "assessment": "postflight_assessment_items",
-    "workflow": "postflight_workflow_items",
-    "triage": "triage_items",
-    "scan": "scan_items",
-}
 
 
 @dataclass(frozen=True)
@@ -268,20 +256,8 @@ def _workflow_partitions(
 
 
 # ---------------------------------------------------------------------------
-# Phase resolution — persisted fine-grained phase with legacy fallback
+# Phase resolution — persisted mode + item-derived display phase
 # ---------------------------------------------------------------------------
-
-def _raw_persisted_phase(plan: dict | None) -> str | None:
-    """Read the lifecycle mode from the plan, with migration.
-
-    Uses ``current_lifecycle_phase()`` so that legacy fine-grained phase
-    names are migrated to ``"plan"``/``"execute"`` before the snapshot
-    sees them.  The migration mutates the in-memory dict, so subsequent
-    reads within the same snapshot build see the migrated value.
-    """
-    if not isinstance(plan, dict):
-        return None
-    return current_lifecycle_phase(plan)
 
 
 def _phase_for_snapshot(
@@ -292,50 +268,41 @@ def _phase_for_snapshot(
     anchored_execution_items: list[WorkQueueItem],
     explicit_queue_items: list[WorkQueueItem],
     scan_items: list[WorkQueueItem],
-    review_backlog_present: bool,
-    undispositioned_review_backlog_present: bool,
     postflight_assessment_items: list[WorkQueueItem],
     postflight_review_items: list[WorkQueueItem],
     postflight_workflow_items: list[WorkQueueItem],
     triage_items: list[WorkQueueItem],
 ) -> str:
-    raw_phase = _raw_persisted_phase(plan)
-
-    # Persisted mode is now "plan" or "execute".  Derive display phase
-    # from queue item partitions.
-    if raw_phase == "execute" and (anchored_execution_items or explicit_queue_items):
-        return PHASE_EXECUTE
-
-    if raw_phase == "plan" or raw_phase == "execute":
-        # "plan" mode — derive from items.
-        # "execute" without execution items falls through to item inference.
+    if not isinstance(plan, dict):
+        if fresh_boundary and initial_review_items:
+            return LIFECYCLE_PHASE_REVIEW_INITIAL
+        if anchored_execution_items or explicit_queue_items:
+            return LIFECYCLE_PHASE_EXECUTE
         return _derive_display_phase(
-            plan,
             fresh_boundary=fresh_boundary,
             initial_review_items=initial_review_items,
             anchored_execution_items=anchored_execution_items,
             explicit_queue_items=explicit_queue_items,
             scan_items=scan_items,
-            review_backlog_present=review_backlog_present,
-            undispositioned_review_backlog_present=undispositioned_review_backlog_present,
+            prefer_scan=False,
             postflight_assessment_items=postflight_assessment_items,
             postflight_review_items=postflight_review_items,
             postflight_workflow_items=postflight_workflow_items,
             triage_items=triage_items,
         )
 
-    # Legacy fine-grained phase names still in plan files that haven't been
-    # migrated yet (current_lifecycle_phase hasn't been called on them).
-    # Also handles None (no phase at all).
-    return _legacy_phase_inference(
-        plan,
+    raw_phase = current_lifecycle_phase(plan)
+
+    if raw_phase == "execute" and (anchored_execution_items or explicit_queue_items):
+        return LIFECYCLE_PHASE_EXECUTE
+
+    return _derive_display_phase(
         fresh_boundary=fresh_boundary,
         initial_review_items=initial_review_items,
         anchored_execution_items=anchored_execution_items,
         explicit_queue_items=explicit_queue_items,
         scan_items=scan_items,
-        review_backlog_present=review_backlog_present,
-        undispositioned_review_backlog_present=undispositioned_review_backlog_present,
+        prefer_scan=(raw_phase == "execute"),
         postflight_assessment_items=postflight_assessment_items,
         postflight_review_items=postflight_review_items,
         postflight_workflow_items=postflight_workflow_items,
@@ -344,114 +311,39 @@ def _phase_for_snapshot(
 
 
 def _derive_display_phase(
-    plan: dict | None,
     *,
     fresh_boundary: bool,
     initial_review_items: list[WorkQueueItem],
     anchored_execution_items: list[WorkQueueItem],
     explicit_queue_items: list[WorkQueueItem],
     scan_items: list[WorkQueueItem],
-    review_backlog_present: bool,
-    undispositioned_review_backlog_present: bool,
+    prefer_scan: bool,
     postflight_assessment_items: list[WorkQueueItem],
     postflight_review_items: list[WorkQueueItem],
     postflight_workflow_items: list[WorkQueueItem],
     triage_items: list[WorkQueueItem],
 ) -> str:
-    """Derive the display phase from queue item partitions.
-
-    This is the primary path when persisted mode is "plan" or "execute".
-    """
+    """Derive the display phase from queue item partitions."""
     if fresh_boundary and initial_review_items:
-        return PHASE_REVIEW_INITIAL
+        return LIFECYCLE_PHASE_REVIEW_INITIAL
 
-    # Postflight sequence: assessment -> workflow -> triage -> review -> execute
+    if prefer_scan and scan_items:
+        return LIFECYCLE_PHASE_SCAN
+
     if postflight_assessment_items:
-        return PHASE_ASSESSMENT_POSTFLIGHT
+        return LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT
     if postflight_workflow_items:
-        return PHASE_WORKFLOW_POSTFLIGHT
+        return LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT
     if triage_items:
-        return PHASE_TRIAGE_POSTFLIGHT
+        return LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT
 
-    # Review items gate execute — consistent with reconcile pipeline order.
     if postflight_review_items:
-        return PHASE_REVIEW_POSTFLIGHT
+        return LIFECYCLE_PHASE_REVIEW_POSTFLIGHT
 
     if anchored_execution_items or explicit_queue_items:
-        return PHASE_EXECUTE
+        return LIFECYCLE_PHASE_EXECUTE
 
-    if scan_items:
-        return PHASE_SCAN
-
-    return PHASE_SCAN
-
-
-def _ordered_postflight_phase(
-    *,
-    postflight_assessment_items: list[WorkQueueItem],
-    postflight_review_items: list[WorkQueueItem],
-    postflight_workflow_items: list[WorkQueueItem],
-    triage_items: list[WorkQueueItem],
-) -> str | None:
-    """Return the earliest active postflight phase in fixed sequence order."""
-    if postflight_assessment_items:
-        return PHASE_ASSESSMENT_POSTFLIGHT
-    if postflight_workflow_items:
-        return PHASE_WORKFLOW_POSTFLIGHT
-    if triage_items:
-        return PHASE_TRIAGE_POSTFLIGHT
-    if postflight_review_items:
-        return PHASE_REVIEW_POSTFLIGHT
-    return None
-
-
-def _legacy_phase_inference(
-    plan: dict | None,
-    *,
-    fresh_boundary: bool,
-    initial_review_items: list[WorkQueueItem],
-    anchored_execution_items: list[WorkQueueItem],
-    explicit_queue_items: list[WorkQueueItem],
-    scan_items: list[WorkQueueItem],
-    review_backlog_present: bool,
-    undispositioned_review_backlog_present: bool,
-    postflight_assessment_items: list[WorkQueueItem],
-    postflight_review_items: list[WorkQueueItem],
-    postflight_workflow_items: list[WorkQueueItem],
-    triage_items: list[WorkQueueItem],
-) -> str:
-    """Infer the phase from item partitions for plans with no persisted mode.
-
-    This handles plans that have no lifecycle_phase at all (very old or
-    freshly created).  Once a reconcile or scan sets the mode to "plan"/
-    "execute", ``_derive_display_phase`` takes over.
-    """
-    if fresh_boundary and initial_review_items:
-        return PHASE_REVIEW_INITIAL
-
-    if anchored_execution_items:
-        return PHASE_EXECUTE
-    if scan_items:
-        return PHASE_SCAN
-    if explicit_queue_items and (
-        not isinstance(plan, dict) or postflight_scan_pending(plan)
-    ):
-        return PHASE_EXECUTE
-
-    # Postflight sequence: assessment -> workflow -> triage -> review -> execute.
-    if postflight_assessment_items:
-        return PHASE_ASSESSMENT_POSTFLIGHT
-    if postflight_workflow_items:
-        return PHASE_WORKFLOW_POSTFLIGHT
-    if undispositioned_review_backlog_present and postflight_review_items:
-        return PHASE_REVIEW_POSTFLIGHT
-    if explicit_queue_items:
-        return PHASE_EXECUTE
-    if postflight_review_items:
-        return PHASE_REVIEW_POSTFLIGHT
-    if triage_items:
-        return PHASE_TRIAGE_POSTFLIGHT
-    return PHASE_SCAN
+    return LIFECYCLE_PHASE_SCAN
 
 
 # ---------------------------------------------------------------------------
@@ -469,11 +361,11 @@ def _execution_items_for_phase(
     postflight_workflow_items: list[WorkQueueItem],
     triage_items: list[WorkQueueItem],
 ) -> list[WorkQueueItem]:
-    if phase == PHASE_REVIEW_INITIAL:
+    if phase == LIFECYCLE_PHASE_REVIEW_INITIAL:
         return initial_review_items
-    if phase == PHASE_EXECUTE:
+    if phase == LIFECYCLE_PHASE_EXECUTE:
         return explicit_queue_items
-    if phase == PHASE_SCAN:
+    if phase == LIFECYCLE_PHASE_SCAN:
         deferred_items = [
             item for item in scan_items
             if item.get("id") == WORKFLOW_DEFERRED_DISPOSITION_ID
@@ -484,13 +376,13 @@ def _execution_items_for_phase(
             item for item in scan_items
             if item.get("id") == WORKFLOW_RUN_SCAN_ID
         ]
-    if phase == PHASE_ASSESSMENT_POSTFLIGHT:
+    if phase == LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT:
         return postflight_assessment_items
-    if phase == PHASE_REVIEW_POSTFLIGHT:
+    if phase == LIFECYCLE_PHASE_REVIEW_POSTFLIGHT:
         return postflight_review_items
-    if phase == PHASE_WORKFLOW_POSTFLIGHT:
+    if phase == LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT:
         return postflight_workflow_items
-    if phase == PHASE_TRIAGE_POSTFLIGHT:
+    if phase == LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT:
         return triage_items
     return []
 
@@ -656,11 +548,6 @@ def build_queue_snapshot(
         target_strict=target_strict,
     )
 
-    triage_snapshot = (
-        build_triage_snapshot(effective_plan, state)
-        if isinstance(effective_plan, dict)
-        else None
-    )
     fresh_boundary = _is_fresh_boundary(effective_plan)
 
     phase = _phase_for_snapshot(
@@ -670,10 +557,6 @@ def build_queue_snapshot(
         anchored_execution_items=p.anchored_execution_items,
         explicit_queue_items=p.explicit_queue_items,
         scan_items=p.scan_items,
-        review_backlog_present=bool(p.review_issue_items),
-        undispositioned_review_backlog_present=bool(
-            triage_snapshot is not None and triage_snapshot.undispositioned_ids
-        ),
         postflight_assessment_items=p.postflight_assessment_items,
         postflight_review_items=p.postflight_review_items,
         postflight_workflow_items=p.postflight_workflow_items,
@@ -726,13 +609,6 @@ def build_queue_snapshot(
 
 
 __all__ = [
-    "PHASE_ASSESSMENT_POSTFLIGHT",
-    "PHASE_EXECUTE",
-    "PHASE_REVIEW_INITIAL",
-    "PHASE_REVIEW_POSTFLIGHT",
-    "PHASE_SCAN",
-    "PHASE_TRIAGE_POSTFLIGHT",
-    "PHASE_WORKFLOW_POSTFLIGHT",
     "QueueSnapshot",
     "build_queue_snapshot",
 ]

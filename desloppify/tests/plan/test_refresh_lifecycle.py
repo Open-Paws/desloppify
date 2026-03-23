@@ -94,6 +94,8 @@ def test_current_lifecycle_phase_falls_back_for_legacy_plans() -> None:
     assert current_lifecycle_phase(plan) == "plan"
 
     mark_postflight_scan_completed(plan, scan_count=2)
+    assert current_lifecycle_phase(plan) == "execute"
+
     plan["plan_start_scores"] = {"strict": 75.0}
     assert current_lifecycle_phase(plan) == "execute"
 

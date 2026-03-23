@@ -15,11 +15,11 @@ from desloppify.engine._plan.constants import (
     WORKFLOW_SCORE_CHECKPOINT_ID,
 )
 from desloppify.engine._plan.policy.stale import is_triage_stale
-from desloppify.engine._plan.schema import empty_plan
-from desloppify.engine._work_queue.snapshot import (
-    PHASE_REVIEW_POSTFLIGHT,
-    build_queue_snapshot,
+from desloppify.engine._plan.refresh_lifecycle import (
+    LIFECYCLE_PHASE_REVIEW_POSTFLIGHT,
 )
+from desloppify.engine._plan.schema import empty_plan
+from desloppify.engine._work_queue.snapshot import build_queue_snapshot
 
 
 def _state_with_review_issues(*ids: str) -> dict:
@@ -229,7 +229,7 @@ class TestApplyCompletionClearsTriageState:
 
         assert plan["refresh_state"]["postflight_scan_completed_at_scan_count"] == 5
         snapshot = build_queue_snapshot(state, plan=plan)
-        assert snapshot.phase == PHASE_REVIEW_POSTFLIGHT
+        assert snapshot.phase == LIFECYCLE_PHASE_REVIEW_POSTFLIGHT
         assert [item["id"] for item in snapshot.execution_items] == ["r1", "r2"]
 
     def test_completion_does_not_forge_scan_marker_without_scan_history(self):

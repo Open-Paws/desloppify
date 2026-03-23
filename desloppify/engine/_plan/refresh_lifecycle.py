@@ -92,7 +92,7 @@ def _touches_objective_issue(
     return objective_seen
 
 
-def current_lifecycle_phase(plan: PlanModel) -> str | None:
+def current_lifecycle_phase(plan: PlanModel) -> str:
     """Return the persisted lifecycle mode: ``"plan"`` or ``"execute"``.
 
     Migrates any legacy fine-grained phase name on read.
@@ -128,7 +128,7 @@ def current_lifecycle_phase(plan: PlanModel) -> str | None:
         return "plan"
     if plan.get("plan_start_scores"):
         return "execute"
-    return None
+    return "execute"
 
 
 def set_lifecycle_phase(plan: PlanModel, phase: str) -> bool:
