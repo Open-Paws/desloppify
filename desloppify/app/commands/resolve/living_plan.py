@@ -20,7 +20,6 @@ from desloppify.engine.plan_ops import (
     purge_ids,
 )
 from desloppify.engine._plan.refresh_lifecycle import (
-    LIFECYCLE_PHASE_EXECUTE,
     clear_postflight_scan_completion,
     current_lifecycle_phase,
 )
@@ -134,7 +133,7 @@ def update_living_plan_after_resolve(
             purge_uncommitted_ids(plan, all_resolved)
         transition_phase: str | None = None
         if clear_postflight_scan_completion(plan, issue_ids=all_resolved, state=state):
-            transition_phase = LIFECYCLE_PHASE_EXECUTE
+            transition_phase = "execute"
         queue_drained = False
         reconcile_phase = _reconcile_if_queue_drained(plan, state)
         if reconcile_phase:

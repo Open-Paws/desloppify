@@ -117,7 +117,14 @@ def filter_cluster_focus(
     cluster_member_ids = set(cluster_issue_ids(cluster_data))
     if not cluster_member_ids:
         return items
-    return [item for item in items if item["id"] in cluster_member_ids]
+    # Plan-mode items (subjective reviews, workflow stages, triage) are not
+    # cluster members but must remain visible regardless of cluster focus.
+    _PLAN_ITEM_KINDS = {"subjective_dimension", "workflow_stage", "workflow_action", "triage_stage"}
+    return [
+        item for item in items
+        if item["id"] in cluster_member_ids
+        or item.get("kind") in _PLAN_ITEM_KINDS
+    ]
 
 
 def stamp_positions(items: list[WorkQueueItem], plan: dict) -> None:

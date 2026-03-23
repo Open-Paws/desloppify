@@ -1,10 +1,5 @@
 from __future__ import annotations
 
-from desloppify.engine._plan.refresh_lifecycle import (
-    LIFECYCLE_PHASE_EXECUTE,
-    LIFECYCLE_PHASE_REVIEW_POSTFLIGHT,
-    LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT,
-)
 from desloppify.engine._plan.schema import empty_plan
 from desloppify.engine._plan.sync.phase_cleanup import prune_synthetic_for_phase
 
@@ -32,7 +27,7 @@ def test_workflow_cleanup_prunes_only_subjective_items() -> None:
         }
     }
 
-    pruned = prune_synthetic_for_phase(plan, LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT)
+    pruned = prune_synthetic_for_phase(plan, "workflow")
 
     assert pruned == []
     assert plan["queue_order"] == [
@@ -57,7 +52,7 @@ def test_review_postflight_cleanup_prunes_subjective_and_workflow() -> None:
         "review::src/a.ts::naming",
     ]
 
-    pruned = prune_synthetic_for_phase(plan, LIFECYCLE_PHASE_REVIEW_POSTFLIGHT)
+    pruned = prune_synthetic_for_phase(plan, "review")
 
     assert pruned == ["workflow::communicate-score"]
     assert plan["queue_order"] == [
@@ -75,7 +70,7 @@ def test_execute_cleanup_prunes_all_synthetic_prefixes() -> None:
         "unused::src/a.ts::x",
     ]
 
-    pruned = prune_synthetic_for_phase(plan, LIFECYCLE_PHASE_EXECUTE)
+    pruned = prune_synthetic_for_phase(plan, "execute")
 
     assert pruned == [
         "workflow::communicate-score",

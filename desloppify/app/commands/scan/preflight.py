@@ -18,6 +18,7 @@ from desloppify.app.commands.resolve.plan_load import warn_plan_load_degraded_on
 from desloppify.engine._work_queue.context import resolve_plan_load_status
 from desloppify.engine._plan.constants import WORKFLOW_RUN_SCAN_ID
 from desloppify.engine._plan.refresh_lifecycle import current_lifecycle_phase
+from desloppify.engine._plan.sync.pipeline import live_planned_queue_empty
 from desloppify.engine._state.progression import (
     append_progression_event,
     build_scan_preflight_event,
@@ -125,6 +126,24 @@ def scan_queue_preflight(args: object) -> None:
     ):
         _log_preflight(plan, "allowed", "only workflow::run-scan remaining", 1)
         return
+    # The breakdown may count items from queue_order that the snapshot
+    # correctly filters out (stale items, subjective items from before
+    # boundary-only sync).  If the snapshot shows no execution items,
+    # the user has nothing actionable — allow the scan.
+    if live_planned_queue_empty(plan):
+        _log_preflight(plan, "allowed", "live planned queue empty", 0)
+        return
+    # Even if live_planned_queue_empty is False (non-synthetic items in
+    # queue_order), those items may be stale (not in current state).
+    # If the snapshot agrees the queue is empty, allow the scan.
+    from desloppify.engine._work_queue.context import queue_context
+    try:
+        ctx = queue_context(state, plan=plan)
+        if len(ctx.snapshot.execution_items) == 0:
+            _log_preflight(plan, "allowed", "snapshot execution queue empty", 0)
+            return
+    except Exception:
+        pass  # Fall through to the normal gate
 
     remaining = breakdown.queue_total
     _log_preflight(plan, "blocked", f"{remaining} item(s) remaining", remaining)

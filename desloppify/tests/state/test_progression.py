@@ -187,7 +187,7 @@ class TestBuilders:
         assert payload["prev_dimension_scores"] == prev_dim_scores
 
     def test_postflight_scan(self) -> None:
-        plan = _mock_plan(phase="scan")
+        plan = _mock_plan(phase="plan")
         event = build_postflight_scan_event(
             plan,
             scan_count_marker=10,
@@ -277,7 +277,7 @@ class TestConditionalHelpers:
     ) -> None:
         """Phase change to planning phase fires exactly one event."""
         state = _mock_state()
-        plan = _mock_plan(phase="triage_postflight")
+        plan = _mock_plan(phase="plan")
         with patch(
             "desloppify.engine._state.progression.progression_path",
             return_value=progression_file,
@@ -322,7 +322,7 @@ class TestConditionalHelpers:
         self, progression_file: Path
     ) -> None:
         state = _mock_state()
-        plan = _mock_plan(phase="scan")
+        plan = _mock_plan(phase="plan")
         with patch(
             "desloppify.engine._state.progression.progression_path",
             return_value=progression_file,

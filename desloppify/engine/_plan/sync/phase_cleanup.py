@@ -8,21 +8,16 @@ from desloppify.engine._plan.constants import (
     TRIAGE_PREFIX,
     WORKFLOW_PREFIX,
 )
-from desloppify.engine._plan.refresh_lifecycle import (
-    LIFECYCLE_PHASE_EXECUTE,
-    LIFECYCLE_PHASE_REVIEW_POSTFLIGHT,
-    LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT,
-    LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT,
-)
 from desloppify.engine._plan.schema import PlanModel, ensure_plan_defaults
 
 
 def _phase_prefixes(phase: str) -> tuple[str, ...]:
-    if phase == LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT:
+    """Map a display phase to the synthetic prefixes that should be pruned."""
+    if phase == "workflow":
         return ()
-    if phase in {LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT, LIFECYCLE_PHASE_REVIEW_POSTFLIGHT}:
+    if phase in {"triage", "review"}:
         return (WORKFLOW_PREFIX,)
-    if phase == LIFECYCLE_PHASE_EXECUTE:
+    if phase == "execute":
         return (WORKFLOW_PREFIX, TRIAGE_PREFIX)
     return ()
 

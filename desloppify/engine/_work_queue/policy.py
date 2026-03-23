@@ -29,16 +29,6 @@ from desloppify.engine._work_queue.snapshot import (
     QueueSnapshot,
 )
 
-_PHASE_LABELS: dict[str, str] = {
-    PHASE_REVIEW_INITIAL: "review_initial",
-    PHASE_EXECUTE: "execute",
-    PHASE_SCAN: "scan",
-    PHASE_ASSESSMENT_POSTFLIGHT: "assessment",
-    PHASE_REVIEW_POSTFLIGHT: "review",
-    PHASE_WORKFLOW_POSTFLIGHT: "workflow",
-    PHASE_TRIAGE_POSTFLIGHT: "triage",
-}
-
 
 def _count_auto_and_triage(
     plan: dict | None,
@@ -73,8 +63,7 @@ def explain_queue(snapshot: QueueSnapshot, plan: dict | None) -> str:
     and count fields. Does NOT recompute anything — purely a view.
     """
     phase = snapshot.phase
-    label = _PHASE_LABELS.get(phase, phase)
-    lines: list[str] = [f"    Phase: {label}"]
+    lines: list[str] = [f"    Phase: {phase}"]
 
     execution_count = len(snapshot.execution_items)
     # planned_objective_count reflects queue_order filtering (post-triage);

@@ -16,6 +16,7 @@ from desloppify.engine._plan.policy.subjective import compute_subjective_visibil
 from desloppify.engine._plan.policy.stale import open_review_ids
 from desloppify.engine._plan.refresh_lifecycle import (
     LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT,
+    LIFECYCLE_PHASE_EXECUTE,
     LIFECYCLE_PHASE_REVIEW_INITIAL,
     LIFECYCLE_PHASE_REVIEW_POSTFLIGHT,
     LIFECYCLE_PHASE_SCAN,
@@ -92,13 +93,18 @@ def _log_gate_changes(plan: dict, action: str, detail: dict[str, object]) -> Non
     append_log_entry(plan, action, actor="system", detail=detail)
 
 
-def _resolve_reconcile_phase(
+def _resolve_reconcile_display_phase(
     plan: dict,
     state: dict,
     *,
     result: ReconcileResult,
     policy: object | None,
 ) -> str:
+    """Derive the display phase from queue contents.
+
+    Returns a SHORT display name (review, assessment, workflow, triage,
+    execute, scan) — never a persisted mode.
+    """
     order = [item for item in plan.get("queue_order", []) if isinstance(item, str)]
 
     if any(item in PRE_REVIEW_WORKFLOW_IDS for item in order):
@@ -128,12 +134,53 @@ def _resolve_reconcile_phase(
     ):
         return LIFECYCLE_PHASE_REVIEW_POSTFLIGHT
 
-    persisted = current_lifecycle_phase(plan)
-    if persisted:
-        return persisted
+    # Check for objective work in the queue.
+    has_real_work = any(
+        not item.startswith(("subjective::", "workflow::", "triage::"))
+        for item in order
+        if item not in (plan.get("skipped") or {})
+    )
+    if has_real_work:
+        return LIFECYCLE_PHASE_EXECUTE
+
     if open_review_ids(state):
         return LIFECYCLE_PHASE_REVIEW_POSTFLIGHT
     return LIFECYCLE_PHASE_SCAN
+
+
+def _display_phase_to_mode(display_phase: str) -> str:
+    """Map a display phase to the persisted mode ("plan" or "execute")."""
+    if display_phase == LIFECYCLE_PHASE_EXECUTE:
+        return "execute"
+    return "plan"
+
+
+_MIGRATION_PRUNED_KEY = "_subjective_migration_pruned"
+
+
+def _migrate_prune_stale_subjective(plan: dict) -> None:
+    """One-time migration: remove stale subjective:: items from queue_order.
+
+    The old system re-injected stale subjective items on every reconcile
+    (not just at boundaries).  With boundary-only sync, these won't be
+    re-added, but old plan files may still have them.  Prune them so they
+    don't pollute phase derivation.  Runs at most once per plan.
+    """
+    refresh_state = plan.get("refresh_state")
+    if not isinstance(refresh_state, dict):
+        return
+    if refresh_state.get(_MIGRATION_PRUNED_KEY):
+        return  # Already done
+    queue_order = plan.get("queue_order")
+    if not isinstance(queue_order, list):
+        return
+    cleaned = [
+        item_id for item_id in queue_order
+        if not (isinstance(item_id, str) and item_id.startswith("subjective::"))
+    ]
+    if len(cleaned) < len(queue_order):
+        plan["queue_order"] = cleaned
+    refresh_state[_MIGRATION_PRUNED_KEY] = True
 
 
 def live_planned_queue_empty(plan: dict) -> bool:
@@ -161,6 +208,11 @@ def reconcile_plan(
 ) -> ReconcileResult:
     """Run the shared boundary reconciliation pipeline."""
     result = ReconcileResult()
+
+    # Migration cleanup: prune stale subjective items from queue_order
+    # left by the old mid-cycle re-injection bug.  With boundary-only sync
+    # they won't be re-added, so they just block phase resolution.
+    _migrate_prune_stale_subjective(plan)
 
     policy = compute_subjective_visibility(
         state,
@@ -214,13 +266,14 @@ def reconcile_plan(
         if result.triage.injected:
             _log_gate_changes(plan, "sync_triage", {"injected": True})
 
-    result.lifecycle_phase = _resolve_reconcile_phase(
+    result.lifecycle_phase = _resolve_reconcile_display_phase(
         plan,
         state,
         result=result,
         policy=policy,
     )
-    result.lifecycle_phase_changed = set_lifecycle_phase(plan, result.lifecycle_phase)
+    mode = _display_phase_to_mode(result.lifecycle_phase)
+    result.lifecycle_phase_changed = set_lifecycle_phase(plan, mode)
     if result.lifecycle_phase_changed:
         _log_gate_changes(
             plan,

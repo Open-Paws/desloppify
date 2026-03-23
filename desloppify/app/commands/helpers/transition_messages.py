@@ -10,16 +10,10 @@ import urllib.request as _urlreq
 
 from desloppify.base.config import load_config
 from desloppify.base.output.user_message import print_user_message
-from desloppify.engine._plan.refresh_lifecycle import (
-    COARSE_PHASE_MAP,
-    LIFECYCLE_PHASE_EXECUTE,
-    LIFECYCLE_PHASE_SCAN,
-)
-
 logger = logging.getLogger(__name__)
 
 # Phases that are NOT postflight — everything else counts as postflight.
-_NON_POSTFLIGHT = frozenset({LIFECYCLE_PHASE_EXECUTE, LIFECYCLE_PHASE_SCAN})
+_NON_POSTFLIGHT = frozenset({"execute", "scan"})
 
 _HERMES_PORT_FILE = _os.path.expanduser("~/.hermes/control_api.port")
 
@@ -74,14 +68,10 @@ def _hermes_send_message(text: str, mode: str = "queue") -> dict:
 def _resolve_hermes_model(phase: str, hermes_models: dict) -> str | None:
     """Resolve a phase to a 'provider:model' string from hermes_models config.
 
-    Lookup: exact phase → coarse phase → 'review' (fallback for non-execute).
+    Lookup: exact phase → 'review' (fallback for non-execute).
     Returns None if no model is configured for this phase.
     """
     spec = hermes_models.get(phase)
-    if not spec:
-        coarse = COARSE_PHASE_MAP.get(phase)
-        if coarse:
-            spec = hermes_models.get(coarse)
     if not spec and phase not in _NON_POSTFLIGHT:
         spec = hermes_models.get("review")
     return spec or None
@@ -178,12 +168,8 @@ def emit_transition_message(new_phase: str) -> bool:
     if not isinstance(messages, dict) or not messages:
         return False
 
-    # Try exact phase first, then coarse fallback, then postflight.
+    # Try exact phase first, then postflight fallback.
     text = messages.get(new_phase)
-    if text is None:
-        coarse = COARSE_PHASE_MAP.get(new_phase)
-        if coarse and coarse != new_phase:
-            text = messages.get(coarse)
     if text is None and new_phase not in _NON_POSTFLIGHT:
         text = messages.get("postflight")
 

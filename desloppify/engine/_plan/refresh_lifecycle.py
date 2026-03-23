@@ -1,4 +1,9 @@
-"""Helpers for the persisted queue lifecycle phase."""
+"""Helpers for the persisted queue lifecycle phase.
+
+Persisted lifecycle is coarse: only ``"plan"`` or ``"execute"``.
+Display-level phase names (review, assessment, workflow, triage, scan) are
+derived from queue contents by snapshot.py and pipeline.py — never persisted.
+"""
 
 from __future__ import annotations
 
@@ -12,33 +17,34 @@ _POSTFLIGHT_SCAN_KEY = "postflight_scan_completed_at_scan_count"
 _SUBJECTIVE_REVIEW_KEY = "subjective_review_completed_at_scan_count"
 _LIFECYCLE_PHASE_KEY = "lifecycle_phase"
 
+# ── Display-only constants ──────────────────────────────────────────
+# These are SHORT display names used by snapshot.py, pipeline.py, and
+# consumers for phase-gated rendering.  They are NEVER persisted.
 LIFECYCLE_PHASE_REVIEW_INITIAL = "review_initial"
-LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT = "assessment_postflight"
-LIFECYCLE_PHASE_REVIEW_POSTFLIGHT = "review_postflight"
-LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT = "workflow_postflight"
-LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT = "triage_postflight"
+LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT = "assessment"
+LIFECYCLE_PHASE_REVIEW_POSTFLIGHT = "review"
+LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT = "workflow"
+LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT = "triage"
 LIFECYCLE_PHASE_EXECUTE = "execute"
 LIFECYCLE_PHASE_SCAN = "scan"
 
-# Coarse lifecycle names remain valid persisted values for older plan data.
-LIFECYCLE_PHASE_REVIEW = "review"
-LIFECYCLE_PHASE_WORKFLOW = "workflow"
-LIFECYCLE_PHASE_TRIAGE = "triage"
+# Only these two values are persisted in refresh_state["lifecycle_phase"].
+_VALID_PHASES = frozenset({"plan", "execute"})
 
-COARSE_PHASE_MAP = {
-    LIFECYCLE_PHASE_REVIEW_INITIAL: LIFECYCLE_PHASE_REVIEW,
-    LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT: LIFECYCLE_PHASE_REVIEW,
-    LIFECYCLE_PHASE_REVIEW_POSTFLIGHT: LIFECYCLE_PHASE_REVIEW,
-    LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT: LIFECYCLE_PHASE_WORKFLOW,
-    LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT: LIFECYCLE_PHASE_TRIAGE,
-    LIFECYCLE_PHASE_EXECUTE: LIFECYCLE_PHASE_EXECUTE,
-    LIFECYCLE_PHASE_SCAN: LIFECYCLE_PHASE_SCAN,
-    LIFECYCLE_PHASE_REVIEW: LIFECYCLE_PHASE_REVIEW,
-    LIFECYCLE_PHASE_WORKFLOW: LIFECYCLE_PHASE_WORKFLOW,
-    LIFECYCLE_PHASE_TRIAGE: LIFECYCLE_PHASE_TRIAGE,
+# Data migration: ALL old phase names (fine-grained and coarse) map to a
+# persisted mode.  This is the ONLY place legacy names are tolerated.
+_LEGACY_PHASE_TO_MODE: dict[str, str] = {
+    "review_initial": "plan",
+    "assessment_postflight": "plan",
+    "review_postflight": "plan",
+    "workflow_postflight": "plan",
+    "triage_postflight": "plan",
+    "execute": "execute",
+    "scan": "plan",
+    "review": "plan",
+    "workflow": "plan",
+    "triage": "plan",
 }
-
-VALID_LIFECYCLE_PHASES = frozenset(COARSE_PHASE_MAP)
 
 
 def _refresh_state(plan: PlanModel) -> dict[str, object]:
@@ -87,38 +93,53 @@ def _touches_objective_issue(
 
 
 def current_lifecycle_phase(plan: PlanModel) -> str | None:
-    """Return the persisted lifecycle phase, falling back for legacy plans."""
+    """Return the persisted lifecycle mode: ``"plan"`` or ``"execute"``.
+
+    Migrates any legacy fine-grained phase name on read.
+    """
     refresh_state = plan.get("refresh_state")
     if isinstance(refresh_state, dict):
         phase = refresh_state.get(_LIFECYCLE_PHASE_KEY)
-        if isinstance(phase, str) and phase in VALID_LIFECYCLE_PHASES:
-            return phase
+        if isinstance(phase, str):
+            if phase in _VALID_PHASES:
+                return phase
+            # Data migration: old fine-grained or coarse names → mode.
+            migrated = _LEGACY_PHASE_TO_MODE.get(phase)
+            if migrated is not None:
+                # If the old phase maps to "plan" but the plan work is
+                # actually complete (no plan-mode items remain in queue),
+                # the project was stuck due to the old mid-cycle
+                # re-injection bug.  Use "execute" instead.
+                if migrated == "plan" and plan.get("plan_start_scores"):
+                    queue_order = plan.get("queue_order", [])
+                    has_plan_work = any(
+                        isinstance(item_id, str) and (
+                            item_id.startswith("workflow::")
+                            or item_id.startswith("triage::")
+                        )
+                        for item_id in queue_order
+                    )
+                    if not has_plan_work:
+                        migrated = "execute"
+                # Persist the migration so it only happens once.
+                refresh_state[_LIFECYCLE_PHASE_KEY] = migrated
+                return migrated
     if postflight_scan_pending(plan):
-        return LIFECYCLE_PHASE_SCAN
+        return "plan"
     if plan.get("plan_start_scores"):
-        return LIFECYCLE_PHASE_EXECUTE
+        return "execute"
     return None
 
 
 def set_lifecycle_phase(plan: PlanModel, phase: str) -> bool:
-    """Persist the current queue lifecycle phase."""
-    if phase not in VALID_LIFECYCLE_PHASES:
+    """Persist the current queue lifecycle mode (``"plan"`` or ``"execute"``)."""
+    if phase not in _VALID_PHASES:
         raise ValueError(f"Unsupported lifecycle phase: {phase}")
     refresh_state = _refresh_state(plan)
     if refresh_state.get(_LIFECYCLE_PHASE_KEY) == phase:
         return False
     refresh_state[_LIFECYCLE_PHASE_KEY] = phase
     return True
-
-
-def coarse_lifecycle_phase(plan: PlanModel | None) -> str | None:
-    """Return the coarse lifecycle phase for persisted fine/coarse plan data."""
-    if not isinstance(plan, dict):
-        return None
-    phase = current_lifecycle_phase(plan)
-    if phase is None:
-        return None
-    return COARSE_PHASE_MAP.get(phase)
 
 
 def postflight_scan_pending(plan: PlanModel) -> bool:
@@ -191,30 +212,24 @@ def clear_postflight_scan_completion(
     refresh_state = _refresh_state(plan)
     if _POSTFLIGHT_SCAN_KEY not in refresh_state:
         return False
-    refresh_state[_LIFECYCLE_PHASE_KEY] = LIFECYCLE_PHASE_EXECUTE
+    refresh_state[_LIFECYCLE_PHASE_KEY] = "execute"
     refresh_state.pop(_POSTFLIGHT_SCAN_KEY, None)
     return True
 
 
 __all__ = [
-    "COARSE_PHASE_MAP",
-    "coarse_lifecycle_phase",
     "LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT",
-    "clear_postflight_scan_completion",
-    "current_lifecycle_phase",
     "LIFECYCLE_PHASE_EXECUTE",
-    "LIFECYCLE_PHASE_REVIEW",
     "LIFECYCLE_PHASE_REVIEW_INITIAL",
     "LIFECYCLE_PHASE_REVIEW_POSTFLIGHT",
     "LIFECYCLE_PHASE_SCAN",
-    "LIFECYCLE_PHASE_TRIAGE",
     "LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT",
-    "LIFECYCLE_PHASE_WORKFLOW",
     "LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT",
+    "clear_postflight_scan_completion",
+    "current_lifecycle_phase",
     "mark_postflight_scan_completed",
     "mark_subjective_review_completed",
     "postflight_scan_pending",
-    "subjective_review_completed_for_scan",
     "set_lifecycle_phase",
-    "VALID_LIFECYCLE_PHASES",
+    "subjective_review_completed_for_scan",
 ]

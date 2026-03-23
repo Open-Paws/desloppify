@@ -27,7 +27,6 @@ from desloppify.engine.plan_ops import (
 )
 from desloppify.app.commands.helpers.transition_messages import emit_transition_message
 from desloppify.engine._plan.refresh_lifecycle import (
-    LIFECYCLE_PHASE_EXECUTE,
     clear_postflight_scan_completion,
 )
 from desloppify.engine._state.resolution import resolve_issues
@@ -119,7 +118,7 @@ def cmd_plan_reopen(args: argparse.Namespace) -> None:
     append_log_entry(plan, "reopen", issue_ids=reopened, actor="user")
     transition_phase: str | None = None
     if clear_postflight_scan_completion(plan, issue_ids=reopened, state=state_data):
-        transition_phase = LIFECYCLE_PHASE_EXECUTE
+        transition_phase = "execute"
     save_plan_state_transactional(
         plan=plan,
         plan_path=plan_file,

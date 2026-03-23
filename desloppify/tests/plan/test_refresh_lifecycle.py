@@ -1,13 +1,8 @@
 from __future__ import annotations
 
 from desloppify.engine._plan.refresh_lifecycle import (
-    coarse_lifecycle_phase,
     clear_postflight_scan_completion,
     current_lifecycle_phase,
-    LIFECYCLE_PHASE_EXECUTE,
-    LIFECYCLE_PHASE_REVIEW,
-    LIFECYCLE_PHASE_REVIEW_POSTFLIGHT,
-    LIFECYCLE_PHASE_SCAN,
     mark_postflight_scan_completed,
     postflight_scan_pending,
 )
@@ -64,7 +59,7 @@ def test_clearing_completion_for_real_issue_requires_new_scan() -> None:
 
     assert changed is True
     assert postflight_scan_pending(plan) is True
-    assert current_lifecycle_phase(plan) == LIFECYCLE_PHASE_EXECUTE
+    assert current_lifecycle_phase(plan) == "execute"
 
 
 def test_clearing_completion_for_review_issue_keeps_current_scan_boundary() -> None:
@@ -96,15 +91,15 @@ def test_clearing_completion_for_review_issue_keeps_current_scan_boundary() -> N
 
 def test_current_lifecycle_phase_falls_back_for_legacy_plans() -> None:
     plan = empty_plan()
-    assert current_lifecycle_phase(plan) == LIFECYCLE_PHASE_SCAN
+    assert current_lifecycle_phase(plan) == "plan"
 
     mark_postflight_scan_completed(plan, scan_count=2)
     plan["plan_start_scores"] = {"strict": 75.0}
-    assert current_lifecycle_phase(plan) == LIFECYCLE_PHASE_EXECUTE
+    assert current_lifecycle_phase(plan) == "execute"
 
 
-def test_coarse_lifecycle_phase_maps_fine_phases() -> None:
+def test_legacy_coarse_phase_migrated_to_plan_mode() -> None:
     plan = empty_plan()
-    plan["refresh_state"] = {"lifecycle_phase": LIFECYCLE_PHASE_REVIEW_POSTFLIGHT}
+    plan["refresh_state"] = {"lifecycle_phase": "review"}
 
-    assert coarse_lifecycle_phase(plan) == LIFECYCLE_PHASE_REVIEW
+    assert current_lifecycle_phase(plan) == "plan"

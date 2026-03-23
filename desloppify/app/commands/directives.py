@@ -8,7 +8,10 @@ from desloppify.app.commands.helpers.command_runtime import command_runtime
 from desloppify.base.config import save_config
 from desloppify.base.exception_sets import CommandError
 from desloppify.base.output.terminal import colorize
-from desloppify.engine._plan.refresh_lifecycle import VALID_LIFECYCLE_PHASES
+# Display phase names accepted as directive hooks.
+_DISPLAY_PHASES = frozenset({
+    "review_initial", "review", "assessment", "workflow", "triage", "execute", "scan",
+})
 
 # The four phases that actually matter as agent directive hooks.
 # Each has: short description, when it fires, example use case.
@@ -124,8 +127,8 @@ def _directives_set(args: argparse.Namespace) -> None:
     phase = args.phase
     text = args.message
 
-    # Accept the main phases (including postflight) plus any valid lifecycle phase.
-    if phase != "postflight" and phase not in VALID_LIFECYCLE_PHASES:
+    # Accept the display-level phase names plus the directive hook names.
+    if phase != "postflight" and phase not in _DISPLAY_PHASES and phase not in _PHASE_NAMES:
         valid = ", ".join(sorted(_PHASE_NAMES))
         raise CommandError(f"unknown phase {phase!r}; valid phases: {valid}")
 

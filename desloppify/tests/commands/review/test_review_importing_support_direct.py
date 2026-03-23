@@ -472,7 +472,7 @@ def test_sync_plan_after_import_preserves_scan_phase_for_temporary_skips(
     monkeypatch.setattr(
         plan_sync_mod,
         "reconcile_plan",
-        lambda _plan, _state, target_strict: _plan["refresh_state"].__setitem__("lifecycle_phase", "scan")
+        lambda _plan, _state, target_strict: _plan["refresh_state"].__setitem__("lifecycle_phase", "plan")
         or plan_sync_mod.ReconcileResult(lifecycle_phase="scan", lifecycle_phase_changed=True),
     )
 
@@ -482,7 +482,7 @@ def test_sync_plan_after_import_preserves_scan_phase_for_temporary_skips(
         assessment_mode="issues_only",
     )
 
-    assert plan["refresh_state"]["lifecycle_phase"] == "scan"
+    assert plan["refresh_state"]["lifecycle_phase"] == "plan"
     assert saved
 
 

@@ -31,11 +31,6 @@ from desloppify.engine._plan.constants import (
 )
 from desloppify.engine._plan.triage.snapshot import build_triage_snapshot
 from desloppify.engine._plan.refresh_lifecycle import (
-    LIFECYCLE_PHASE_REVIEW_INITIAL,
-    LIFECYCLE_PHASE_TRIAGE,
-    LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT,
-    LIFECYCLE_PHASE_WORKFLOW,
-    LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT,
     current_lifecycle_phase,
     subjective_review_completed_for_scan,
 )
@@ -261,10 +256,9 @@ def build_subjective_items(
     def _suppressed_same_cycle_refresh(dimension_key: str, *, stale: bool) -> bool:
         if not stale or latest_trusted_audit_ts == "":
             return False
-        if current_phase not in {
-            LIFECYCLE_PHASE_WORKFLOW, LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT,
-            LIFECYCLE_PHASE_TRIAGE, LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT,
-        }:
+        # Persisted phase is now "plan" or "execute".  The suppression
+        # applies when in planning mode (covers workflow/triage display phases).
+        if current_phase != "plan":
             return False
         assessments = state.get("subjective_assessments", {}) or {}
         payload = assessments.get(dimension_key)
@@ -317,7 +311,6 @@ def build_subjective_items(
             or (
                 is_below_target
                 and postflight_scan_completed_this_scan
-                and current_phase != LIFECYCLE_PHASE_REVIEW_INITIAL
                 and not review_completed_this_scan
             )
         )

@@ -132,7 +132,7 @@ def test_reconcile_plan_noops_when_live_queue_not_empty() -> None:
     assert result.workflow_injected_ids == []
     assert plan["queue_order"] == ["unused::a"]
     assert result.auto_cluster_changes == 0
-    assert result.lifecycle_phase == PHASE_SCAN
+    assert result.lifecycle_phase == PHASE_EXECUTE
     assert result.lifecycle_phase_changed is True
 
 
@@ -318,6 +318,10 @@ def test_queue_snapshot_executes_review_items_promoted_into_active_cluster() -> 
     plan = empty_plan()
     plan["queue_order"] = ["review::a"]
     plan["plan_start_scores"] = {"strict": 80.0}
+    plan["refresh_state"] = {
+        "lifecycle_phase": "execute",
+        "postflight_scan_completed_at_scan_count": 1,
+    }
     plan["epic_triage_meta"] = {
         "triaged_ids": ["review::a"],
         "issue_snapshot_hash": "stable",
@@ -376,6 +380,10 @@ def test_phase_isolation_mixed_objective_and_unpromoted_review() -> None:
     plan = empty_plan()
     plan["queue_order"] = ["unused::obj"]
     plan["plan_start_scores"] = {"strict": 80.0}
+    plan["refresh_state"] = {
+        "lifecycle_phase": "execute",
+        "postflight_scan_completed_at_scan_count": 1,
+    }
     plan["epic_triage_meta"] = {
         "triaged_ids": ["review::rev"],
         "issue_snapshot_hash": "stable",

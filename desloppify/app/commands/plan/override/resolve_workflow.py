@@ -36,7 +36,6 @@ from desloppify.engine._plan.constants import (
     confirmed_triage_stage_names,
 )
 from desloppify.engine._plan.refresh_lifecycle import (
-    LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT,
     current_lifecycle_phase,
     set_lifecycle_phase,
 )
@@ -365,7 +364,7 @@ def _reconcile_if_queue_drained(
     if WORKFLOW_CREATE_PLAN_ID in synthetic_ids and has_open_review_issues(state_data):
         ensure_active_triage_issue_ids(plan, state_data)
         inject_triage_stages(plan)
-        changed = set_lifecycle_phase(plan, LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT)
+        changed = set_lifecycle_phase(plan, "plan")
         save_plan(plan)
         # --- Progression ---
         try:
@@ -388,7 +387,7 @@ def _reconcile_if_queue_drained(
         except Exception:
             _logger.warning("Failed to append progression event after workflow resolve", exc_info=True)
         if changed:
-            emit_transition_message(LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT)
+            emit_transition_message("triage")
         return
     result = reconcile_plan(
         plan,

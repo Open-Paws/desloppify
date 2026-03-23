@@ -722,15 +722,14 @@ def test_queue_snapshot_enforces_phase_boundaries() -> None:
                 }
             },
             "subjective_assessments": {
-                "naming_quality": {"score": 70.0, "needs_review_refresh": True}
+                "naming_quality": {"score": 70.0}
             },
         },
-        plan={"queue_order": ["triage::observe"], "plan_start_scores": {"strict": 75.0}},
+        plan={"queue_order": ["subjective::naming_quality"], "plan_start_scores": {"strict": 75.0}},
     )
     assert execute.phase == snapshot_mod.PHASE_SCAN
     assert [item["id"] for item in execute.execution_items] == ["workflow::run-scan"]
     backlog_ids = {item["id"] for item in execute.backlog_items}
-    assert "triage::observe" in backlog_ids
     assert "unused::a" in backlog_ids
 
 
@@ -925,7 +924,7 @@ def test_queue_snapshot_orders_scan_assessment_workflow_and_triage_postflight() 
         },
     }
     scan_plan = {
-        "queue_order": ["workflow::run-scan", "workflow::communicate-score", "triage::observe"],
+        "queue_order": ["workflow::run-scan"],
         "plan_start_scores": {"strict": 80.0},
     }
     scan_snapshot = snapshot_mod.build_queue_snapshot(review_state, plan=scan_plan)
@@ -1049,14 +1048,14 @@ def test_queue_snapshot_orders_scan_assessment_workflow_and_triage_postflight() 
             "queue_order": ["workflow::communicate-score", "triage::observe"],
             "refresh_state": {
                 "postflight_scan_completed_at_scan_count": 1,
-                "lifecycle_phase": "workflow",
+                "lifecycle_phase": "plan",
             },
         },
     )
-    assert assessment_beats_workflow_snapshot.phase == snapshot_mod.PHASE_WORKFLOW_POSTFLIGHT
-    assert [item["id"] for item in assessment_beats_workflow_snapshot.execution_items] == [
-        "workflow::communicate-score",
-    ]
+    # Assessment comes before workflow in the postflight sequence, so when
+    # both assessment items and non-pre-review workflow items are present,
+    # assessment wins the display phase.
+    assert assessment_beats_workflow_snapshot.phase == snapshot_mod.PHASE_ASSESSMENT_POSTFLIGHT
 
 
 def test_build_subjective_items_suppresses_same_cycle_review_refresh_during_workflow() -> None:
@@ -1123,14 +1122,12 @@ def test_queue_snapshot_prefers_deferred_disposition_over_run_scan() -> None:
     assert [item["id"] for item in snapshot.execution_items] == ["workflow::deferred-disposition"]
 
 
-def test_coarse_lifecycle_phase_collapses_internal_review_workflow_and_triage() -> None:
-    from desloppify.engine._plan.refresh_lifecycle import COARSE_PHASE_MAP
-
-    assert COARSE_PHASE_MAP[snapshot_mod.PHASE_REVIEW_INITIAL] == "review"
-    assert COARSE_PHASE_MAP[snapshot_mod.PHASE_ASSESSMENT_POSTFLIGHT] == "review"
-    assert COARSE_PHASE_MAP[snapshot_mod.PHASE_REVIEW_POSTFLIGHT] == "review"
-    assert COARSE_PHASE_MAP[snapshot_mod.PHASE_WORKFLOW_POSTFLIGHT] == "workflow"
-    assert COARSE_PHASE_MAP[snapshot_mod.PHASE_TRIAGE_POSTFLIGHT] == "triage"
+def test_fine_grained_phase_constants_are_canonical() -> None:
+    assert snapshot_mod.PHASE_REVIEW_INITIAL == "review_initial"
+    assert snapshot_mod.PHASE_ASSESSMENT_POSTFLIGHT == "assessment"
+    assert snapshot_mod.PHASE_REVIEW_POSTFLIGHT == "review"
+    assert snapshot_mod.PHASE_WORKFLOW_POSTFLIGHT == "workflow"
+    assert snapshot_mod.PHASE_TRIAGE_POSTFLIGHT == "triage"
 
 
 def test_triage_playbook_commands_cover_runner_and_stage_validation() -> None:

@@ -24,7 +24,6 @@ from desloppify.base.output.terminal import colorize
 from desloppify.base.output.user_message import print_user_message
 from desloppify.app.commands.helpers.transition_messages import emit_transition_message
 from desloppify.engine._plan.refresh_lifecycle import (
-    LIFECYCLE_PHASE_EXECUTE,
     clear_postflight_scan_completion,
 )
 from desloppify.engine.plan_ops import (
@@ -251,7 +250,7 @@ def cmd_plan_skip(args: argparse.Namespace) -> None:
     )
     transition_phase: str | None = None
     if clear_postflight_scan_completion(plan, issue_ids=issue_ids, state=state):
-        transition_phase = LIFECYCLE_PHASE_EXECUTE
+        transition_phase = "execute"
     _save_skip_plan_state(
         plan=plan,
         plan_file=plan_file,
@@ -314,7 +313,7 @@ def cmd_plan_unskip(args: argparse.Namespace) -> None:
     )
     transition_phase: str | None = None
     if clear_postflight_scan_completion(plan, issue_ids=unskipped_ids, state=state):
-        transition_phase = LIFECYCLE_PHASE_EXECUTE
+        transition_phase = "execute"
 
     reopened: list[str] = []
     if need_reopen:
@@ -388,7 +387,7 @@ def cmd_plan_backlog(args: argparse.Namespace) -> None:
     )
     transition_phase: str | None = None
     if clear_postflight_scan_completion(plan, issue_ids=removed, state=state_data):
-        transition_phase = LIFECYCLE_PHASE_EXECUTE
+        transition_phase = "execute"
 
     if reopen_ids:
         save_plan_state_transactional(

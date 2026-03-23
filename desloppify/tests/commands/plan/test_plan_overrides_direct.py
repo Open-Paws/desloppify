@@ -310,7 +310,7 @@ def test_resolve_workflow_patterns_reconciles_when_create_plan_drains_queue(monk
     assert outcome.status == "handled"
     assert ("active_triage", True) in seen
     assert ("inject_triage", True) in seen
-    assert ("phase", resolve_workflow_mod.LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT) in seen
+    assert ("phase", "plan") in seen
     assert ("target", {"target_strict_score": 96}) not in seen
     assert not any(isinstance(item, tuple) and item[:1] == ("reconcile",) for item in seen)
 
