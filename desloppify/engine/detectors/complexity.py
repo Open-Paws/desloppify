@@ -22,7 +22,7 @@ def detect_complexity(
     for filepath in files:
         try:
             p = resolve_scan_file(filepath, scan_root=path)
-            content = p.read_text()
+            content = p.read_text(encoding="utf-8")
             lines = content.splitlines()
             loc = len(lines)
             if loc < min_loc:
