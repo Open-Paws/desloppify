@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 # Auto-sync docs/*.md → desloppify/data/global/ before commit.
 # Only runs the sync if any docs/*.md files are staged.
 
@@ -6,6 +7,12 @@ staged_docs=$(git diff --cached --name-only -- 'docs/*.md')
 
 if [ -z "$staged_docs" ]; then
     exit 0
+fi
+
+# Prevent mixing staged docs content with unstaged edits.
+if ! git diff --quiet -- 'docs/*.md'; then
+    echo "Unstaged changes detected in docs/*.md. Stage or stash them before commit." >&2
+    exit 1
 fi
 
 # Sync copies from working tree into data/global.
