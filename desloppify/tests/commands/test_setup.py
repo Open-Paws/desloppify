@@ -45,13 +45,19 @@ def test_global_install_writes_supported_targets(
     claude_target = tmp_path / ".claude" / "skills" / "desloppify" / "SKILL.md"
     codex_target = tmp_path / ".codex" / "AGENTS.md"
     gemini_target = tmp_path / ".gemini" / "skills" / "desloppify" / "SKILL.md"
+    amp_target = tmp_path / ".config" / "agents" / "skills" / "desloppify" / "SKILL.md"
+    opencode_target = tmp_path / ".config" / "opencode" / "skills" / "desloppify" / "SKILL.md"
     assert claude_target.is_file()
     assert codex_target.is_file()
     assert gemini_target.is_file()
+    assert amp_target.is_file()
+    assert opencode_target.is_file()
     assert "desloppify-skill-version" in claude_target.read_text(encoding="utf-8")
     assert "<!-- desloppify-overlay: claude -->" in claude_target.read_text(encoding="utf-8")
     assert "<!-- desloppify-overlay: codex -->" in codex_target.read_text(encoding="utf-8")
     assert "<!-- desloppify-overlay: gemini -->" in gemini_target.read_text(encoding="utf-8")
+    assert "<!-- desloppify-overlay: amp -->" in amp_target.read_text(encoding="utf-8")
+    assert "<!-- desloppify-overlay: opencode -->" in opencode_target.read_text(encoding="utf-8")
 
 
 def test_global_single_interface_installs_only_requested_target(

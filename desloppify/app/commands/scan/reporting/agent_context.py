@@ -380,8 +380,9 @@ def auto_update_skill() -> None:
     # or no install at all.  Distinguish the two cases.
     if not skill_docs_mod.find_installed_skill() and not skill_docs_mod.find_any_global_install():
         print(
-            "No skill document found. Install globally for better workflow guidance: "
-            "desloppify setup"
+            "No desloppify skill document found. Run `desloppify setup` for "
+            "globally supported interfaces, or `desloppify update-skill <interface>` "
+            "for a per-project install."
         )
 
 
