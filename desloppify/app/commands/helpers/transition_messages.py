@@ -145,8 +145,8 @@ def _ensure_hermes_autoreply() -> None:
 def emit_transition_message(new_phase: str) -> bool:
     """Print a transition message if one is configured for *new_phase*.
 
-    Lookup order: exact phase → coarse phase → ``postflight`` (if the
-    phase is not execute/scan).
+    Lookup order: exact phase → ``postflight`` fallback (if the phase
+    is not execute/scan).
 
     Also triggers a Hermes model switch if the control API is available.
 

@@ -406,10 +406,10 @@ def _build_item_partitions(
 ) -> _Partitions:
     """Build all item partitions from state and plan."""
     skipped_ids = set((effective_plan or {}).get("skipped", {}).keys())
-    scoped_issues = path_scoped_issues(
-        (state.get("work_items") or state.get("issues", {})),
-        scan_path,
-    )
+    issue_source = state.get("work_items")
+    if not isinstance(issue_source, dict):
+        issue_source = state.get("issues", {})
+    scoped_issues = path_scoped_issues(issue_source, scan_path)
 
     all_issue_items = build_issue_items(
         state,

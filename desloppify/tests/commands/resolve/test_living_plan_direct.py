@@ -97,7 +97,7 @@ def test_update_living_plan_after_resolve_reconciles_when_queue_drains(
     monkeypatch.setattr(living_plan_mod, "has_living_plan", lambda _p=None: True)
     monkeypatch.setattr(living_plan_mod, "load_plan", lambda _p=None: plan)
 
-    def _purge(_plan, _ids):
+    def _purge(_plan, _ids) -> int:
         _plan["queue_order"] = []
         return 1
 
@@ -193,7 +193,7 @@ def test_update_living_plan_after_resolve_reconciles_once_when_invalidated_and_d
     monkeypatch.setattr(living_plan_mod, "has_living_plan", lambda _p=None: True)
     monkeypatch.setattr(living_plan_mod, "load_plan", lambda _p=None: plan)
 
-    def _purge(_plan, _ids):
+    def _purge(_plan, _ids) -> int:
         _plan["queue_order"] = []
         return 1
 

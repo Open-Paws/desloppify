@@ -142,8 +142,8 @@ def scan_queue_preflight(args: object) -> None:
         if len(ctx.snapshot.execution_items) == 0:
             _log_preflight(plan, "allowed", "snapshot execution queue empty", 0)
             return
-    except Exception:
-        pass  # Fall through to the normal gate
+    except Exception as exc:
+        _logger.debug("snapshot pre-build failed: %s", exc)
 
     remaining = breakdown.queue_total
     _log_preflight(plan, "blocked", f"{remaining} item(s) remaining", remaining)

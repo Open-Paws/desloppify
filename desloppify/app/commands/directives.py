@@ -129,7 +129,7 @@ def _directives_set(args: argparse.Namespace) -> None:
 
     # Accept the display-level phase names plus the directive hook names.
     if phase != "postflight" and phase not in _DISPLAY_PHASES and phase not in _PHASE_NAMES:
-        valid = ", ".join(sorted(_PHASE_NAMES))
+        valid = ", ".join(sorted(_DISPLAY_PHASES | _PHASE_NAMES | {"postflight"}))
         raise CommandError(f"unknown phase {phase!r}; valid phases: {valid}")
 
     config = command_runtime(args).config
