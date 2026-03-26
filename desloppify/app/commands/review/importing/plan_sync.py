@@ -490,7 +490,7 @@ def sync_plan_after_import(
                         execution_summary=cp_exec_summary,
                     )
                 )
-            except Exception:
+            except (TypeError, KeyError, ValueError):
                 _logger.warning("Failed to append plan_checkpoint progression event", exc_info=True)
 
         # --- Progression: subjective_review_completed ---

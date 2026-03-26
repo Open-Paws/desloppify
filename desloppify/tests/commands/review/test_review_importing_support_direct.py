@@ -316,11 +316,20 @@ def test_sync_plan_after_import_emits_plan_checkpoint_when_subjective_review_cle
             "objective": 90.0,
             "verified": 73.5,
         }
-        return plan_sync_mod.ReconcileResult(
+        result = plan_sync_mod.ReconcileResult(
             communicate_score=plan_constants_mod.QueueSyncResult(
                 auto_resolved=["workflow::communicate-score"]
-            )
+            ),
+            checkpoint_plan_start=dict(_plan.get("plan_start_scores") or {}),
+            checkpoint_prev_start=dict(_plan.get("previous_plan_start_scores") or {}),
         )
+        assert result.checkpoint_plan_start == {
+            "strict": 74.5, "overall": 76.0, "objective": 90.0, "verified": 73.5,
+        }
+        assert result.checkpoint_prev_start == {
+            "strict": 70.0, "overall": 72.0, "objective": 80.0, "verified": 68.0,
+        }
+        return result
 
     monkeypatch.setattr(plan_sync_mod, "reconcile_plan", fake_reconcile)
 

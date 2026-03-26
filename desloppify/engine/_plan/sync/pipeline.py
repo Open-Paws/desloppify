@@ -205,8 +205,8 @@ def reconcile_plan(
             _log_gate_changes(plan, "sync_communicate_score", {"auto_resolved": True})
             # Snapshot rebaseline fields now, before post-reconcile clearing
             if result.communicate_score.auto_resolved:
-                result.checkpoint_plan_start = dict(plan.get("plan_start_scores", {}))
-                result.checkpoint_prev_start = dict(plan.get("previous_plan_start_scores", {}))
+                result.checkpoint_plan_start = dict(plan.get("plan_start_scores") or {})
+                result.checkpoint_prev_start = dict(plan.get("previous_plan_start_scores") or {})
 
         result.create_plan = sync_create_plan_needed(
             plan,
