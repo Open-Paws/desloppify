@@ -119,13 +119,15 @@ def _seed_plan_start_scores(plan: dict[str, object], state: state_mod.StateModel
     # a good baseline with a post-regression one)
     if existing and isinstance(existing, dict) and not plan.get("previous_plan_start_scores"):
         plan["previous_plan_start_scores"] = dict(existing)
+    preserve_score_sentinel = "previous_plan_start_scores" in plan
     plan["plan_start_scores"] = {
         "strict": scores.strict,
         "overall": scores.overall,
         "objective": scores.objective,
         "verified": scores.verified,
     }
-    clear_score_communicated_sentinel(plan)
+    if not preserve_score_sentinel:
+        clear_score_communicated_sentinel(plan)
     clear_create_plan_sentinel(plan)
     plan["scan_count_at_plan_start"] = int(state.get("scan_count", 0) or 0)
     return True
@@ -289,6 +291,13 @@ def _display_reconcile_results(
     *,
     mid_cycle: bool,
 ) -> None:
+    if result.communicate_score and result.communicate_score.auto_resolved:
+        strict = (plan.get("plan_start_scores") or {}).get("strict")
+        if isinstance(strict, (int, float)):
+            message = f"  Plan: score checkpoint saved (strict: {strict:.1f})."
+        else:
+            message = "  Plan: score checkpoint saved."
+        print(colorize(message, "dim"))
     subjective = result.subjective
     if subjective and subjective.resurfaced:
         print(
@@ -321,7 +330,7 @@ def _display_reconcile_results(
     if result.create_plan and result.create_plan.injected:
         print(
             colorize(
-                "  Plan: reviews complete — `workflow::create-plan` queued.",
+                "  Plan: reviews complete — create the execution plan next.",
                 "cyan",
             )
         )

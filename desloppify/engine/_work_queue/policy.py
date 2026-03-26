@@ -26,6 +26,7 @@ from desloppify.engine._plan.refresh_lifecycle import (
     LIFECYCLE_PHASE_SCAN,
     LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT,
     LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT,
+    user_facing_mode,
 )
 from desloppify.engine._work_queue.snapshot import QueueSnapshot
 
@@ -63,7 +64,7 @@ def explain_queue(snapshot: QueueSnapshot, plan: dict | None) -> str:
     and count fields. Does NOT recompute anything — purely a view.
     """
     phase = snapshot.phase
-    lines: list[str] = [f"    Phase: {phase}"]
+    lines: list[str] = [f"    Mode: {user_facing_mode(phase)}"]
 
     execution_count = len(snapshot.execution_items)
     # planned_objective_count reflects queue_order filtering (post-triage);
@@ -77,7 +78,7 @@ def explain_queue(snapshot: QueueSnapshot, plan: dict | None) -> str:
 
     if phase == LIFECYCLE_PHASE_REVIEW_INITIAL:
         lines.append(
-            "    Why: Initial review must complete before execution work is visible."
+            "    Why: Reviewing code quality dimensions before execution work appears."
         )
         lines.append(
             f"    After review: {snapshot.objective_in_scope_count} objective items will become available."
@@ -98,38 +99,38 @@ def explain_queue(snapshot: QueueSnapshot, plan: dict | None) -> str:
             lines.append(f"    Backlog: {objective_backlog_count} objective items (not in queue_order)")
     elif phase == LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT:
         lines.append(
-            "    Why: Workflow tasks gate execution. Complete this to proceed."
+            "    Why: Processing a planning step before execution resumes."
         )
         lines.append(
-            f"    Blocked: {blocked_count} execution items waiting behind this workflow step."
+            f"    Blocked: {blocked_count} work items available after."
         )
     elif phase == LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT:
         lines.append(
-            "    Why: Triage stages must complete before execution resumes."
+            "    Why: Analyzing and prioritizing issues before execution resumes."
         )
         lines.append(
-            f"    Blocked: {blocked_count} execution items waiting behind triage."
+            f"    Blocked: {blocked_count} work items available after."
         )
     elif phase == LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT:
         lines.append(
-            "    Why: Assessment must complete before execution resumes."
+            "    Why: Scoring dimensions from review results before execution resumes."
         )
         lines.append(
-            f"    Blocked: {blocked_count} execution items waiting behind assessment."
+            f"    Blocked: {blocked_count} work items available after."
         )
     elif phase == LIFECYCLE_PHASE_REVIEW_POSTFLIGHT:
         lines.append(
-            "    Why: Review dimensions need re-evaluation before execution resumes."
+            "    Why: Reviewing findings from the latest scan before execution resumes."
         )
         lines.append(
-            f"    Blocked: {blocked_count} execution items waiting behind review."
+            f"    Blocked: {blocked_count} work items available after."
         )
     elif phase == LIFECYCLE_PHASE_SCAN:
         lines.append(
-            "    Why: Queue cleared — run `desloppify scan` to start next cycle."
+            "    Why: Cycle complete. Run `desloppify scan` to start the next one."
         )
     else:
-        lines.append(f"    Phase items: {execution_count}")
+        lines.append(f"    Visible items: {execution_count}")
 
     return "\n".join(lines)
 

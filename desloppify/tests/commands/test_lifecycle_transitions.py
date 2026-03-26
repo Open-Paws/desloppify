@@ -2,7 +2,7 @@
 
 Exercises the full lifecycle by walking through each stage:
   scan → initial reviews → objectives → postflight scan → subjective review
-  → communicate-score/create-plan → triage
+  → score checkpoint/create-plan → triage
 
 Between scans, items are completed via ``purge_ids`` (what ``plan resolve``
 does) and the queue is re-checked without reconciling.  ``reconcile`` only
@@ -194,17 +194,16 @@ class TestCompleteReviewsUnlocksObjectives:
 
 
 # ---------------------------------------------------------------------------
-# Test 3: Next scan after reviews → communicate-score + create-plan appear
+# Test 3: Next scan after reviews → score checkpoint + create-plan
 # ---------------------------------------------------------------------------
 
 class TestScanAfterReviewsInjectsWorkflow:
 
     def test_workflow_items_injected_on_next_scan(self, monkeypatch):
-        """Scan after completing reviews injects communicate-score and create-plan.
+        """Scan after completing reviews checkpoints score and queues create-plan.
 
         Postflight is exclusive once the scan boundary is crossed:
-        score/workflow surfaces first, and only then does execute backlog
-        reappear.
+        planning work surfaces first, and only then does execute backlog reappear.
         """
         state = _build_state(OBJECTIVE_ISSUES, [_placeholder_dim_entries(k) for k in DIM_KEYS])
         plan = _reconcile(state, empty_plan(), monkeypatch)
@@ -218,11 +217,11 @@ class TestScanAfterReviewsInjectsWorkflow:
         plan = _reconcile(state, plan, monkeypatch)
 
         ids = _queue_ids(state, plan)
-        assert WORKFLOW_COMMUNICATE_SCORE_ID in ids
         assert WORKFLOW_CREATE_PLAN_ID in ids
-        assert ids.index(WORKFLOW_COMMUNICATE_SCORE_ID) < ids.index(WORKFLOW_CREATE_PLAN_ID)
+        assert WORKFLOW_COMMUNICATE_SCORE_ID not in ids
+        assert plan["previous_plan_start_scores"] == {}
 
-        purge_ids(plan, [WORKFLOW_COMMUNICATE_SCORE_ID, WORKFLOW_CREATE_PLAN_ID])
+        purge_ids(plan, [WORKFLOW_CREATE_PLAN_ID])
         ids = _queue_ids(state, plan)
         assert "obj-1" in ids and "obj-2" in ids
 
@@ -245,7 +244,6 @@ class TestPhaseOrderInvariant:
         state["subjective_assessments"]["naming_quality"]["needs_review_refresh"] = True
         plan = empty_plan()
         plan["queue_order"] = [
-            WORKFLOW_COMMUNICATE_SCORE_ID,
             "triage::observe",
             "subjective::naming_quality",
         ]
@@ -256,17 +254,12 @@ class TestPhaseOrderInvariant:
         ids = _queue_ids(state, plan)
         assert ids == ["subjective::naming_quality"]
 
-        # After subjective follow-up completion, workflow appears.
+        # After subjective follow-up completion, triage appears.
         ids = _queue_ids(state, plan)
         state["subjective_assessments"]["naming_quality"]["needs_review_refresh"] = False
         state["subjective_assessments"]["naming_quality"]["score"] = 100.0
         state["dimension_scores"][DIM_DISPLAY["naming_quality"]]["score"] = 100.0
         state["dimension_scores"][DIM_DISPLAY["naming_quality"]]["strict"] = 100.0
-        ids = _queue_ids(state, plan)
-        assert ids == [WORKFLOW_COMMUNICATE_SCORE_ID]
-
-        # After workflow completion, triage becomes visible.
-        purge_ids(plan, [WORKFLOW_COMMUNICATE_SCORE_ID])
         ids = _queue_ids(state, plan)
         assert ids == ["triage::observe"]
 
@@ -278,7 +271,7 @@ class TestPhaseOrderInvariant:
 class TestTriageInjectedOnScan:
 
     def test_triage_after_review_issues_on_scan(self, monkeypatch):
-        """Review-driven triage waits behind score workflow after review import."""
+        """Review-driven triage waits behind planning workflow after review import."""
         state = _build_state(OBJECTIVE_ISSUES, [_placeholder_dim_entries(k) for k in DIM_KEYS])
         plan = _reconcile(state, empty_plan(), monkeypatch)
 
@@ -293,14 +286,14 @@ class TestTriageInjectedOnScan:
 
         ids = _queue_ids(state, plan)
         assert not any(fid.startswith("triage::") for fid in ids), ids
-        assert WORKFLOW_COMMUNICATE_SCORE_ID in ids
         assert WORKFLOW_CREATE_PLAN_ID in ids
+        assert WORKFLOW_COMMUNICATE_SCORE_ID not in ids
 
         # Triage stages are still injected in plan order.
         assert all(sid in plan["queue_order"] for sid in TRIAGE_STAGE_IDS)
 
         # After completing workflow items, triage becomes visible before execute resumes.
-        purge_ids(plan, [WORKFLOW_COMMUNICATE_SCORE_ID, WORKFLOW_CREATE_PLAN_ID])
+        purge_ids(plan, [WORKFLOW_CREATE_PLAN_ID])
         ids = _queue_ids(state, plan)
         triage_ids = [fid for fid in ids if fid.startswith("triage::")]
         assert len(triage_ids) == len(TRIAGE_STAGE_IDS), ids
@@ -346,14 +339,14 @@ class TestFullLifecycleGoldenPath:
         assert "obj-1" in ids, f"Post-reviews (no scan): {ids}"
         assert WORKFLOW_COMMUNICATE_SCORE_ID not in ids, f"Post-reviews (no scan): {ids}"
 
-        # ── Scan 2: score workflow surfaces before execute resumes ──
+        # ── Scan 2: score checkpoint auto-resolves and planning surfaces ──
         plan = _reconcile(state, plan, monkeypatch)
         ids = _queue_ids(state, plan)
-        assert WORKFLOW_COMMUNICATE_SCORE_ID in ids, f"Scan 2: {ids}"
         assert WORKFLOW_CREATE_PLAN_ID in ids, f"Scan 2: {ids}"
+        assert WORKFLOW_COMMUNICATE_SCORE_ID not in ids, f"Scan 2: {ids}"
 
         # ── Complete workflow items; clear cycle baseline so execute resumes ──
-        purge_ids(plan, [WORKFLOW_COMMUNICATE_SCORE_ID, WORKFLOW_CREATE_PLAN_ID])
+        purge_ids(plan, [WORKFLOW_CREATE_PLAN_ID])
         plan["plan_start_scores"] = {}
         ids = _queue_ids(state, plan)
         assert "obj-1" in ids and "obj-2" in ids, f"Post-workflow: {ids}"
@@ -373,17 +366,10 @@ class TestFullLifecycleGoldenPath:
         )
         assert "obj-1" in ids and "obj-2" in ids, f"Scan 3: {ids}"
 
-        # ── Complete objective queue → rescan injects triage in plan, but
-        #    postflight still starts with workflow items ──
+        # ── Complete objective queue → rescan injects triage directly ──
         del state["work_items"]["obj-1"]
         del state["work_items"]["obj-2"]
         plan = _reconcile(state, plan, monkeypatch)
-        ids = _queue_ids(state, plan)
-        workflow_ids = [fid for fid in ids if fid.startswith("workflow::")]
-        assert len(workflow_ids) > 0, f"Expected workflow phase: {ids}"
-
-        # ── Complete workflow items → triage unlocks ──
-        purge_ids(plan, workflow_ids)
         ids = _queue_ids(state, plan)
         triage_ids = [fid for fid in ids if fid.startswith("triage::")]
         assert len(triage_ids) == len(TRIAGE_STAGE_IDS), f"Triage unlock: {ids}"

@@ -2,6 +2,13 @@
 
 from __future__ import annotations
 
+from desloppify.engine._plan.constants import (
+    WORKFLOW_COMMUNICATE_SCORE_ID,
+    WORKFLOW_CREATE_PLAN_ID,
+    WORKFLOW_DEFERRED_DISPOSITION_ID,
+    WORKFLOW_IMPORT_SCORES_ID,
+    WORKFLOW_RUN_SCAN_ID,
+)
 from desloppify.engine.plan_triage import (
     triage_manual_stage_command,
     triage_run_stages_command,
@@ -99,6 +106,17 @@ def _print_runner_commands(detail: dict, *, colorize_fn) -> None:
         print(colorize_fn(f"  Manual fallback: {manual_fallback}", "dim"))
 
 
+def _workflow_action_label(item_id: str) -> str:
+    labels = {
+        WORKFLOW_RUN_SCAN_ID: "Ready to scan",
+        WORKFLOW_DEFERRED_DISPOSITION_ID: "Deferred items",
+        WORKFLOW_CREATE_PLAN_ID: "Create execution plan",
+        WORKFLOW_COMMUNICATE_SCORE_ID: "Score update",
+        WORKFLOW_IMPORT_SCORES_ID: "Import review scores",
+    }
+    return labels.get(item_id, "Planning step")
+
+
 def render_workflow_stage(item: dict, *, colorize_fn, workflow_stage_name_fn) -> None:
     """Render a triage workflow stage item."""
     blocked = item.get("is_blocked", False)
@@ -106,7 +124,7 @@ def render_workflow_stage(item: dict, *, colorize_fn, workflow_stage_name_fn) ->
     stage = workflow_stage_name_fn(item)
     tag = " [blocked]" if blocked else ""
     style = "dim" if blocked else "bold"
-    print(colorize_fn(f"  (Planning stage: {stage}{tag})", style))
+    print(colorize_fn(f"  (Planning: {stage}{tag})", style))
     print(colorize_fn("  " + "─" * 60, "dim"))
     print(f"  {colorize_fn(item.get('summary', ''), 'yellow')}")
     total = detail.get("total_review_issues", 0)
@@ -123,7 +141,8 @@ def render_workflow_stage(item: dict, *, colorize_fn, workflow_stage_name_fn) ->
 
 
 def render_workflow_action(item: dict, *, colorize_fn) -> None:
-    print(colorize_fn("  (Workflow step)", "bold"))
+    label = _workflow_action_label(str(item.get("id", "")))
+    print(colorize_fn(f"  ({label})", "bold"))
     print(colorize_fn("  " + "─" * 60, "dim"))
     print(f"  {colorize_fn(item.get('summary', ''), 'yellow')}")
     detail = _detail_mapping(item)

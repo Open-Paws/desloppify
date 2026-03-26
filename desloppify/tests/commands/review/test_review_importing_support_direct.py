@@ -641,12 +641,13 @@ def test_sync_plan_after_import_keeps_workflow_before_triage(monkeypatch) -> Non
     monkeypatch.setattr(plan_sync_mod, "sync_plan_after_review_import", fake_review_import)
     def fake_reconcile(_plan, _state, target_strict):
         _plan["queue_order"].extend(
-            ["workflow::communicate-score", "workflow::create-plan", "triage::observe"]
+            ["workflow::create-plan", "triage::observe"]
         )
         plan_constants_mod.normalize_queue_workflow_and_triage_prefix(_plan["queue_order"])
+        _plan["previous_plan_start_scores"] = {}
         return plan_sync_mod.ReconcileResult(
             communicate_score=plan_constants_mod.QueueSyncResult(
-                injected=["workflow::communicate-score"]
+                auto_resolved=["workflow::communicate-score"]
             ),
             create_plan=plan_constants_mod.QueueSyncResult(
                 injected=["workflow::create-plan"]
@@ -668,17 +669,14 @@ def test_sync_plan_after_import_keeps_workflow_before_triage(monkeypatch) -> Non
     )
 
     assert plan["queue_order"][:2] == [
-        "workflow::communicate-score",
         "workflow::create-plan",
+        "triage::observe",
     ]
-    assert plan["queue_order"].index("workflow::communicate-score") < plan["queue_order"].index("triage::observe")
     assert plan["queue_order"].index("workflow::create-plan") < plan["queue_order"].index("triage::observe")
+    assert plan["previous_plan_start_scores"] == {}
     action, detail = entries[-1]
     assert action == "review_import_sync"
-    assert detail["workflow_injected_ids"] == [
-        "workflow::communicate-score",
-        "workflow::create-plan",
-    ]
+    assert detail["workflow_injected_ids"] == ["workflow::create-plan"]
 
 
 def test_sync_plan_after_import_reuses_plan_aware_policy(monkeypatch) -> None:

@@ -89,11 +89,17 @@ class QueueSyncResult:
     injected: list[str] = field(default_factory=list)
     pruned: list[str] = field(default_factory=list)
     resurfaced: list[str] = field(default_factory=list)
+    auto_resolved: list[str] = field(default_factory=list)
     deferred: bool = False
 
     @property
     def changes(self) -> int:
-        return len(self.injected) + len(self.pruned) + len(self.resurfaced)
+        return (
+            len(self.injected)
+            + len(self.pruned)
+            + len(self.resurfaced)
+            + len(self.auto_resolved)
+        )
 
 
 def _resolve_triage_stages(meta_or_stages: dict[str, Any] | None) -> dict[str, Any]:

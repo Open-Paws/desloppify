@@ -462,20 +462,18 @@ def sync_communicate_score_needed(
     current_scores: ScoreSnapshot | None = None,
     defer_if_subjective_queued: bool = False,
 ) -> QueueSyncResult:
-    """Inject ``workflow::communicate-score`` and rebaseline scores.
+    """Auto-resolve score communication bookkeeping and rebaseline scores.
 
-    Injects when:
+    Triggers when:
     - All initial subjective reviews are complete (no unscored dims)
-    - ``workflow::communicate-score`` is not already in the queue
     - Score has not already been communicated this cycle
       (``previous_plan_start_scores`` absent)
 
-    When injected and *current_scores* is provided, ``plan_start_scores``
+    When triggered and *current_scores* is provided, ``plan_start_scores``
     is rebaselined to the current score so the score display unfreezes at
     the new value.  The previous baseline is preserved in
-    ``previous_plan_start_scores`` so the communicate-score queue item can
-    show the old → new delta — and so mid-cycle scans know not to
-    re-inject.
+    ``previous_plan_start_scores`` so old -> new score context survives and
+    mid-cycle scans know not to re-trigger.
     """
     ensure_plan_defaults(plan)
     order: list[str] = plan["queue_order"]
@@ -496,10 +494,10 @@ def sync_communicate_score_needed(
     if current_scores is not None:
         _rebaseline_plan_start_scores(plan, current_scores)
     # Set sentinel even when rebaseline was a no-op (no plan_start_scores
-    # to rebaseline) so mid-cycle scans don't re-inject.
+    # to rebaseline) so mid-cycle scans don't re-trigger.
     if not plan.get("previous_plan_start_scores"):
         plan["previous_plan_start_scores"] = {}
-    return _inject(plan, WORKFLOW_COMMUNICATE_SCORE_ID)
+    return QueueSyncResult(auto_resolved=[WORKFLOW_COMMUNICATE_SCORE_ID])
 
 
 def _rebaseline_plan_start_scores(

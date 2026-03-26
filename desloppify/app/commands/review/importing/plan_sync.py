@@ -208,6 +208,17 @@ def _print_workflow_injected_message(workflow_injected_ids: list[str]) -> None:
     )
 
 
+def _print_auto_resolved_workflow_message(plan: dict, result: ReconcileResult) -> None:
+    if not result.communicate_score or not result.communicate_score.auto_resolved:
+        return
+    strict = (plan.get("plan_start_scores") or {}).get("strict")
+    if isinstance(strict, (int, float)):
+        message = f"  Plan: score checkpoint saved (strict: {strict:.1f})."
+    else:
+        message = "  Plan: score checkpoint saved."
+    print(colorize(message, "dim"))
+
+
 def _build_import_sync_inputs(
     diff: dict,
     import_payload: NormalizedReviewImportPayload | None,
@@ -538,6 +549,7 @@ def sync_plan_after_import(
                 triage_injected=bool(result.triage and result.triage.injected),
                 outcome=outcome,
             )
+        _print_auto_resolved_workflow_message(plan, result)
         _print_workflow_injected_message(result.workflow_injected_ids)
         if transition.transition_phase:
             emit_transition_message(transition.transition_phase)

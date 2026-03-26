@@ -497,7 +497,9 @@ def test_sync_workflow_helpers_inject_expected_items(monkeypatch) -> None:
         state,
         policy=SimpleNamespace(unscored_ids=set(), has_objective_backlog=True),
     )
-    assert r4.injected == ["workflow::communicate-score"]
+    assert r4.auto_resolved == ["workflow::communicate-score"]
+    assert plan["queue_order"] == []
+    assert plan["previous_plan_start_scores"] == {}
 
     monkeypatch.setattr(sync_workflow_mod.stale_policy_mod, "current_unscored_ids", lambda *_a, **_k: {"s"})
     assert sync_workflow_mod._no_unscored(state, policy=None) is False
@@ -636,8 +638,8 @@ def test_sync_communicate_score_reinjects_after_trusted_score_import_when_sentin
         ),
     )
 
-    assert result.injected == ["workflow::communicate-score"]
-    assert plan["queue_order"][:2] == ["workflow::communicate-score", "triage::observe"]
+    assert result.auto_resolved == ["workflow::communicate-score"]
+    assert plan["queue_order"] == ["triage::observe"]
     assert plan["previous_plan_start_scores"]["strict"] == 70.0
     assert plan["plan_start_scores"]["strict"] == 74.5
 

@@ -349,4 +349,5 @@ __all__ = [
     "migrate_legacy_phase",
     "postflight_scan_pending",
     "subjective_review_completed_for_scan",
+    "user_facing_mode",
 ]

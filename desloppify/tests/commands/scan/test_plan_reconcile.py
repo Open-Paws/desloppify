@@ -264,7 +264,21 @@ class TestDisplayReconcileResults:
             mid_cycle=False,
         )
         captured = capsys.readouterr()
-        assert "create-plan" in captured.out
+        assert "create the execution plan next" in captured.out.lower()
+
+    def test_reports_auto_resolved_score_checkpoint(self, capsys):
+        plan = empty_plan()
+        plan["plan_start_scores"] = {"strict": 81.4}
+        reconcile_mod._display_reconcile_results(
+            reconcile_mod.ReconcileResult(
+                communicate_score=QueueSyncResult(auto_resolved=["workflow::communicate-score"])
+            ),
+            plan,
+            mid_cycle=False,
+        )
+        captured = capsys.readouterr()
+        assert "score checkpoint saved" in captured.out.lower()
+        assert "81.4" in captured.out
 
     def test_reports_mid_cycle_skip(self, capsys):
         plan = empty_plan()

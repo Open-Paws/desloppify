@@ -18,13 +18,17 @@ def _config_with_messages(monkeypatch):
 def test_emit_exact_phase_match(_config_with_messages, capsys):
     _config_with_messages({"execute": "Switch to Sonnet for speed."})
     assert mod.emit_transition_message("execute") is True
-    assert "Switch to Sonnet for speed." in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "Switch to Sonnet for speed." in out
+    assert "entering execute mode" in out
 
 
 def test_emit_exact_fine_grained_phase(_config_with_messages, capsys):
     _config_with_messages({"review_initial": "Use blind packet."})
     assert mod.emit_transition_message("review_initial") is True
-    assert "Use blind packet." in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "Use blind packet." in out
+    assert "entering plan mode" in out
 
 
 def test_exact_phase_takes_priority_over_postflight_generic(_config_with_messages, capsys):

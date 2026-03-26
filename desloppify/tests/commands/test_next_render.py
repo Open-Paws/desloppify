@@ -389,7 +389,7 @@ def test_render_workflow_stage_unblocked(monkeypatch, capsys) -> None:
     commands = _commands_in_output(out)
     runner_commands = [entry["command"] for entry in item["detail"]["runner_commands"]]
     manual_fallback = item["detail"]["manual_fallback"]
-    assert "Planning stage: observe" in out
+    assert "Planning: observe" in out
     assert item["primary_command"] in commands
     for command in runner_commands:
         assert command in commands
@@ -445,7 +445,7 @@ def test_render_workflow_action(monkeypatch, capsys) -> None:
     )
     out = capsys.readouterr().out
     commands = _commands_in_output(out)
-    assert "Workflow step" in out
+    assert "Create execution plan" in out
     assert "Create a living plan" in out
     assert item["primary_command"] in commands
 

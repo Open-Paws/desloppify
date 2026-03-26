@@ -105,7 +105,7 @@ def test_workflow_render_helpers(capsys) -> None:
         workflow_stage_name_fn=lambda _item: "reflect",
     )
     out = capsys.readouterr().out
-    assert "Workflow step" in out
+    assert "Planning step" in out
     assert "Blocked by: observe" in out
 
 

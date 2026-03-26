@@ -283,7 +283,7 @@ def test_explain_queue_execute_phase() -> None:
         },
     }
     text = explain_queue(snapshot, plan)
-    assert "execute" in text
+    assert "Mode: execute" in text
     assert "Auto-queued: 1" in text
     # Should show the persisted cluster name, not the registry detector name.
     assert "auto/unused" in text
@@ -319,8 +319,8 @@ def test_explain_queue_review_initial_phase() -> None:
         objective_in_scope_count=10,
     )
     text = explain_queue(snapshot, None)
-    assert "review_initial" in text
-    assert "Initial review must complete" in text
+    assert "Mode: plan" in text
+    assert "Reviewing code quality dimensions" in text
     assert "10 objective items" in text
 
 
@@ -330,8 +330,9 @@ def test_explain_queue_workflow_postflight() -> None:
         planned_objective_count=14,
     )
     text = explain_queue(snapshot, None)
-    assert "workflow" in text
-    assert "14 execution items waiting" in text
+    assert "Mode: plan" in text
+    assert "Processing a planning step" in text
+    assert "14 work items available after" in text
 
 
 def test_explain_queue_triage_postflight() -> None:
@@ -340,14 +341,15 @@ def test_explain_queue_triage_postflight() -> None:
         planned_objective_count=14,
     )
     text = explain_queue(snapshot, None)
-    assert "triage" in text
-    assert "14 execution items waiting" in text
+    assert "Mode: plan" in text
+    assert "Analyzing and prioritizing issues" in text
+    assert "14 work items available after" in text
 
 
 def test_explain_queue_scan_phase() -> None:
     snapshot = _make_snapshot(phase=LIFECYCLE_PHASE_SCAN)
     text = explain_queue(snapshot, None)
-    assert "scan" in text
+    assert "Mode: plan" in text
     assert "desloppify scan" in text
 
 
@@ -359,10 +361,10 @@ def test_markdown_output_includes_explanation() -> None:
     from desloppify.app.commands.next.output import render_markdown_for_command
 
     items = [{"kind": "issue", "confidence": "high", "summary": "test", "primary_command": ""}]
-    explanation = "  Phase: execute\n  Items in queue: 1"
+    explanation = "  Mode: execute\n  Items in queue: 1"
     md = render_markdown_for_command(items, command="next", queue_explanation=explanation)
     assert "## Queue context" in md
-    assert "Phase: execute" in md
+    assert "Mode: execute" in md
     assert "| issue |" in md
 
     md_no_explain = render_markdown_for_command(items, command="next")
@@ -400,7 +402,7 @@ def test_explain_with_plan_none_still_works() -> None:
         objective_in_scope_count=3,
     )
     text = explain_queue(snapshot, None)
-    assert "execute" in text
+    assert "Mode: execute" in text
     assert "Visible items: 1" in text
     # No auto/triage lines when plan is None.
     assert "Auto-queued" not in text
