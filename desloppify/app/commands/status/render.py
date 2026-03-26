@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from desloppify.app.commands.helpers.rendering import (
+    _count_cluster_remaining,
     print_agent_plan,
     print_ranked_actions,
 )
@@ -117,8 +118,7 @@ def _render_plan_focus(plan: dict[str, Any] | None) -> bool:
         return False
     cluster_name = plan["active_cluster"]
     cluster = plan.get("clusters", {}).get(cluster_name, {})
-    queue_set = set(plan.get("queue_order", []))
-    remaining = sum(1 for fid in cluster.get("issue_ids", []) if fid in queue_set)
+    remaining = _count_cluster_remaining(plan, cluster)
     desc = cluster.get("description") or ""
     desc_str = f" — {desc}" if desc else ""
     print(
