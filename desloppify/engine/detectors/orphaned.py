@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from desloppify.base.discovery.file_paths import rel
-from desloppify.base.discovery.file_paths import count_lines
 
 _DUNDER_ALL_RE = re.compile(r"^__all__\s*[:=]", re.MULTILINE)
 
@@ -30,6 +29,17 @@ def _has_dunder_all(filepath: str) -> bool:
     except OSError:
         return False
     return _DUNDER_ALL_RE.search(text) is not None
+
+
+def _read_orphan_file_metadata(filepath: str) -> tuple[bool, int]:
+    """Read a file once and return (has___all__, line_count)."""
+    try:
+        text = Path(filepath).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False, 0
+    has_dunder_all = _DUNDER_ALL_RE.search(text) is not None
+    loc = text.count("\n") + (1 if text and not text.endswith("\n") else 0)
+    return has_dunder_all, loc
 
 
 def _is_dynamically_imported(
@@ -94,13 +104,9 @@ def detect_orphaned_files(
         ):
             continue
 
-        if _has_dunder_all(filepath):
+        has_all, loc = _read_orphan_file_metadata(filepath)
+        if has_all:
             continue
-
-        try:
-            loc = count_lines(Path(filepath))
-        except (OSError, UnicodeDecodeError):
-            loc = 0
 
         if loc < 10:
             continue

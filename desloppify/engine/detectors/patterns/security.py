@@ -183,8 +183,14 @@ def is_env_lookup(line: str) -> bool:
 # e.g. "token_usage", "transition_token", "some_config_key"
 _FIELD_NAME_RE = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$")
 
-# Non-alphanumeric separators that indicate a label/prefix, not a secret.
-_HAS_LABEL_SEPARATORS_RE = re.compile(r"[@:/\s]")
+
+def _has_low_entropy(value: str) -> bool:
+    """Return True if *value* looks low-entropy (no digits AND no mixed case)."""
+    has_digits = any(ch.isdigit() for ch in value)
+    has_upper = any(ch.isupper() for ch in value)
+    has_lower = any(ch.islower() for ch in value)
+    mixed_case = has_upper and has_lower
+    return not has_digits and not mixed_case
 
 
 def _looks_like_non_secret_value(value: str) -> bool:
@@ -200,17 +206,31 @@ def _looks_like_non_secret_value(value: str) -> bool:
 
     # Pure field-name pattern: lowercase words joined by underscores.
     # e.g. "token_usage", "transition_token"
-    if _FIELD_NAME_RE.match(stripped):
+    # Only safe when the value has low entropy (no digits, no mixed case).
+    # A value like "prod_password_2026" has digits and must NOT be skipped.
+    if _FIELD_NAME_RE.match(stripped) and _has_low_entropy(stripped):
         return True
 
     # Contains spaces — likely a sentinel/label, not a secret.
     # e.g. " flow ticket_flow start "
+    # Only safe when all-lowercase, no digits, AND the value contains
+    # non-alpha-space characters (underscores, symbols) or the original
+    # value has leading/trailing whitespace (sentinel markers).
+    # Pure multi-word strings like "correct horse battery staple" are
+    # potential passphrases and must NOT be skipped.
     if " " in stripped:
-        return True
+        _only_alpha_spaces = all(ch.isalpha() or ch == " " for ch in stripped)
+        _has_leading_trailing_ws = value != value.strip()
+        if (
+            stripped == stripped.lower()
+            and not any(ch.isdigit() for ch in stripped)
+            and (not _only_alpha_spaces or _has_leading_trailing_ws)
+        ):
+            return True
 
-    # Contains label-like separators (@, :, /) and is all lowercase.
+    # Contains non-space label-like separators (@, :, /) and is all lowercase.
     # e.g. "agent_workspace@", "redis://localhost"
-    if _HAS_LABEL_SEPARATORS_RE.search(stripped) and stripped == stripped.lower():
+    if re.search(r"[@:/]", stripped) and stripped == stripped.lower():
         return True
 
     return False

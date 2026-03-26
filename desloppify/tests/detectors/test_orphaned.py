@@ -379,7 +379,7 @@ class TestDetectOrphanedFiles:
             "desloppify.engine.detectors.orphaned.rel",
             side_effect=lambda p: str(Path(p).relative_to(tmp_path)),
         ):
-            entries, total = detect_orphaned_files(
+            entries, _total = detect_orphaned_files(
                 tmp_path,
                 graph,
                 [".py"],
@@ -401,7 +401,7 @@ class TestDetectOrphanedFiles:
             "desloppify.engine.detectors.orphaned.rel",
             side_effect=lambda p: str(Path(p).relative_to(tmp_path)),
         ):
-            entries, total = detect_orphaned_files(tmp_path, graph, [".py"])
+            entries, _total = detect_orphaned_files(tmp_path, graph, [".py"])
 
         assert len(entries) == 1
         assert set(entries[0].keys()) == {"file", "loc", "import_count"}
@@ -469,7 +469,7 @@ class TestDetectOrphanedFiles:
             "desloppify.engine.detectors.orphaned.rel",
             side_effect=lambda p: str(Path(p).relative_to(tmp_path)),
         ):
-            entries, total = detect_orphaned_files(tmp_path, graph, [".py"])
+            entries, _total = detect_orphaned_files(tmp_path, graph, [".py"])
 
         # The regex requires __all__ at the start of a line, so a comment line
         # starting with # won't match.

@@ -29,18 +29,17 @@ logger = logging.getLogger(__name__)
 def _is_type_checking_guard(node: ast.If) -> bool:
     """Return True if an ``if`` node tests ``TYPE_CHECKING`` or ``typing.TYPE_CHECKING``."""
     test = node.test
-    # Plain: if TYPE_CHECKING:
-    if isinstance(test, ast.Name) and test.id == "TYPE_CHECKING":
-        return True
-    # Qualified: if typing.TYPE_CHECKING:
-    if (
-        isinstance(test, ast.Attribute)
-        and test.attr == "TYPE_CHECKING"
-        and isinstance(test.value, ast.Name)
-        and test.value.id == "typing"
-    ):
-        return True
-    return False
+    return (
+        # Plain: if TYPE_CHECKING:
+        (isinstance(test, ast.Name) and test.id == "TYPE_CHECKING")
+        # Qualified: if typing.TYPE_CHECKING:
+        or (
+            isinstance(test, ast.Attribute)
+            and test.attr == "TYPE_CHECKING"
+            and isinstance(test.value, ast.Name)
+            and test.value.id == "typing"
+        )
+    )
 
 
 def build_dep_graph(
@@ -87,10 +86,10 @@ def build_dep_graph(
         # plus `if TYPE_CHECKING:` blocks whose imports never run at runtime.
         top_level_scopes: list[tuple[int, int]] = []
         for node in ast.iter_child_nodes(tree):
-            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
-                end = getattr(node, "end_lineno", node.lineno)
-                top_level_scopes.append((node.lineno, end))
-            elif isinstance(node, ast.If) and _is_type_checking_guard(node):
+            if (
+                isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
+                or (isinstance(node, ast.If) and _is_type_checking_guard(node))
+            ):
                 end = getattr(node, "end_lineno", node.lineno)
                 top_level_scopes.append((node.lineno, end))
 

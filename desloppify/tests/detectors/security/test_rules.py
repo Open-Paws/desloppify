@@ -169,6 +169,12 @@ class TestIsPlaceholderNonSecretValues:
     def test_mixed_case_secret_still_flagged(self):
         assert is_placeholder("aB3kF9mZ2xQ7wR") is False
 
+    def test_spaced_passphrase_not_placeholder(self):
+        assert is_placeholder("correct horse battery staple") is False
+
+    def test_snake_case_secret_literal_not_placeholder(self):
+        assert is_placeholder("prod_password_2026") is False
+
     def test_existing_placeholders_still_work(self):
         assert is_placeholder("changeme") is True
         assert is_placeholder("") is True
@@ -228,6 +234,16 @@ class TestSecretNameFalsePositives:
             filepath="src/config.py",
             line_num=5,
             line='api_key = "supersecret123"',
+            is_test=False,
+        )
+        assert len(entries) == 1
+        assert entries[0]["detail"]["kind"] == "hardcoded_secret_name"
+
+    def test_snake_case_secret_literal_still_detected(self):
+        entries = rules_mod._secret_name_entries(
+            filepath="src/config.py",
+            line_num=6,
+            line='api_key = "prod_password_2026"',
             is_test=False,
         )
         assert len(entries) == 1
