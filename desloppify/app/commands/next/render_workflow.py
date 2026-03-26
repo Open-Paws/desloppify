@@ -8,6 +8,7 @@ from desloppify.engine._plan.constants import (
     WORKFLOW_DEFERRED_DISPOSITION_ID,
     WORKFLOW_IMPORT_SCORES_ID,
     WORKFLOW_RUN_SCAN_ID,
+    WORKFLOW_SCORE_CHECKPOINT_ID,
 )
 from desloppify.engine.plan_triage import (
     triage_manual_stage_command,
@@ -113,6 +114,7 @@ def _workflow_action_label(item_id: str) -> str:
         WORKFLOW_CREATE_PLAN_ID: "Create execution plan",
         WORKFLOW_COMMUNICATE_SCORE_ID: "Score update",
         WORKFLOW_IMPORT_SCORES_ID: "Import review scores",
+        WORKFLOW_SCORE_CHECKPOINT_ID: "Save score checkpoint",
     }
     return labels.get(item_id, "Planning step")
 
