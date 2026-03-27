@@ -561,11 +561,7 @@ def build_execution_drain_event(
 # ---------------------------------------------------------------------------
 
 _PLANNING_PHASES = frozenset({
-    "triage_postflight",
-    "workflow_postflight",
-    "review_postflight",
-    "assessment_postflight",
-    "review_initial",
+    "plan",
 })
 
 

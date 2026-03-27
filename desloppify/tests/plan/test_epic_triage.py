@@ -28,6 +28,7 @@ from desloppify.engine._work_queue.synthetic import build_triage_stage_items
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _state_with_review_issues(*ids: str) -> dict:
     """Build minimal state with open review issues."""
     work_items = {}
@@ -41,17 +42,28 @@ def _state_with_review_issues(*ids: str) -> dict:
             "tier": 2,
             "detail": {"dimension": "abstraction_fitness"},
         }
-    return {"work_items": work_items, "issues": work_items, "scan_count": 5, "dimension_scores": {}}
+    return {
+        "work_items": work_items,
+        "issues": work_items,
+        "scan_count": 5,
+        "dimension_scores": {},
+    }
 
 
 def _state_empty() -> dict:
     work_items: dict[str, dict] = {}
-    return {"work_items": work_items, "issues": work_items, "scan_count": 1, "dimension_scores": {}}
+    return {
+        "work_items": work_items,
+        "issues": work_items,
+        "scan_count": 1,
+        "dimension_scores": {},
+    }
 
 
 # ---------------------------------------------------------------------------
 # Schema tests
 # ---------------------------------------------------------------------------
+
 
 class TestSchemaDefaults:
     def test_empty_plan_has_triage_meta(self):
@@ -63,6 +75,7 @@ class TestSchemaDefaults:
     def test_plan_version_is_current(self):
         plan = empty_plan()
         from desloppify.engine._plan.schema import PLAN_VERSION
+
         assert plan["version"] == PLAN_VERSION
 
     def test_ensure_defaults_adds_meta_to_old_plan(self):
@@ -86,6 +99,7 @@ class TestSchemaDefaults:
 # ---------------------------------------------------------------------------
 # Snapshot hash tests
 # ---------------------------------------------------------------------------
+
 
 class TestSnapshotHash:
     def test_empty_state_returns_empty_hash(self):
@@ -130,7 +144,35 @@ class TestSnapshotHash:
 # Sync triage needed tests
 # ---------------------------------------------------------------------------
 
+
 class TestSyncTriageNeeded:
+    def test_workflow_resolution_marker_injects_triage_and_clears_marker(self):
+        plan = empty_plan()
+        plan["refresh_state"] = {"workflow_plan_just_resolved": True}
+        plan["epic_triage_meta"] = {
+            "triage_recommended": True,
+            "triage_defer_state": {"defer_count": 2},
+        }
+        state = _state_with_review_issues("r1", "r2")
+
+        result = sync_triage_needed(plan, state)
+
+        assert result.injected == list(TRIAGE_STAGE_IDS)
+        assert plan["queue_order"][: len(TRIAGE_STAGE_IDS)] == list(TRIAGE_STAGE_IDS)
+        assert plan["epic_triage_meta"]["active_triage_issue_ids"] == ["r1", "r2"]
+        assert "workflow_plan_just_resolved" not in plan["refresh_state"]
+        assert "triage_recommended" not in plan["epic_triage_meta"]
+        assert "triage_defer_state" not in plan["epic_triage_meta"]
+
+    def test_workflow_resolution_marker_is_consumed_without_open_reviews(self):
+        plan = empty_plan()
+        plan["refresh_state"] = {"workflow_plan_just_resolved": True}
+
+        result = sync_triage_needed(plan, _state_empty())
+
+        assert result.injected == []
+        assert "workflow_plan_just_resolved" not in plan["refresh_state"]
+
     def test_injects_on_new_issues(self):
         plan = empty_plan()
         state = _state_with_review_issues("r1", "r2")
@@ -299,8 +341,14 @@ class TestSyncTriageNeeded:
         plan["queue_order"] = ["some-objective-item"]
         plan["epic_triage_meta"] = {
             "triage_stages": {
-                "observe": {"report": "analysis", "confirmed_at": "2026-01-01T00:00:00Z"},
-                "reflect": {"report": "strategy", "confirmed_at": "2026-01-01T00:01:00Z"},
+                "observe": {
+                    "report": "analysis",
+                    "confirmed_at": "2026-01-01T00:00:00Z",
+                },
+                "reflect": {
+                    "report": "strategy",
+                    "confirmed_at": "2026-01-01T00:01:00Z",
+                },
             },
             # triaged_ids and issue_snapshot_hash NOT set (never completed)
         }
@@ -401,6 +449,7 @@ class TestSyncTriageNeeded:
 # is_triage_stale tests
 # ---------------------------------------------------------------------------
 
+
 class TestIsTriageStale:
     def test_not_stale_when_no_issues_and_no_stages(self):
         plan = empty_plan()
@@ -458,6 +507,7 @@ class TestIsTriageStale:
 # ---------------------------------------------------------------------------
 # Build triage item tests
 # ---------------------------------------------------------------------------
+
 
 class TestBuildTriageStageItems:
     def test_returns_empty_when_not_in_queue(self):
@@ -555,6 +605,7 @@ class TestBuildTriageStageItems:
 # Collect triage input tests
 # ---------------------------------------------------------------------------
 
+
 class TestCollectTriageInput:
     def test_collects_open_review_issues(self):
         plan = empty_plan()
@@ -569,8 +620,12 @@ class TestCollectTriageInput:
     def test_includes_existing_clusters(self):
         plan = empty_plan()
         plan["clusters"]["epic/test"] = {
-            "name": "epic/test", "thesis": "test", "direction": "delete",
-            "issue_ids": [], "auto": True, "cluster_key": "epic::epic/test",
+            "name": "epic/test",
+            "thesis": "test",
+            "direction": "delete",
+            "issue_ids": [],
+            "auto": True,
+            "cluster_key": "epic::epic/test",
         }
         state = _state_with_review_issues("r1")
         si = collect_triage_input(plan, state)
@@ -618,6 +673,7 @@ class TestCollectTriageInput:
 # Parse triage result tests
 # ---------------------------------------------------------------------------
 
+
 class TestParseTriageResult:
     def test_parses_valid_result(self):
         valid_ids = {"r1", "r2", "r3"}
@@ -637,9 +693,7 @@ class TestParseTriageResult:
                     "status": "pending",
                 }
             ],
-            "dismissed_issues": [
-                {"issue_id": "r3", "reason": "false positive"}
-            ],
+            "dismissed_issues": [{"issue_id": "r3", "reason": "false positive"}],
             "priority_rationale": "because",
         }
         result = parse_triage_result(raw, valid_ids)
@@ -691,6 +745,7 @@ class TestParseTriageResult:
 # ---------------------------------------------------------------------------
 # Apply triage to plan tests
 # ---------------------------------------------------------------------------
+
 
 class TestApplyTriageToPlan:
     def test_creates_epics(self):

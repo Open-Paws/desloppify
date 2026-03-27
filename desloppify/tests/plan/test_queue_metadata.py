@@ -20,6 +20,12 @@ from desloppify.engine._plan.cluster_semantics import (
 from desloppify.engine._plan.auto_cluster_sync_issue import (
     _auto_cluster_execution_status,
 )
+from desloppify.engine._plan.refresh_lifecycle import (
+    LIFECYCLE_PHASE_REVIEW_INITIAL,
+    LIFECYCLE_PHASE_SCAN,
+    LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT,
+    LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT,
+)
 from desloppify.engine._work_queue.policy import (
     explain_queue,
 )
@@ -308,10 +314,8 @@ def test_explain_shows_only_active_auto_clusters() -> None:
 
 
 def test_explain_queue_review_initial_phase() -> None:
-    from desloppify.engine._work_queue.snapshot import PHASE_REVIEW_INITIAL
-
     snapshot = _make_snapshot(
-        phase=PHASE_REVIEW_INITIAL,
+        phase=LIFECYCLE_PHASE_REVIEW_INITIAL,
         objective_in_scope_count=10,
     )
     text = explain_queue(snapshot, None)
@@ -321,10 +325,8 @@ def test_explain_queue_review_initial_phase() -> None:
 
 
 def test_explain_queue_workflow_postflight() -> None:
-    from desloppify.engine._work_queue.snapshot import PHASE_WORKFLOW_POSTFLIGHT
-
     snapshot = _make_snapshot(
-        phase=PHASE_WORKFLOW_POSTFLIGHT,
+        phase=LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT,
         planned_objective_count=14,
     )
     text = explain_queue(snapshot, None)
@@ -333,10 +335,8 @@ def test_explain_queue_workflow_postflight() -> None:
 
 
 def test_explain_queue_triage_postflight() -> None:
-    from desloppify.engine._work_queue.snapshot import PHASE_TRIAGE_POSTFLIGHT
-
     snapshot = _make_snapshot(
-        phase=PHASE_TRIAGE_POSTFLIGHT,
+        phase=LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT,
         planned_objective_count=14,
     )
     text = explain_queue(snapshot, None)
@@ -345,9 +345,7 @@ def test_explain_queue_triage_postflight() -> None:
 
 
 def test_explain_queue_scan_phase() -> None:
-    from desloppify.engine._work_queue.snapshot import PHASE_SCAN
-
-    snapshot = _make_snapshot(phase=PHASE_SCAN)
+    snapshot = _make_snapshot(phase=LIFECYCLE_PHASE_SCAN)
     text = explain_queue(snapshot, None)
     assert "scan" in text
     assert "desloppify scan" in text
@@ -374,7 +372,7 @@ def test_markdown_output_includes_explanation() -> None:
 def test_stale_persisted_phase_falls_back() -> None:
     """If persisted phase says execute but no execution items exist,
     the snapshot should infer a different phase from items."""
-    from desloppify.engine._work_queue.snapshot import build_queue_snapshot, PHASE_SCAN
+    from desloppify.engine._work_queue.snapshot import build_queue_snapshot
 
     state = {
         "work_items": {},
@@ -386,7 +384,7 @@ def test_stale_persisted_phase_falls_back() -> None:
         "plan_start_scores": {"strict": 50.0},
     }
     snapshot = build_queue_snapshot(state, plan=plan)
-    # No execution items → should not be PHASE_EXECUTE
+    # No execution items means the snapshot should not stay in execute mode.
     assert snapshot.phase != "execute"
 
 

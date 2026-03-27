@@ -12,15 +12,17 @@ How items flow from scan results into the execution queue that `desloppify next`
 
 ## Lifecycle phases
 
-Phase is determined by `_phase_for_snapshot()` with `_legacy_phase_inference()` fallback.
+Phase is determined by `_phase_for_snapshot()` from the persisted lifecycle mode plus
+live item partitions. Legacy fine-grained phase names are migrated once by
+`current_lifecycle_phase()` before snapshot resolution.
 
-1. **PHASE_REVIEW_INITIAL** — fresh boundary, no scores yet. Shows subjective review items.
+1. **LIFECYCLE_PHASE_REVIEW_INITIAL** — fresh boundary, no scores yet. Shows subjective review items.
    Objective items are NOT visible until initial review completes.
 
-2. **PHASE_EXECUTE** — the main work phase. Shows objective (mechanical defect) items.
+2. **LIFECYCLE_PHASE_EXECUTE** — the main work phase. Shows objective (mechanical defect) items.
    Only issues in `queue_order` are executable (post-triage). Pre-triage: all objectives visible.
 
-3. **PHASE_SCAN** / **PHASE_*_POSTFLIGHT** — workflow items (rescan, communicate score,
+3. **LIFECYCLE_PHASE_SCAN** / **LIFECYCLE_PHASE_*_POSTFLIGHT** — workflow items (rescan, communicate score,
    assessment, triage). These gate the execution phase.
 
 ## Auto-queue vs triage-promoted

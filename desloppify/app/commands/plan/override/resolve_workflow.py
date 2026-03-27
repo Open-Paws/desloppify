@@ -10,7 +10,6 @@ from typing import Literal
 from desloppify import state as state_mod
 from desloppify.app.commands.helpers.state import state_path
 from desloppify.app.commands.plan.triage.review_coverage import (
-    ensure_active_triage_issue_ids,
     has_open_review_issues,
 )
 from desloppify.app.commands.helpers.transition_messages import emit_transition_message
@@ -36,9 +35,7 @@ from desloppify.engine._plan.constants import (
     confirmed_triage_stage_names,
 )
 from desloppify.engine._plan.refresh_lifecycle import (
-    LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT,
     current_lifecycle_phase,
-    set_lifecycle_phase,
 )
 from desloppify.engine._plan.sync import live_planned_queue_empty, reconcile_plan
 from desloppify.engine._state.progression import (
@@ -53,6 +50,7 @@ from desloppify.engine.plan_triage import (
 )
 
 WORKFLOW_GATE_IDS = frozenset({WORKFLOW_SCORE_CHECKPOINT_ID, WORKFLOW_CREATE_PLAN_ID})
+_WORKFLOW_PLAN_JUST_RESOLVED_KEY = "workflow_plan_just_resolved"
 
 
 @dataclass(frozen=True)
@@ -141,7 +139,14 @@ def _resolve_missing_triage_stages(plan: dict) -> set[str]:
     if meta.get("last_completed_at"):
         return set()
     confirmed_stages = confirmed_triage_stage_names(meta)
-    required_stages = {"strategize", "observe", "reflect", "organize", "enrich", "commit"}
+    required_stages = {
+        "strategize",
+        "observe",
+        "reflect",
+        "organize",
+        "enrich",
+        "commit",
+    }
     return required_stages - confirmed_stages
 
 
@@ -174,7 +179,9 @@ def _log_workflow_blocked(
     save_plan(plan)
 
 
-def _print_triage_gate_block(gated_ids: list[str], *, missing: set[str], next_stage: str) -> None:
+def _print_triage_gate_block(
+    gated_ids: list[str], *, missing: set[str], next_stage: str
+) -> None:
     for workflow_id in gated_ids:
         print(colorize(f"  Cannot resolve {workflow_id} — triage not complete.", "red"))
     print()
@@ -217,7 +224,11 @@ def _handle_missing_triage_stages(
                 )
             )
             return WorkflowResolveOutcome(status="blocked", remaining_patterns=[])
-        print(colorize("  WARNING: Skipping triage requirement — this is logged.", "yellow"))
+        print(
+            colorize(
+                "  WARNING: Skipping triage requirement — this is logged.", "yellow"
+            )
+        )
         append_log_entry(
             plan,
             "workflow_force_skip",
@@ -243,7 +254,9 @@ def _handle_missing_triage_stages(
     return WorkflowResolveOutcome(status="blocked", remaining_patterns=[])
 
 
-def _scan_gate_status(args: argparse.Namespace, plan: dict) -> tuple[bool, int, int] | None:
+def _scan_gate_status(
+    args: argparse.Namespace, plan: dict
+) -> tuple[bool, int, int] | None:
     scan_count_at_start = plan.get("scan_count_at_plan_start")
     if scan_count_at_start is None:
         return None
@@ -363,33 +376,7 @@ def _reconcile_if_queue_drained(
     resolved_state_path = state_path(args)
     state_data = state_mod.load_state(resolved_state_path)
     if WORKFLOW_CREATE_PLAN_ID in synthetic_ids and has_open_review_issues(state_data):
-        ensure_active_triage_issue_ids(plan, state_data)
-        inject_triage_stages(plan)
-        changed = set_lifecycle_phase(plan, LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT)
-        save_plan(plan)
-        # --- Progression ---
-        try:
-            maybe_append_execution_drain(
-                state_data,
-                plan,
-                trigger_action="workflow_resolve",
-                issue_ids=synthetic_ids,
-                phase_before=phase_before,
-                source_command="plan resolve",
-            )
-            maybe_append_entered_planning(
-                state_data,
-                plan,
-                source_command="plan resolve",
-                trigger_action="workflow_resolve",
-                issue_ids=synthetic_ids,
-                phase_before=phase_before,
-            )
-        except Exception:
-            _logger.warning("Failed to append progression event after workflow resolve", exc_info=True)
-        if changed:
-            emit_transition_message(LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT)
-        return
+        plan.setdefault("refresh_state", {})[_WORKFLOW_PLAN_JUST_RESOLVED_KEY] = True
     result = reconcile_plan(
         plan,
         state_data,
@@ -415,7 +402,9 @@ def _reconcile_if_queue_drained(
             phase_before=phase_before,
         )
     except Exception:
-        _logger.warning("Failed to append progression event after workflow resolve", exc_info=True)
+        _logger.warning(
+            "Failed to append progression event after workflow resolve", exc_info=True
+        )
     if result.lifecycle_phase_changed:
         emit_transition_message(result.lifecycle_phase)
 
@@ -429,7 +418,9 @@ def resolve_workflow_patterns(
 ) -> WorkflowResolveOutcome:
     """Resolve synthetic workflow IDs and return whether normal resolution should continue."""
     if not synthetic_ids:
-        return WorkflowResolveOutcome(status="fall_through", remaining_patterns=real_patterns)
+        return WorkflowResolveOutcome(
+            status="fall_through", remaining_patterns=real_patterns
+        )
 
     plan = load_plan()
     force = getattr(args, "force_resolve", False)
@@ -438,7 +429,9 @@ def resolve_workflow_patterns(
     for synthetic_id in synthetic_ids:
         if synthetic_id not in blocked_map:
             continue
-        blocked_text = ", ".join(dep.replace("triage::", "") for dep in blocked_map[synthetic_id])
+        blocked_text = ", ".join(
+            dep.replace("triage::", "") for dep in blocked_map[synthetic_id]
+        )
         print(
             colorize(
                 f"  Cannot resolve {synthetic_id} — blocked by: {blocked_text}",
@@ -454,7 +447,11 @@ def resolve_workflow_patterns(
         if not force:
             return WorkflowResolveOutcome(status="blocked", remaining_patterns=[])
 
-    gated_ids = [synthetic_id for synthetic_id in synthetic_ids if synthetic_id in WORKFLOW_GATE_IDS]
+    gated_ids = [
+        synthetic_id
+        for synthetic_id in synthetic_ids
+        if synthetic_id in WORKFLOW_GATE_IDS
+    ]
     if gated_ids:
         blocked = _handle_missing_triage_stages(
             plan,
@@ -480,11 +477,15 @@ def resolve_workflow_patterns(
         synthetic_ids=synthetic_ids,
         note=note,
     )
-    _reconcile_if_queue_drained(args, plan, synthetic_ids=synthetic_ids, phase_before=phase_before)
+    _reconcile_if_queue_drained(
+        args, plan, synthetic_ids=synthetic_ids, phase_before=phase_before
+    )
 
     if not real_patterns:
         return WorkflowResolveOutcome(status="handled", remaining_patterns=[])
-    return WorkflowResolveOutcome(status="fall_through", remaining_patterns=real_patterns)
+    return WorkflowResolveOutcome(
+        status="fall_through", remaining_patterns=real_patterns
+    )
 
 
 __all__ = ["WorkflowResolveOutcome", "resolve_workflow_patterns"]

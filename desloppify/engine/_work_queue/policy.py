@@ -18,26 +18,16 @@ from __future__ import annotations
 from desloppify.engine._plan.cluster_semantics import (
     EXECUTION_POLICY_EPHEMERAL_AUTOPROMOTE,
 )
-from desloppify.engine._work_queue.snapshot import (
-    PHASE_EXECUTE,
-    PHASE_REVIEW_INITIAL,
-    PHASE_SCAN,
-    PHASE_ASSESSMENT_POSTFLIGHT,
-    PHASE_REVIEW_POSTFLIGHT,
-    PHASE_WORKFLOW_POSTFLIGHT,
-    PHASE_TRIAGE_POSTFLIGHT,
-    QueueSnapshot,
+from desloppify.engine._plan.refresh_lifecycle import (
+    LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT,
+    LIFECYCLE_PHASE_EXECUTE,
+    LIFECYCLE_PHASE_REVIEW_INITIAL,
+    LIFECYCLE_PHASE_REVIEW_POSTFLIGHT,
+    LIFECYCLE_PHASE_SCAN,
+    LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT,
+    LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT,
 )
-
-_PHASE_LABELS: dict[str, str] = {
-    PHASE_REVIEW_INITIAL: "review_initial",
-    PHASE_EXECUTE: "execute",
-    PHASE_SCAN: "scan",
-    PHASE_ASSESSMENT_POSTFLIGHT: "assessment",
-    PHASE_REVIEW_POSTFLIGHT: "review",
-    PHASE_WORKFLOW_POSTFLIGHT: "workflow",
-    PHASE_TRIAGE_POSTFLIGHT: "triage",
-}
+from desloppify.engine._work_queue.snapshot import QueueSnapshot
 
 
 def _count_auto_and_triage(
@@ -73,8 +63,7 @@ def explain_queue(snapshot: QueueSnapshot, plan: dict | None) -> str:
     and count fields. Does NOT recompute anything — purely a view.
     """
     phase = snapshot.phase
-    label = _PHASE_LABELS.get(phase, phase)
-    lines: list[str] = [f"    Phase: {label}"]
+    lines: list[str] = [f"    Phase: {phase}"]
 
     execution_count = len(snapshot.execution_items)
     # planned_objective_count reflects queue_order filtering (post-triage);
@@ -86,14 +75,14 @@ def explain_queue(snapshot: QueueSnapshot, plan: dict | None) -> str:
     )
     objective_backlog_count = snapshot.objective_backlog_count
 
-    if phase == PHASE_REVIEW_INITIAL:
+    if phase == LIFECYCLE_PHASE_REVIEW_INITIAL:
         lines.append(
             "    Why: Initial review must complete before execution work is visible."
         )
         lines.append(
             f"    After review: {snapshot.objective_in_scope_count} objective items will become available."
         )
-    elif phase == PHASE_EXECUTE:
+    elif phase == LIFECYCLE_PHASE_EXECUTE:
         auto_count, auto_names, triage_count = _count_auto_and_triage(plan)
         lines.append(f"    Visible items: {execution_count}")
         if auto_count or triage_count:
@@ -107,35 +96,35 @@ def explain_queue(snapshot: QueueSnapshot, plan: dict | None) -> str:
                 lines.append(f"      Triage-promoted: {triage_count}")
         if objective_backlog_count:
             lines.append(f"    Backlog: {objective_backlog_count} objective items (not in queue_order)")
-    elif phase == PHASE_WORKFLOW_POSTFLIGHT:
+    elif phase == LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT:
         lines.append(
             "    Why: Workflow tasks gate execution. Complete this to proceed."
         )
         lines.append(
             f"    Blocked: {blocked_count} execution items waiting behind this workflow step."
         )
-    elif phase == PHASE_TRIAGE_POSTFLIGHT:
+    elif phase == LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT:
         lines.append(
             "    Why: Triage stages must complete before execution resumes."
         )
         lines.append(
             f"    Blocked: {blocked_count} execution items waiting behind triage."
         )
-    elif phase == PHASE_ASSESSMENT_POSTFLIGHT:
+    elif phase == LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT:
         lines.append(
             "    Why: Assessment must complete before execution resumes."
         )
         lines.append(
             f"    Blocked: {blocked_count} execution items waiting behind assessment."
         )
-    elif phase == PHASE_REVIEW_POSTFLIGHT:
+    elif phase == LIFECYCLE_PHASE_REVIEW_POSTFLIGHT:
         lines.append(
             "    Why: Review dimensions need re-evaluation before execution resumes."
         )
         lines.append(
             f"    Blocked: {blocked_count} execution items waiting behind review."
         )
-    elif phase == PHASE_SCAN:
+    elif phase == LIFECYCLE_PHASE_SCAN:
         lines.append(
             "    Why: Queue cleared — run `desloppify scan` to start next cycle."
         )

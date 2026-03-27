@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from desloppify.engine._plan.refresh_lifecycle import carry_forward_subjective_review
 from desloppify.engine.planning.queue_policy import (
     build_backlog_queue,
     build_execution_queue,
@@ -137,6 +138,11 @@ def test_plan_ordered_stale_subjective_gated_with_objective_backlog():
         "smells::src/c.py::x",
         "smells::src/d.py::x",
     ]
+    plan["plan_start_scores"] = {"strict": 75.0}
+    plan["refresh_state"] = {
+        "lifecycle_phase": "execute",
+        "postflight_scan_completed_at_scan_count": 1,
+    }
     queue_with_plan = build_work_queue(
         state, count=None, include_subjective=True, plan=plan,
     )
@@ -174,6 +180,11 @@ def test_legacy_force_visible_subjective_is_ignored_during_execute():
 
     plan = empty_plan()
     plan["queue_order"] = ["subjective::naming_quality", "smells::src/a.py::x"]
+    plan["plan_start_scores"] = {"strict": 75.0}
+    plan["refresh_state"] = {
+        "lifecycle_phase": "execute",
+        "postflight_scan_completed_at_scan_count": 1,
+    }
     plan["subjective_defer_meta"] = {
         "force_visible_ids": ["subjective::naming_quality"],
     }
@@ -232,6 +243,11 @@ def test_triage_pending_does_not_unhide_stale_subjective_items():
         "smells::src/a.py::x",
         "smells::src/b.py::x",
     ]
+    plan["plan_start_scores"] = {"strict": 75.0}
+    plan["refresh_state"] = {
+        "lifecycle_phase": "execute",
+        "postflight_scan_completed_at_scan_count": 1,
+    }
 
     queue = build_work_queue(
         state, count=None, include_subjective=True, plan=plan,
@@ -250,6 +266,11 @@ def test_legacy_force_visible_triage_stage_is_ignored_during_execute():
     state = _state([_issue("smells::src/a.py::x", detector="smells", tier=3)])
     plan = empty_plan()
     plan["queue_order"] = ["triage::observe", "smells::src/a.py::x"]
+    plan["plan_start_scores"] = {"strict": 75.0}
+    plan["refresh_state"] = {
+        "lifecycle_phase": "execute",
+        "postflight_scan_completed_at_scan_count": 1,
+    }
     plan["epic_triage_meta"] = {"triage_force_visible": True}
 
     queue = build_work_queue(state, count=None, include_subjective=True, plan=plan)
@@ -274,7 +295,7 @@ def test_stale_triage_surfaces_observe_instead_of_empty_queue():
     plan = empty_plan()
     plan["queue_order"] = [review_issue["id"]]
     plan["refresh_state"] = {
-        "lifecycle_phase": "review_postflight",
+        "lifecycle_phase": "plan",
         "postflight_scan_completed_at_scan_count": 7,
     }
     plan["epic_triage_meta"] = {
@@ -549,6 +570,10 @@ def test_unplanned_objective_items_dont_block_postflight():
     plan = empty_plan()
     plan["plan_start_scores"] = {"strict": 75.0}
     plan["queue_order"] = ["smells::src/a.py::planned"]
+    plan["refresh_state"] = {
+        "lifecycle_phase": "execute",
+        "postflight_scan_completed_at_scan_count": 1,
+    }
 
     queue = build_execution_queue(
         state,
@@ -612,6 +637,9 @@ def test_skipped_objective_items_dont_block_subjective():
         "smells::src/b.py::x": {"reason": "deferred"},
         "smells::src/c.py::x": {"reason": "deferred"},
         "smells::src/d.py::x": {"reason": "deferred"},
+    }
+    plan["refresh_state"] = {
+        "postflight_scan_completed_at_scan_count": 1,
     }
 
     queue = build_work_queue(
@@ -828,7 +856,7 @@ def test_fresh_under_target_postflight_review_preempts_persisted_workflow() -> N
         "queue_skipped": {},
         "refresh_state": {
             "postflight_scan_completed_at_scan_count": 19,
-            "lifecycle_phase": "workflow_postflight",
+            "lifecycle_phase": "plan",
         },
     }
 
@@ -836,6 +864,56 @@ def test_fresh_under_target_postflight_review_preempts_persisted_workflow() -> N
     assert [item["id"] for item in queue["items"]] == ["subjective::naming_quality"]
 
     plan["refresh_state"]["subjective_review_completed_at_scan_count"] = 19
+    queue = build_work_queue(state, count=None, include_subjective=True, plan=plan)
+    assert [item["id"] for item in queue["items"]] == [
+        "workflow::communicate-score",
+        "workflow::create-plan",
+    ]
+
+
+def test_force_rescan_carry_forward_keeps_below_target_review_suppressed() -> None:
+    state = _state(
+        [],
+        dimension_scores={
+            "Naming quality": {
+                "score": 82.0,
+                "strict": 82.0,
+                "failing": 0,
+                "checks": 1,
+                "detectors": {
+                    "subjective_assessment": {
+                        "dimension_key": "naming_quality",
+                        "placeholder": False,
+                    },
+                },
+            },
+        },
+    )
+    state["scan_count"] = 20
+    state["subjective_assessments"] = {
+        "naming_quality": {
+            "score": 82.0,
+            "placeholder": False,
+        }
+    }
+    plan = {
+        "queue_order": ["workflow::communicate-score", "workflow::create-plan"],
+        "queue_skipped": {},
+        "refresh_state": {
+            "postflight_scan_completed_at_scan_count": 19,
+            "subjective_review_completed_at_scan_count": 19,
+            "lifecycle_phase": "plan",
+        },
+    }
+
+    changed = carry_forward_subjective_review(
+        plan,
+        old_postflight_scan_count=19,
+        new_scan_count=20,
+    )
+    plan["refresh_state"]["postflight_scan_completed_at_scan_count"] = 20
+
+    assert changed is True
     queue = build_work_queue(state, count=None, include_subjective=True, plan=plan)
     assert [item["id"] for item in queue["items"]] == [
         "workflow::communicate-score",

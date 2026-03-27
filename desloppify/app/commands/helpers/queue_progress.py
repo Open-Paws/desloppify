@@ -11,13 +11,7 @@ from desloppify.base.exception_sets import PLAN_LOAD_EXCEPTIONS
 from desloppify.app.commands.helpers.dynamic_loaders import load_score_update_module
 from desloppify.base.output.terminal import colorize
 from desloppify.engine._plan.refresh_lifecycle import (
-    COARSE_PHASE_MAP,
-    coarse_lifecycle_phase,
-    LIFECYCLE_PHASE_EXECUTE,
-    LIFECYCLE_PHASE_REVIEW,
-    LIFECYCLE_PHASE_SCAN,
-    LIFECYCLE_PHASE_TRIAGE,
-    LIFECYCLE_PHASE_WORKFLOW,
+    current_lifecycle_phase,
 )
 from desloppify.engine.plan_state import load_plan
 from desloppify.state_scoring import score_snapshot
@@ -66,10 +60,7 @@ class QueueBreakdown:
         use ``score_display_mode()`` instead.
         """
         if self.lifecycle_phase in {
-            LIFECYCLE_PHASE_SCAN,
-            LIFECYCLE_PHASE_REVIEW,
-            LIFECYCLE_PHASE_WORKFLOW,
-            LIFECYCLE_PHASE_TRIAGE,
+            "scan", "review_initial", "review", "assessment", "workflow", "triage",
         }:
             return 0
         return max(0, self.queue_total - self.subjective - self.workflow)
@@ -108,15 +99,11 @@ def score_display_mode(
         return ScoreDisplayMode.LIVE
     if breakdown.queue_total == 0:
         return ScoreDisplayMode.LIVE  # Queue fully drained — always live (#441)
-    if breakdown.lifecycle_phase == LIFECYCLE_PHASE_SCAN:
+    if breakdown.lifecycle_phase == "scan":
         return ScoreDisplayMode.LIVE
-    if breakdown.lifecycle_phase == LIFECYCLE_PHASE_EXECUTE:
+    if breakdown.lifecycle_phase == "execute":
         return ScoreDisplayMode.FROZEN
-    if breakdown.lifecycle_phase in {
-        LIFECYCLE_PHASE_REVIEW,
-        LIFECYCLE_PHASE_WORKFLOW,
-        LIFECYCLE_PHASE_TRIAGE,
-    }:
+    if breakdown.lifecycle_phase in {"review_initial", "review", "assessment", "workflow", "triage"}:
         return ScoreDisplayMode.PHASE_TRANSITION
     if breakdown.objective_actionable > 0:
         return ScoreDisplayMode.FROZEN
@@ -156,13 +143,10 @@ def plan_aware_queue_breakdown(
         if context is not None
         else queue_context(state, plan=effective_plan).snapshot
     )
-    refresh_state = effective_plan.get("refresh_state") if isinstance(effective_plan, dict) else None
-    persisted_phase = (
-        coarse_lifecycle_phase(effective_plan)
-        if isinstance(refresh_state, dict) and isinstance(refresh_state.get("lifecycle_phase"), str)
-        else None
-    )
-    lifecycle_phase = persisted_phase or COARSE_PHASE_MAP.get(snapshot.phase, snapshot.phase)
+    # Always use the snapshot-derived display phase (short names: review,
+    # assessment, workflow, triage, execute, scan).  Persisted mode is now
+    # only "plan"/"execute" and is not useful for display gating.
+    lifecycle_phase = snapshot.phase
     if effective_plan and not effective_plan.get("active_cluster"):
         items = collapse_clusters(items, effective_plan)
 

@@ -285,6 +285,72 @@ class TestReconcilePlanPostScan:
         assert saved[0]["scan_count_at_plan_start"] == 5
         assert saved[0]["refresh_state"]["postflight_scan_completed_at_scan_count"] == 5
 
+    def test_force_rescan_carries_forward_subjective_review_marker(self, monkeypatch):
+        plan = empty_plan()
+        plan["queue_order"] = ["workflow::run-scan"]
+        plan["plan_start_scores"] = {
+            "strict": 50.0,
+            "overall": 51.0,
+            "objective": 52.0,
+            "verified": 53.0,
+        }
+        plan["refresh_state"] = {
+            "lifecycle_phase": "plan",
+            "postflight_scan_completed_at_scan_count": 5,
+            "subjective_review_completed_at_scan_count": 5,
+        }
+        state = _make_state(
+            strict_score=86.4,
+            overall_score=88.2,
+            objective_score=87.1,
+            verified_strict_score=84.0,
+            scan_count=6,
+        )
+
+        saved: list[dict] = []
+        monkeypatch.setattr(reconcile_mod, "load_plan", lambda _path=None: plan)
+        monkeypatch.setattr(reconcile_mod, "save_plan", lambda p, _path=None: saved.append(p))
+
+        reconcile_mod.reconcile_plan_post_scan(_runtime(state=state, force_rescan=True))
+
+        assert len(saved) == 1
+        assert saved[0]["refresh_state"]["subjective_review_completed_at_scan_count"] == 6
+        assert saved[0]["refresh_state"]["postflight_scan_completed_at_scan_count"] == 6
+
+    def test_force_rescan_outside_plan_mode_does_not_carry_forward_review_marker(
+        self, monkeypatch
+    ):
+        plan = empty_plan()
+        plan["queue_order"] = ["workflow::run-scan"]
+        plan["plan_start_scores"] = {
+            "strict": 50.0,
+            "overall": 51.0,
+            "objective": 52.0,
+            "verified": 53.0,
+        }
+        plan["refresh_state"] = {
+            "lifecycle_phase": "execute",
+            "postflight_scan_completed_at_scan_count": 5,
+            "subjective_review_completed_at_scan_count": 5,
+        }
+        state = _make_state(
+            strict_score=86.4,
+            overall_score=88.2,
+            objective_score=87.1,
+            verified_strict_score=84.0,
+            scan_count=6,
+        )
+
+        saved: list[dict] = []
+        monkeypatch.setattr(reconcile_mod, "load_plan", lambda _path=None: plan)
+        monkeypatch.setattr(reconcile_mod, "save_plan", lambda p, _path=None: saved.append(p))
+
+        reconcile_mod.reconcile_plan_post_scan(_runtime(state=state, force_rescan=True))
+
+        assert len(saved) == 1
+        assert saved[0]["refresh_state"]["subjective_review_completed_at_scan_count"] == 5
+        assert saved[0]["refresh_state"]["postflight_scan_completed_at_scan_count"] == 6
+
     def test_force_rescan_with_objective_backlog_injects_stale_reviews(self, monkeypatch):
         plan = empty_plan()
         plan["queue_order"] = ["workflow::run-scan"]

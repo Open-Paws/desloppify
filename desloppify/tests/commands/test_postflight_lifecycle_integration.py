@@ -10,11 +10,7 @@ from desloppify.engine._plan.refresh_lifecycle import (
 )
 from desloppify.engine._plan.schema import empty_plan
 from desloppify.engine._plan.sync import reconcile_plan
-from desloppify.engine._work_queue.snapshot import (
-    PHASE_REVIEW_INITIAL,
-    PHASE_WORKFLOW_POSTFLIGHT,
-    build_queue_snapshot,
-)
+from desloppify.engine._work_queue.snapshot import build_queue_snapshot
 
 
 def _placeholder_state() -> dict:
@@ -85,8 +81,8 @@ def test_postflight_progresses_review_then_workflow() -> None:
     reconcile_plan(plan, state, target_strict=95.0)
     initial_snapshot = build_queue_snapshot(state, plan=plan)
 
-    assert current_lifecycle_phase(plan) == LIFECYCLE_PHASE_REVIEW_INITIAL
-    assert initial_snapshot.phase == PHASE_REVIEW_INITIAL
+    assert current_lifecycle_phase(plan) == "plan"
+    assert initial_snapshot.phase == LIFECYCLE_PHASE_REVIEW_INITIAL
     assert [item["id"] for item in initial_snapshot.execution_items] == [
         "subjective::naming_quality"
     ]
@@ -97,7 +93,7 @@ def test_postflight_progresses_review_then_workflow() -> None:
     reconcile_plan(plan, state, target_strict=95.0)
     workflow_snapshot = build_queue_snapshot(state, plan=plan)
 
-    assert current_lifecycle_phase(plan) == LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT
-    assert workflow_snapshot.phase == PHASE_WORKFLOW_POSTFLIGHT
+    assert current_lifecycle_phase(plan) == "plan"
+    assert workflow_snapshot.phase == LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT
     assert not any(fid.startswith("subjective::") for fid in plan["queue_order"])
     assert all(item["id"].startswith("workflow::") for item in workflow_snapshot.execution_items)

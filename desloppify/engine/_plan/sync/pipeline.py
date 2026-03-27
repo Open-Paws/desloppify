@@ -8,6 +8,12 @@ from desloppify.state_scoring import score_snapshot
 from desloppify.engine._plan.auto_cluster import auto_cluster_issues
 from desloppify.engine._plan.constants import (
     PRE_REVIEW_WORKFLOW_IDS,
+    WORKFLOW_COMMUNICATE_SCORE_ID,
+    WORKFLOW_CREATE_PLAN_ID,
+    WORKFLOW_DEFERRED_DISPOSITION_ID,
+    WORKFLOW_IMPORT_SCORES_ID,
+    WORKFLOW_RUN_SCAN_ID,
+    WORKFLOW_SCORE_CHECKPOINT_ID,
     QueueSyncResult,
     is_synthetic_id,
 )
@@ -15,14 +21,9 @@ from desloppify.engine._plan.operations.meta import append_log_entry
 from desloppify.engine._plan.policy.subjective import compute_subjective_visibility
 from desloppify.engine._plan.policy.stale import open_review_ids
 from desloppify.engine._plan.refresh_lifecycle import (
-    LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT,
-    LIFECYCLE_PHASE_REVIEW_INITIAL,
-    LIFECYCLE_PHASE_REVIEW_POSTFLIGHT,
-    LIFECYCLE_PHASE_SCAN,
-    LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT,
-    LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT,
-    current_lifecycle_phase,
-    set_lifecycle_phase,
+    _set_lifecycle_phase,
+    derive_display_phase,
+    user_facing_mode,
 )
 from desloppify.engine._plan.sync.dimensions import sync_subjective_dimensions
 from desloppify.engine._plan.sync.phase_cleanup import prune_synthetic_for_phase
@@ -33,6 +34,18 @@ from desloppify.engine._plan.sync.workflow import (
     sync_communicate_score_needed,
     sync_create_plan_needed,
 )
+
+_SCAN_PHASE_WORKFLOW_IDS = {
+    WORKFLOW_DEFERRED_DISPOSITION_ID,
+    WORKFLOW_RUN_SCAN_ID,
+}
+_POSTFLIGHT_WORKFLOW_IDS = (
+    PRE_REVIEW_WORKFLOW_IDS - _SCAN_PHASE_WORKFLOW_IDS
+) | {
+    WORKFLOW_SCORE_CHECKPOINT_ID,
+    WORKFLOW_COMMUNICATE_SCORE_ID,
+    WORKFLOW_CREATE_PLAN_ID,
+}
 
 
 @dataclass
@@ -56,12 +69,10 @@ class ReconcileResult:
                 self.auto_cluster_changes > 0,
                 self.communicate_score is not None
                 and bool(self.communicate_score.changes),
-                self.create_plan is not None
-                and bool(self.create_plan.changes),
+                self.create_plan is not None and bool(self.create_plan.changes),
                 self.triage is not None
                 and bool(
-                    self.triage.changes
-                    or getattr(self.triage, "deferred", False)
+                    self.triage.changes or getattr(self.triage, "deferred", False)
                 ),
                 self.lifecycle_phase_changed,
                 bool(self.phase_cleanup_pruned),
@@ -92,48 +103,97 @@ def _log_gate_changes(plan: dict, action: str, detail: dict[str, object]) -> Non
     append_log_entry(plan, action, actor="system", detail=detail)
 
 
-def _resolve_reconcile_phase(
+def _resolve_reconcile_display_phase(
     plan: dict,
     state: dict,
     *,
     result: ReconcileResult,
     policy: object | None,
 ) -> str:
-    order = [item for item in plan.get("queue_order", []) if isinstance(item, str)]
+    """Derive the display phase from queue contents.
 
-    if any(item in PRE_REVIEW_WORKFLOW_IDS for item in order):
-        return LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT
+    Returns a SHORT display name (review, assessment, workflow, triage,
+    execute, scan) — never a persisted mode.
+
+    Keep this equivalent to ``snapshot._derive_display_phase`` for materialized
+    plan states. See ``test_phase_derivation_equivalence_matrix``.
+    """
+    order = [item for item in plan.get("queue_order", []) if isinstance(item, str)]
+    plan_start_scores = plan.get("plan_start_scores")
+    fresh_boundary = not plan_start_scores or (
+        isinstance(plan_start_scores, dict) and bool(plan_start_scores.get("reset"))
+    )
 
     subjective_ids = [item for item in order if item.startswith("subjective::")]
-    if subjective_ids:
-        unscored_ids = set(getattr(policy, "unscored_ids", ()) or ())
-        if any(item in unscored_ids for item in subjective_ids):
-            return LIFECYCLE_PHASE_REVIEW_INITIAL
-        return LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT
-
-    if result.workflow_injected_ids or any(item.startswith("workflow::") for item in order):
-        return LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT
-
-    if result.triage and (result.triage.injected or result.triage.deferred):
-        return LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT
-    if any(item.startswith("triage::") for item in order):
-        return LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT
+    unscored_ids = set(getattr(policy, "unscored_ids", ()) or ())
+    has_initial_review = any(item in unscored_ids for item in subjective_ids)
+    has_postflight_assessment = bool(subjective_ids) and not has_initial_review
+    prefer_scan = any(item in _SCAN_PHASE_WORKFLOW_IDS for item in order)
+    has_workflow = bool(result.workflow_injected_ids) or any(
+        item in _POSTFLIGHT_WORKFLOW_IDS for item in order
+    )
+    has_triage = bool(
+        (result.triage and (result.triage.injected or result.triage.deferred))
+        or any(item.startswith("triage::") for item in order)
+    )
 
     triage_snapshot = build_triage_snapshot(plan, state)
-    if (
+    triage_gated_review = (
         triage_snapshot.triage_has_run
         and not triage_snapshot.has_triage_in_queue
         and not triage_snapshot.is_triage_stale
         and bool(triage_snapshot.live_open_ids)
-    ):
-        return LIFECYCLE_PHASE_REVIEW_POSTFLIGHT
+    )
 
-    persisted = current_lifecycle_phase(plan)
-    if persisted:
-        return persisted
-    if open_review_ids(state):
-        return LIFECYCLE_PHASE_REVIEW_POSTFLIGHT
-    return LIFECYCLE_PHASE_SCAN
+    # Check for objective work in the queue.
+    has_real_work = any(
+        not item.startswith(("subjective::", "workflow::", "triage::"))
+        for item in order
+        if item not in (plan.get("skipped") or {})
+    )
+    has_review_postflight = triage_gated_review or (
+        not has_real_work and bool(open_review_ids(state))
+    )
+
+    return derive_display_phase(
+        has_initial_review=has_initial_review,
+        has_postflight_assessment=has_postflight_assessment,
+        has_workflow=has_workflow,
+        has_triage=has_triage,
+        has_review_postflight=has_review_postflight,
+        has_execution=has_real_work,
+        fresh_boundary=fresh_boundary,
+        prefer_scan=prefer_scan,
+    )
+
+
+_MIGRATION_PRUNED_KEY = "_subjective_migration_pruned"
+
+
+def _migrate_prune_stale_subjective(plan: dict) -> None:
+    """One-time migration: remove stale subjective:: items from queue_order.
+
+    The old system re-injected stale subjective items on every reconcile
+    (not just at boundaries).  With boundary-only sync, these won't be
+    re-added, but old plan files may still have them.  Prune them so they
+    don't pollute phase derivation.  Runs at most once per plan.
+    """
+    refresh_state = plan.get("refresh_state")
+    if not isinstance(refresh_state, dict):
+        return
+    if refresh_state.get(_MIGRATION_PRUNED_KEY):
+        return  # Already done
+    queue_order = plan.get("queue_order")
+    if not isinstance(queue_order, list):
+        return
+    cleaned = [
+        item_id
+        for item_id in queue_order
+        if not (isinstance(item_id, str) and item_id.startswith("subjective::"))
+    ]
+    if len(cleaned) < len(queue_order):
+        plan["queue_order"] = cleaned
+    refresh_state[_MIGRATION_PRUNED_KEY] = True
 
 
 def live_planned_queue_empty(plan: dict) -> bool:
@@ -161,6 +221,11 @@ def reconcile_plan(
 ) -> ReconcileResult:
     """Run the shared boundary reconciliation pipeline."""
     result = ReconcileResult()
+
+    # Migration cleanup: prune stale subjective items from queue_order
+    # left by the old mid-cycle re-injection bug.  With boundary-only sync
+    # they won't be re-added, so they just block phase resolution.
+    _migrate_prune_stale_subjective(plan)
 
     policy = compute_subjective_visibility(
         state,
@@ -214,13 +279,14 @@ def reconcile_plan(
         if result.triage.injected:
             _log_gate_changes(plan, "sync_triage", {"injected": True})
 
-    result.lifecycle_phase = _resolve_reconcile_phase(
+    result.lifecycle_phase = _resolve_reconcile_display_phase(
         plan,
         state,
         result=result,
         policy=policy,
     )
-    result.lifecycle_phase_changed = set_lifecycle_phase(plan, result.lifecycle_phase)
+    mode = user_facing_mode(result.lifecycle_phase)
+    result.lifecycle_phase_changed = _set_lifecycle_phase(plan, mode)
     if result.lifecycle_phase_changed:
         _log_gate_changes(
             plan,
@@ -228,12 +294,17 @@ def reconcile_plan(
             {"phase": result.lifecycle_phase},
         )
 
-    result.phase_cleanup_pruned = prune_synthetic_for_phase(plan, result.lifecycle_phase)
+    result.phase_cleanup_pruned = prune_synthetic_for_phase(
+        plan, result.lifecycle_phase
+    )
     if result.phase_cleanup_pruned:
         _log_gate_changes(
             plan,
             "phase_transition_cleanup",
-            {"phase": result.lifecycle_phase, "pruned": list(result.phase_cleanup_pruned)},
+            {
+                "phase": result.lifecycle_phase,
+                "pruned": list(result.phase_cleanup_pruned),
+            },
         )
 
     return result

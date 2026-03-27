@@ -23,14 +23,11 @@ from desloppify.engine._plan.refresh_lifecycle import (
     LIFECYCLE_PHASE_EXECUTE,
     LIFECYCLE_PHASE_REVIEW_INITIAL,
     LIFECYCLE_PHASE_REVIEW_POSTFLIGHT,
-    LIFECYCLE_PHASE_REVIEW,
     LIFECYCLE_PHASE_SCAN,
     LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT,
-    LIFECYCLE_PHASE_TRIAGE,
     LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT,
-    LIFECYCLE_PHASE_WORKFLOW,
     current_lifecycle_phase,
-    postflight_scan_pending,
+    derive_display_phase,
 )
 from desloppify.engine._plan.triage.snapshot import build_triage_snapshot
 from desloppify.engine._state.filtering import path_scoped_issues
@@ -54,32 +51,6 @@ from desloppify.engine._work_queue.synthetic_workflow import (
     build_score_checkpoint_item,
 )
 from desloppify.engine._work_queue.types import WorkQueueItem
-
-PHASE_REVIEW_INITIAL = LIFECYCLE_PHASE_REVIEW_INITIAL
-PHASE_EXECUTE = LIFECYCLE_PHASE_EXECUTE
-PHASE_SCAN = LIFECYCLE_PHASE_SCAN
-PHASE_ASSESSMENT_POSTFLIGHT = LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT
-PHASE_REVIEW_POSTFLIGHT = LIFECYCLE_PHASE_REVIEW_POSTFLIGHT
-PHASE_WORKFLOW_POSTFLIGHT = LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT
-PHASE_TRIAGE_POSTFLIGHT = LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT
-
-# Maps fine-grained phase → partition field that must be non-empty for it to be valid.
-# Used by _phase_for_snapshot to trust the persisted phase.
-_FINE_GRAINED_ITEM_MAP: dict[str, str | None] = {
-    PHASE_REVIEW_INITIAL: "initial_review_items",
-    PHASE_ASSESSMENT_POSTFLIGHT: "postflight_assessment_items",
-    PHASE_WORKFLOW_POSTFLIGHT: "postflight_workflow_items",
-    PHASE_TRIAGE_POSTFLIGHT: "triage_items",
-    PHASE_REVIEW_POSTFLIGHT: "postflight_review_items",
-    PHASE_SCAN: "scan_items",
-}
-
-# Coarse phases that trigger postflight-sticky inference (legacy plans).
-_COARSE_POSTFLIGHT_PHASES = {
-    LIFECYCLE_PHASE_REVIEW,
-    LIFECYCLE_PHASE_WORKFLOW,
-    LIFECYCLE_PHASE_TRIAGE,
-}
 
 
 @dataclass(frozen=True)
@@ -112,6 +83,7 @@ class QueueSnapshot:
 # Internal helpers — option resolution, item classification
 # ---------------------------------------------------------------------------
 
+
 def _option_value(options: object | None, name: str, default: Any) -> Any:
     if options is None:
         return default
@@ -120,7 +92,10 @@ def _option_value(options: object | None, name: str, default: Any) -> Any:
 
 def _resolved_scan_path(options: object | None, state: StateModel) -> str | None:
     scan_path = _option_value(options, "scan_path", state.get("scan_path"))
-    if hasattr(scan_path, "__class__") and scan_path.__class__.__name__ == "_ScanPathFromState":
+    if (
+        hasattr(scan_path, "__class__")
+        and scan_path.__class__.__name__ == "_ScanPathFromState"
+    ):
         return state.get("scan_path")
     return scan_path
 
@@ -143,17 +118,11 @@ def _is_objective_item(item: WorkQueueItem, *, skipped_ids: set[str]) -> bool:
 
 
 def _review_issue_items(items: Iterable[WorkQueueItem]) -> list[WorkQueueItem]:
-    return [
-        item for item in items
-        if is_triage_finding(item)
-    ]
+    return [item for item in items if is_triage_finding(item)]
 
 
 def _assessment_request_items(items: Iterable[WorkQueueItem]) -> list[WorkQueueItem]:
-    return [
-        item for item in items
-        if is_assessment_request(item)
-    ]
+    return [item for item in items if is_assessment_request(item)]
 
 
 def _active_cluster_issue_ids(plan: dict | None) -> set[str]:
@@ -251,7 +220,9 @@ def _subjective_partitions(
     threshold: float,
     plan: dict | None,
 ) -> tuple[list[WorkQueueItem], list[WorkQueueItem]]:
-    candidates = build_subjective_items(state, scoped_issues, threshold=threshold, plan=plan)
+    candidates = build_subjective_items(
+        state, scoped_issues, threshold=threshold, plan=plan
+    )
     initial = [item for item in candidates if item.get("initial_review")]
     postflight = [item for item in candidates if not item.get("initial_review")]
     return initial, postflight
@@ -286,19 +257,8 @@ def _workflow_partitions(
 
 
 # ---------------------------------------------------------------------------
-# Phase resolution — persisted fine-grained phase with legacy fallback
+# Phase resolution — persisted mode + item-derived display phase
 # ---------------------------------------------------------------------------
-
-def _raw_persisted_phase(plan: dict | None) -> str | None:
-    """Read the raw lifecycle_phase string from the plan, without validation."""
-    if not isinstance(plan, dict):
-        return None
-    refresh_state = plan.get("refresh_state")
-    if isinstance(refresh_state, dict):
-        phase = refresh_state.get("lifecycle_phase")
-        if isinstance(phase, str):
-            return phase
-    return None
 
 
 def _phase_for_snapshot(
@@ -309,49 +269,33 @@ def _phase_for_snapshot(
     anchored_execution_items: list[WorkQueueItem],
     explicit_queue_items: list[WorkQueueItem],
     scan_items: list[WorkQueueItem],
-    review_backlog_present: bool,
-    undispositioned_review_backlog_present: bool,
     postflight_assessment_items: list[WorkQueueItem],
     postflight_review_items: list[WorkQueueItem],
     postflight_workflow_items: list[WorkQueueItem],
     triage_items: list[WorkQueueItem],
 ) -> str:
-    raw_phase = _raw_persisted_phase(plan)
-
-    ordered_postflight_phase = _ordered_postflight_phase(
-        postflight_assessment_items=postflight_assessment_items,
-        postflight_review_items=postflight_review_items,
-        postflight_workflow_items=postflight_workflow_items,
-        triage_items=triage_items,
+    has_execution = bool(anchored_execution_items or explicit_queue_items)
+    raw_phase = current_lifecycle_phase(plan) if isinstance(plan, dict) else None
+    # Suppress postflight signals (assessment/workflow/triage/review) when
+    # execution work exists and we're either in execute mode or have no plan.
+    # Without a plan, objective work always takes priority over postflight items.
+    suppress_postflight_signals = has_execution and (
+        raw_phase == "execute" or raw_phase is None
     )
+    prefer_scan = raw_phase == "execute" and not has_execution
+    if suppress_postflight_signals:
+        postflight_assessment_items = []
+        postflight_review_items = []
+        postflight_workflow_items = []
+        triage_items = []
 
-    # ── Fine-grained persisted phase: trust it if items match ──
-    if raw_phase in {
-        PHASE_ASSESSMENT_POSTFLIGHT,
-        PHASE_REVIEW_POSTFLIGHT,
-        PHASE_WORKFLOW_POSTFLIGHT,
-        PHASE_TRIAGE_POSTFLIGHT,
-    } and ordered_postflight_phase is not None:
-        return ordered_postflight_phase
-    if raw_phase in _FINE_GRAINED_ITEM_MAP:
-        items_key = _FINE_GRAINED_ITEM_MAP[raw_phase]
-        items = locals().get(items_key) if items_key else None
-        if items_key is None or items:
-            return raw_phase
-    # Execute needs special check (two possible item lists).
-    if raw_phase == LIFECYCLE_PHASE_EXECUTE and (anchored_execution_items or explicit_queue_items):
-        return PHASE_EXECUTE
-
-    # ── Legacy inference for coarse-phase or missing-phase plans ──
-    return _legacy_phase_inference(
-        plan,
+    return _derive_display_phase(
         fresh_boundary=fresh_boundary,
         initial_review_items=initial_review_items,
         anchored_execution_items=anchored_execution_items,
         explicit_queue_items=explicit_queue_items,
         scan_items=scan_items,
-        review_backlog_present=review_backlog_present,
-        undispositioned_review_backlog_present=undispositioned_review_backlog_present,
+        prefer_scan=prefer_scan,
         postflight_assessment_items=postflight_assessment_items,
         postflight_review_items=postflight_review_items,
         postflight_workflow_items=postflight_workflow_items,
@@ -359,143 +303,40 @@ def _phase_for_snapshot(
     )
 
 
-def _ordered_postflight_phase(
-    *,
-    postflight_assessment_items: list[WorkQueueItem],
-    postflight_review_items: list[WorkQueueItem],
-    postflight_workflow_items: list[WorkQueueItem],
-    triage_items: list[WorkQueueItem],
-) -> str | None:
-    """Return the earliest active postflight phase in fixed sequence order."""
-    if postflight_assessment_items:
-        return PHASE_ASSESSMENT_POSTFLIGHT
-    if postflight_workflow_items:
-        return PHASE_WORKFLOW_POSTFLIGHT
-    if triage_items:
-        return PHASE_TRIAGE_POSTFLIGHT
-    if postflight_review_items:
-        return PHASE_REVIEW_POSTFLIGHT
-    return None
-
-
-def _legacy_phase_inference(
-    plan: dict | None,
+def _derive_display_phase(
     *,
     fresh_boundary: bool,
     initial_review_items: list[WorkQueueItem],
     anchored_execution_items: list[WorkQueueItem],
     explicit_queue_items: list[WorkQueueItem],
     scan_items: list[WorkQueueItem],
-    review_backlog_present: bool,
-    undispositioned_review_backlog_present: bool,
+    prefer_scan: bool,
     postflight_assessment_items: list[WorkQueueItem],
     postflight_review_items: list[WorkQueueItem],
     postflight_workflow_items: list[WorkQueueItem],
     triage_items: list[WorkQueueItem],
 ) -> str:
-    """Infer the phase from item partitions for plans without fine-grained phases.
+    """Derive the display phase from queue item partitions.
 
-    This handles old plans that persisted coarse phases ("review", "workflow",
-    "triage") or have no persisted phase at all.  As plans are migrated to
-    fine-grained phases by the reconcile pipeline, this code path is exercised
-    less frequently.
+    Keep this equivalent to ``pipeline._resolve_reconcile_display_phase`` for
+    materialized plan states. See ``test_phase_derivation_equivalence_matrix``.
     """
-    persisted_phase = (
-        current_lifecycle_phase(plan) if isinstance(plan, dict) else None
+    return derive_display_phase(
+        has_initial_review=bool(initial_review_items),
+        has_postflight_assessment=bool(postflight_assessment_items),
+        has_workflow=bool(postflight_workflow_items),
+        has_triage=bool(triage_items),
+        has_review_postflight=bool(postflight_review_items),
+        has_execution=bool(anchored_execution_items or explicit_queue_items),
+        fresh_boundary=fresh_boundary,
+        prefer_scan=prefer_scan and bool(scan_items),
     )
-
-    # Coarse "postflight sticky" — old plans that persisted a coarse phase
-    # need priority-ordered inference within that phase family.
-    postflight_sticky = (
-        isinstance(plan, dict)
-        and persisted_phase in _COARSE_POSTFLIGHT_PHASES
-        and not postflight_scan_pending(plan)
-    )
-
-    if fresh_boundary and initial_review_items:
-        return PHASE_REVIEW_INITIAL
-
-    if postflight_sticky:
-        result = _sticky_postflight_phase(
-            persisted_phase,
-            postflight_assessment_items=postflight_assessment_items,
-            postflight_review_items=postflight_review_items,
-            postflight_workflow_items=postflight_workflow_items,
-            triage_items=triage_items,
-            review_backlog_present=review_backlog_present,
-        )
-        if result is not None:
-            return result
-
-    if anchored_execution_items:
-        return PHASE_EXECUTE
-    if scan_items:
-        return PHASE_SCAN
-    if explicit_queue_items and (
-        not isinstance(plan, dict) or postflight_scan_pending(plan)
-    ):
-        return PHASE_EXECUTE
-
-    # Postflight sequence: assessment → workflow → triage → review → execute.
-    if postflight_assessment_items:
-        return PHASE_ASSESSMENT_POSTFLIGHT
-    if postflight_workflow_items:
-        return PHASE_WORKFLOW_POSTFLIGHT
-    if undispositioned_review_backlog_present and postflight_review_items:
-        return PHASE_REVIEW_POSTFLIGHT
-    if explicit_queue_items:
-        return PHASE_EXECUTE
-    if postflight_review_items:
-        return PHASE_REVIEW_POSTFLIGHT
-    if triage_items:
-        return PHASE_TRIAGE_POSTFLIGHT
-    return PHASE_SCAN
-
-
-def _sticky_postflight_phase(
-    persisted_phase: str | None,
-    *,
-    postflight_assessment_items: list[WorkQueueItem],
-    postflight_review_items: list[WorkQueueItem],
-    postflight_workflow_items: list[WorkQueueItem],
-    triage_items: list[WorkQueueItem],
-    review_backlog_present: bool,
-) -> str | None:
-    """Resolve phase within a coarse postflight-sticky context.
-
-    Returns None if no items match, letting the caller fall through.
-    """
-    if persisted_phase == LIFECYCLE_PHASE_WORKFLOW:
-        candidates = [
-            (postflight_workflow_items, PHASE_WORKFLOW_POSTFLIGHT),
-            (triage_items, PHASE_TRIAGE_POSTFLIGHT),
-            (postflight_assessment_items, PHASE_ASSESSMENT_POSTFLIGHT),
-            (postflight_review_items, PHASE_REVIEW_POSTFLIGHT),
-        ]
-    elif persisted_phase == LIFECYCLE_PHASE_TRIAGE:
-        candidates = [
-            (triage_items, PHASE_TRIAGE_POSTFLIGHT),
-            (postflight_workflow_items, PHASE_WORKFLOW_POSTFLIGHT),
-            (postflight_assessment_items, PHASE_ASSESSMENT_POSTFLIGHT),
-            (postflight_review_items, PHASE_REVIEW_POSTFLIGHT),
-        ]
-    else:
-        # Coarse "review" phase.
-        candidates = [
-            (postflight_assessment_items, PHASE_ASSESSMENT_POSTFLIGHT),
-            (postflight_review_items, PHASE_REVIEW_POSTFLIGHT),
-            (postflight_workflow_items, PHASE_WORKFLOW_POSTFLIGHT),
-            (triage_items, PHASE_TRIAGE_POSTFLIGHT),
-        ]
-    for items, phase in candidates:
-        if items:
-            return phase
-    return None
 
 
 # ---------------------------------------------------------------------------
 # Execution item selection
 # ---------------------------------------------------------------------------
+
 
 def _execution_items_for_phase(
     phase: str,
@@ -508,28 +349,26 @@ def _execution_items_for_phase(
     postflight_workflow_items: list[WorkQueueItem],
     triage_items: list[WorkQueueItem],
 ) -> list[WorkQueueItem]:
-    if phase == PHASE_REVIEW_INITIAL:
+    if phase == LIFECYCLE_PHASE_REVIEW_INITIAL:
         return initial_review_items
-    if phase == PHASE_EXECUTE:
+    if phase == LIFECYCLE_PHASE_EXECUTE:
         return explicit_queue_items
-    if phase == PHASE_SCAN:
+    if phase == LIFECYCLE_PHASE_SCAN:
         deferred_items = [
-            item for item in scan_items
+            item
+            for item in scan_items
             if item.get("id") == WORKFLOW_DEFERRED_DISPOSITION_ID
         ]
         if deferred_items:
             return deferred_items
-        return [
-            item for item in scan_items
-            if item.get("id") == WORKFLOW_RUN_SCAN_ID
-        ]
-    if phase == PHASE_ASSESSMENT_POSTFLIGHT:
+        return [item for item in scan_items if item.get("id") == WORKFLOW_RUN_SCAN_ID]
+    if phase == LIFECYCLE_PHASE_ASSESSMENT_POSTFLIGHT:
         return postflight_assessment_items
-    if phase == PHASE_REVIEW_POSTFLIGHT:
+    if phase == LIFECYCLE_PHASE_REVIEW_POSTFLIGHT:
         return postflight_review_items
-    if phase == PHASE_WORKFLOW_POSTFLIGHT:
+    if phase == LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT:
         return postflight_workflow_items
-    if phase == PHASE_TRIAGE_POSTFLIGHT:
+    if phase == LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT:
         return triage_items
     return []
 
@@ -537,6 +376,7 @@ def _execution_items_for_phase(
 # ---------------------------------------------------------------------------
 # Item partition building
 # ---------------------------------------------------------------------------
+
 
 class _Partitions(NamedTuple):
     """All item lists computed from state + plan, before phase resolution."""
@@ -566,9 +406,10 @@ def _build_item_partitions(
 ) -> _Partitions:
     """Build all item partitions from state and plan."""
     skipped_ids = set((effective_plan or {}).get("skipped", {}).keys())
-    scoped_issues = path_scoped_issues(
-        (state.get("work_items") or state.get("issues", {})), scan_path,
-    )
+    issue_source = state.get("work_items")
+    if not isinstance(issue_source, dict):
+        issue_source = state.get("issues", {})
+    scoped_issues = path_scoped_issues(issue_source, scan_path)
 
     all_issue_items = build_issue_items(
         state,
@@ -579,7 +420,8 @@ def _build_item_partitions(
         forced_ids=_live_planned_queue_ids(effective_plan),
     )
     objective_items = [
-        item for item in all_issue_items
+        item
+        for item in all_issue_items
         if _is_objective_item(item, skipped_ids=skipped_ids)
     ]
     executable_objective_ids = _executable_objective_ids(
@@ -594,17 +436,22 @@ def _build_item_partitions(
     ):
         executable_objective_ids -= all_clustered_ids
     explicit_objective_items = [
-        item for item in objective_items
+        item
+        for item in objective_items
         if item.get("id", "") in executable_objective_ids
     ]
 
     review_issue_items = _review_issue_items(all_issue_items)
     assessment_request_items_list = _assessment_request_items(all_issue_items)
     executable_review_items = _executable_review_issue_items(
-        effective_plan, state, review_issue_items,
+        effective_plan,
+        state,
+        review_issue_items,
     )
     review_issue_ids = {item.get("id", "") for item in review_issue_items}
-    assessment_request_ids = {item.get("id", "") for item in assessment_request_items_list}
+    assessment_request_ids = {
+        item.get("id", "") for item in assessment_request_items_list
+    }
 
     explicit_queue_items, anchored_execution_items = _merge_execution_candidates(
         all_issue_items=all_issue_items,
@@ -615,7 +462,10 @@ def _build_item_partitions(
     )
 
     initial_review_items, subjective_postflight_items = _subjective_partitions(
-        state, scoped_issues=scoped_issues, threshold=target_strict, plan=effective_plan,
+        state,
+        scoped_issues=scoped_issues,
+        threshold=target_strict,
+        plan=effective_plan,
     )
     # Suppress subjective dimension items when review issues already cover
     # the same dimension — the review issues are more actionable.
@@ -630,7 +480,8 @@ def _build_item_partitions(
     postflight_review_items = list(executable_review_items)
 
     scan_items, postflight_workflow_items, triage_items = _workflow_partitions(
-        effective_plan, state,
+        effective_plan,
+        state,
     )
 
     return _Partitions(
@@ -654,7 +505,8 @@ def _build_backlog(
     execution_ids: set[str],
 ) -> list[WorkQueueItem]:
     return [
-        item for item in (
+        item
+        for item in (
             [
                 *p.objective_items,
                 *p.initial_review_items,
@@ -673,6 +525,7 @@ def _build_backlog(
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def build_queue_snapshot(
     state: StateModel,
     *,
@@ -682,8 +535,10 @@ def build_queue_snapshot(
 ) -> QueueSnapshot:
     """Build the canonical queue snapshot for the current state."""
     context = _option_value(options, "context", None)
-    effective_plan = context.plan if context is not None else (
-        plan if plan is not None else _option_value(options, "plan", None)
+    effective_plan = (
+        context.plan
+        if context is not None
+        else (plan if plan is not None else _option_value(options, "plan", None))
     )
 
     p = _build_item_partitions(
@@ -695,11 +550,6 @@ def build_queue_snapshot(
         target_strict=target_strict,
     )
 
-    triage_snapshot = (
-        build_triage_snapshot(effective_plan, state)
-        if isinstance(effective_plan, dict)
-        else None
-    )
     fresh_boundary = _is_fresh_boundary(effective_plan)
 
     phase = _phase_for_snapshot(
@@ -709,10 +559,6 @@ def build_queue_snapshot(
         anchored_execution_items=p.anchored_execution_items,
         explicit_queue_items=p.explicit_queue_items,
         scan_items=p.scan_items,
-        review_backlog_present=bool(p.review_issue_items),
-        undispositioned_review_backlog_present=bool(
-            triage_snapshot is not None and triage_snapshot.undispositioned_ids
-        ),
         postflight_assessment_items=p.postflight_assessment_items,
         postflight_review_items=p.postflight_review_items,
         postflight_workflow_items=p.postflight_workflow_items,
@@ -760,18 +606,12 @@ def build_queue_snapshot(
         subjective_postflight_count=len(p.subjective_postflight_items),
         workflow_postflight_count=len(p.postflight_workflow_items),
         triage_pending_count=len(p.triage_items),
-        has_unplanned_objective_blockers=len(p.explicit_objective_items) < len(p.objective_items),
+        has_unplanned_objective_blockers=len(p.explicit_objective_items)
+        < len(p.objective_items),
     )
 
 
 __all__ = [
-    "PHASE_ASSESSMENT_POSTFLIGHT",
-    "PHASE_EXECUTE",
-    "PHASE_REVIEW_INITIAL",
-    "PHASE_REVIEW_POSTFLIGHT",
-    "PHASE_SCAN",
-    "PHASE_TRIAGE_POSTFLIGHT",
-    "PHASE_WORKFLOW_POSTFLIGHT",
     "QueueSnapshot",
     "build_queue_snapshot",
 ]

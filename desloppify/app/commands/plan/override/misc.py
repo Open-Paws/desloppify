@@ -12,6 +12,7 @@ from .io import (
     _plan_file_for_state,
     save_plan_state_transactional,
 )
+from desloppify.base.config import target_strict_score_from_config
 from desloppify.base.output.terminal import colorize
 from desloppify.engine.plan_state import (
     load_plan,
@@ -27,9 +28,9 @@ from desloppify.engine.plan_ops import (
 )
 from desloppify.app.commands.helpers.transition_messages import emit_transition_message
 from desloppify.engine._plan.refresh_lifecycle import (
-    LIFECYCLE_PHASE_EXECUTE,
-    clear_postflight_scan_completion,
+    invalidate_postflight_scan,
 )
+from desloppify.engine._plan.sync import reconcile_plan
 from desloppify.engine._state.resolution import resolve_issues
 from desloppify.state_io import load_state
 
@@ -51,7 +52,13 @@ def cmd_plan_describe(args: argparse.Namespace) -> None:
 
     for fid in issue_ids:
         describe_issue(plan, fid, text or None)
-    append_log_entry(plan, "describe", issue_ids=issue_ids, actor="user", detail={"text": text or None})
+    append_log_entry(
+        plan,
+        "describe",
+        issue_ids=issue_ids,
+        actor="user",
+        detail={"text": text or None},
+    )
     save_plan(plan)
     print(colorize(f"  Set description on {len(issue_ids)} issue(s).", "green"))
 
@@ -98,7 +105,9 @@ def cmd_plan_reopen(args: argparse.Namespace) -> None:
         reopened.extend(resolve_issues(state_data, pattern, "open"))
 
     if not reopened:
-        print(colorize("  No resolved issues matching: " + " ".join(patterns), "yellow"))
+        print(
+            colorize("  No resolved issues matching: " + " ".join(patterns), "yellow")
+        )
         return
 
     plan = load_plan(plan_file)
@@ -118,8 +127,14 @@ def cmd_plan_reopen(args: argparse.Namespace) -> None:
 
     append_log_entry(plan, "reopen", issue_ids=reopened, actor="user")
     transition_phase: str | None = None
-    if clear_postflight_scan_completion(plan, issue_ids=reopened, state=state_data):
-        transition_phase = LIFECYCLE_PHASE_EXECUTE
+    if invalidate_postflight_scan(plan, issue_ids=reopened, state=state_data):
+        result = reconcile_plan(
+            plan,
+            state_data,
+            target_strict=target_strict_score_from_config(state_data.get("config")),
+        )
+        if result.lifecycle_phase_changed:
+            transition_phase = result.lifecycle_phase
     save_plan_state_transactional(
         plan=plan,
         plan_path=plan_file,
@@ -143,7 +158,9 @@ def cmd_plan_focus(args: argparse.Namespace) -> None:
     if clear_flag:
         prev = plan.get("active_cluster")
         clear_focus(plan)
-        append_log_entry(plan, "focus", actor="user", detail={"action": "clear", "previous": prev})
+        append_log_entry(
+            plan, "focus", actor="user", detail={"action": "clear", "previous": prev}
+        )
         save_plan(plan)
         print(colorize("  Focus cleared.", "green"))
         return
@@ -161,7 +178,9 @@ def cmd_plan_focus(args: argparse.Namespace) -> None:
     except ValueError as ex:
         print(colorize(f"  {ex}", "red"))
         return
-    append_log_entry(plan, "focus", cluster_name=cluster_name, actor="user", detail={"action": "set"})
+    append_log_entry(
+        plan, "focus", cluster_name=cluster_name, actor="user", detail={"action": "set"}
+    )
     save_plan(plan)
     print(colorize(f"  Focused on: {cluster_name}", "green"))
 
@@ -176,7 +195,11 @@ def cmd_plan_scan_gate(args: argparse.Namespace) -> None:
 
     if scan_count_at_start is None:
         print(colorize("  No active plan cycle (plan_start_scores not seeded).", "dim"))
-        print(colorize("  Scan gate is not applicable — workflow items gate themselves.", "dim"))
+        print(
+            colorize(
+                "  Scan gate is not applicable — workflow items gate themselves.", "dim"
+            )
+        )
         return
 
     resolved_state_path = state_path(args)
@@ -188,14 +211,28 @@ def cmd_plan_scan_gate(args: argparse.Namespace) -> None:
     if not skip:
         if scan_ran:
             print(colorize("  Scan gate: PASSED", "green"))
-            print(colorize(f"  Scans at cycle start: {scan_count_at_start}  Current: {current_scan_count}", "dim"))
+            print(
+                colorize(
+                    f"  Scans at cycle start: {scan_count_at_start}  Current: {current_scan_count}",
+                    "dim",
+                )
+            )
         elif scan_skipped:
             print(colorize("  Scan gate: SKIPPED (manually)", "yellow"))
         else:
             print(colorize("  Scan gate: BLOCKED", "red"))
-            print(colorize(f"  Scans at cycle start: {scan_count_at_start}  Current: {current_scan_count}", "dim"))
+            print(
+                colorize(
+                    f"  Scans at cycle start: {scan_count_at_start}  Current: {current_scan_count}",
+                    "dim",
+                )
+            )
             print(colorize("  Run: desloppify scan", "dim"))
-            print(colorize('  Or:  desloppify plan scan-gate --skip --note "reason"', "dim"))
+            print(
+                colorize(
+                    '  Or:  desloppify plan scan-gate --skip --note "reason"', "dim"
+                )
+            )
         return
 
     if scan_ran:
@@ -203,7 +240,11 @@ def cmd_plan_scan_gate(args: argparse.Namespace) -> None:
         return
 
     if not note or len(note.strip()) < 50:
-        print(colorize("  --skip requires --note with at least 50 chars explaining why.", "red"))
+        print(
+            colorize(
+                "  --skip requires --note with at least 50 chars explaining why.", "red"
+            )
+        )
         return
 
     plan["scan_gate_skipped"] = True

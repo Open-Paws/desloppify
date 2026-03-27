@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from desloppify.app.commands.plan.shared.cluster_membership import cluster_issue_ids
+from desloppify.engine._plan.triage.lifecycle import ensure_active_triage_issue_ids
 from desloppify.engine._state.schema import StateModel
 from desloppify.engine.plan_state import Cluster, PlanModel
 from desloppify.engine.plan_triage import (
@@ -16,10 +17,7 @@ from desloppify.engine.plan_triage import (
     undispositioned_triage_issue_ids as _undispositioned_triage_issue_ids,
 )
 from desloppify.engine._plan.policy.stale import open_review_ids
-
-from .plan_state_access import (
-    ensure_triage_meta,
-)
+from .plan_state_access import ensure_triage_meta
 
 _ACTIVE_TRIAGE_ISSUE_IDS_KEY = "active_triage_issue_ids"
 _UNDISPOSITIONED_TRIAGE_ISSUES_KEY = "undispositioned_issue_ids"
@@ -60,16 +58,6 @@ def live_active_triage_issue_ids(
 ) -> set[str]:
     """Return frozen triage IDs that are still open review issues in state."""
     return _live_active_triage_issue_ids(plan, state)
-
-
-def ensure_active_triage_issue_ids(plan: PlanModel, state: StateModel) -> list[str]:
-    """Freeze the current triage issue set for validation across stage reruns."""
-    meta = ensure_triage_meta(plan)
-    active_ids = sorted(coverage_open_ids(plan, state))
-    meta[_ACTIVE_TRIAGE_ISSUE_IDS_KEY] = active_ids
-    meta.pop(_UNDISPOSITIONED_TRIAGE_ISSUES_KEY, None)
-    meta.pop(_UNDISPOSITIONED_TRIAGE_COUNT_KEY, None)
-    return active_ids
 
 
 def clear_active_triage_issue_tracking(meta: dict[str, object]) -> None:

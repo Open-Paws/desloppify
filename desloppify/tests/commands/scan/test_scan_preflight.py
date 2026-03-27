@@ -112,7 +112,7 @@ def test_queue_remaining_blocks_scan():
     from desloppify.app.commands.helpers.queue_progress import QueueBreakdown
 
     args = SimpleNamespace(profile=None, force_rescan=False, state=None, lang="python")
-    plan = {"plan_start_scores": {"strict": 80.0}}
+    plan = {"plan_start_scores": {"strict": 80.0}, "queue_order": ["issue-1", "issue-2"]}
     with (
         patch(
             "desloppify.app.commands.scan.preflight.resolve_plan_load_status",
@@ -134,16 +134,16 @@ def test_queue_remaining_blocks_scan():
     assert "remaining in your queue" in str(exc_info.value)
 
 
-def test_queue_with_only_subjective_items_blocks_scan():
-    """When queue contains only subjective items, scan is blocked.
+def test_queue_with_only_subjective_items_allows_scan():
+    """When queue contains only subjective items (synthetic), scan is allowed.
 
-    Mid-cycle scans regenerate clusters and issue IDs, which wipes
-    triage state and reorders the queue.
+    Subjective items are synthetic — the live planned queue is empty,
+    so there's no objective work blocking the scan.
     """
     from desloppify.app.commands.helpers.queue_progress import QueueBreakdown
 
     args = SimpleNamespace(profile=None, force_rescan=False, state=None, lang="python")
-    plan = {"plan_start_scores": {"strict": 80.0}}
+    plan = {"plan_start_scores": {"strict": 80.0}, "queue_order": ["subjective::dim1", "subjective::dim2"]}
     breakdown = QueueBreakdown(queue_total=20, subjective=20, workflow=0)
     assert breakdown.objective_actionable == 0  # precondition
     with (
@@ -160,22 +160,21 @@ def test_queue_with_only_subjective_items_blocks_scan():
             "desloppify.app.commands.scan.preflight.plan_aware_queue_breakdown",
             return_value=breakdown,
         ),
-        pytest.raises(CommandError),
     ):
         mock_state_mod.load_state.return_value = {"issues": {}}
-        scan_queue_preflight(args)
+        scan_queue_preflight(args)  # should NOT raise
 
 
-def test_queue_with_only_workflow_items_blocks_scan():
-    """When queue contains only workflow items, scan is blocked.
+def test_queue_with_only_workflow_items_allows_scan():
+    """When queue contains only workflow items (synthetic), scan is allowed.
 
-    Mid-cycle scans regenerate clusters and issue IDs, which wipes
-    triage state and reorders the queue.
+    Workflow items are synthetic — the live planned queue is empty,
+    so there's no objective work blocking the scan.
     """
     from desloppify.app.commands.helpers.queue_progress import QueueBreakdown
 
     args = SimpleNamespace(profile=None, force_rescan=False, state=None, lang="python")
-    plan = {"plan_start_scores": {"strict": 80.0}}
+    plan = {"plan_start_scores": {"strict": 80.0}, "queue_order": ["workflow::communicate-score"]}
     breakdown = QueueBreakdown(queue_total=1, workflow=1)
     assert breakdown.objective_actionable == 0  # precondition
     with (
@@ -196,10 +195,9 @@ def test_queue_with_only_workflow_items_blocks_scan():
             "desloppify.app.commands.scan.preflight._only_run_scan_workflow_remaining",
             return_value=False,
         ),
-        pytest.raises(CommandError),
     ):
         mock_state_mod.load_state.return_value = {"issues": {}}
-        scan_queue_preflight(args)
+        scan_queue_preflight(args)  # should NOT raise — workflow items are synthetic
 
 
 def test_queue_with_only_run_scan_workflow_allows_scan():

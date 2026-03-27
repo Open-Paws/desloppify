@@ -19,6 +19,7 @@ from desloppify.engine._plan.operations.meta import append_log_entry
 from desloppify.engine._plan.persistence import load_plan, save_plan
 from desloppify.engine._plan.scan_issue_reconcile import reconcile_plan_after_scan
 from desloppify.engine._plan.refresh_lifecycle import (
+    carry_forward_subjective_review,
     current_lifecycle_phase,
     mark_postflight_scan_completed,
 )
@@ -352,6 +353,19 @@ def reconcile_plan_post_scan(runtime: Any) -> None:
 
     force_rescan = getattr(runtime, "force_rescan", False)
     dirty = _reset_cycle_for_force_rescan(plan) if force_rescan else False
+    if force_rescan and phase_before == "plan":
+        old_postflight_scan_count = None
+        refresh_state = plan.get("refresh_state")
+        if isinstance(refresh_state, dict):
+            old_postflight_scan_count = refresh_state.get(
+                "postflight_scan_completed_at_scan_count"
+            )
+        if carry_forward_subjective_review(
+            plan,
+            old_postflight_scan_count=old_postflight_scan_count,
+            new_scan_count=int(runtime.state.get("scan_count", 0) or 0),
+        ):
+            dirty = True
     dirty = _sync_post_scan_without_policy(plan=plan, state=runtime.state) or dirty
 
     boundary_crossed = live_planned_queue_empty(plan) or force_rescan
