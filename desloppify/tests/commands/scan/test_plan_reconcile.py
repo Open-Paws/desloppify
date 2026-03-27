@@ -9,10 +9,10 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-
 import desloppify.app.commands.scan.plan_reconcile as reconcile_mod
 from desloppify.engine._plan.schema import empty_plan
 from desloppify.engine._plan.constants import QueueSyncResult
+from desloppify.engine._state.progression import append_progression_event, load_progression
 
 
 # ---------------------------------------------------------------------------
@@ -376,3 +376,298 @@ class TestSyncPlanStartScoresAndLog:
         assert state["_plan_start_scores_for_reveal"]["strict"] == 70.0
         log_actions = [e["action"] for e in plan["execution_log"]]
         assert "clear_start_scores" in log_actions
+
+
+class TestReconcilePlanPostScanProgression:
+
+    def test_emits_plan_checkpoint_on_scan_boundary_without_subjective_queue(
+        self,
+        monkeypatch,
+        tmp_path: Path,
+    ) -> None:
+        progression_file = tmp_path / "progression.jsonl"
+        plan = empty_plan()
+        plan["plan_start_scores"] = {
+            "strict": 70.0,
+            "overall": 72.0,
+            "objective": 80.0,
+            "verified": 68.0,
+        }
+        plan["execution_log"] = [
+            {
+                "timestamp": "2026-01-02T00:00:00Z",
+                "action": "resolve",
+                "issue_ids": ["issue-before"],
+            },
+            {
+                "timestamp": "2026-01-04T00:00:00Z",
+                "action": "resolve",
+                "issue_ids": ["issue-after"],
+            },
+            {
+                "timestamp": "2026-01-05T00:00:00Z",
+                "action": "done",
+                "issue_ids": ["issue-done"],
+            },
+            {
+                "timestamp": "2026-01-06T00:00:00Z",
+                "action": "skip",
+                "issue_ids": ["issue-skip"],
+            },
+        ]
+        runtime = _runtime(
+            state=_make_state(
+                strict_score=74.5,
+                overall_score=76.0,
+                objective_score=90.0,
+                verified_strict_score=73.5,
+            )
+        )
+        append_progression_event(
+            {
+                "event_type": "plan_checkpoint",
+                "timestamp": "2026-01-03T00:00:00Z",
+                "schema_version": 1,
+                "payload": {},
+            },
+            path=progression_file,
+        )
+
+        monkeypatch.setattr(reconcile_mod, "load_plan", lambda _path=None: plan)
+        monkeypatch.setattr(
+            "desloppify.engine._state.progression.progression_path",
+            lambda: progression_file,
+        )
+        monkeypatch.setattr(reconcile_mod, "_sync_post_scan_without_policy", lambda **_kwargs: False)
+        monkeypatch.setattr(reconcile_mod, "_sync_postflight_scan_completion_and_log", lambda *args, **kwargs: False)
+        monkeypatch.setattr(reconcile_mod, "append_log_entry", lambda *_a, **_k: None)
+        monkeypatch.setattr(reconcile_mod, "_display_reconcile_results", lambda *_a, **_k: None)
+        monkeypatch.setattr(reconcile_mod, "maybe_append_entered_planning", lambda *_a, **_k: None)
+
+        def fake_reconcile(_plan, _state, **_kwargs):
+            _plan["plan_start_scores"] = {
+                "strict": 74.5,
+                "overall": 76.0,
+                "objective": 90.0,
+                "verified": 73.5,
+            }
+            _plan["previous_plan_start_scores"] = {
+                "strict": 70.0,
+                "overall": 72.0,
+                "objective": 80.0,
+                "verified": 68.0,
+            }
+            return reconcile_mod.ReconcileResult(
+                communicate_score=QueueSyncResult(
+                    auto_resolved=["workflow::communicate-score"]
+                ),
+                checkpoint_plan_start=dict(_plan["plan_start_scores"]),
+                checkpoint_prev_start=dict(_plan["previous_plan_start_scores"]),
+            )
+
+        monkeypatch.setattr(reconcile_mod, "reconcile_plan", fake_reconcile)
+        monkeypatch.setattr(
+            reconcile_mod,
+            "_sync_plan_start_scores_and_log",
+            lambda _plan, _state: (
+                _plan.__setitem__("plan_start_scores", {})
+                or _plan.__setitem__("previous_plan_start_scores", {})
+                or True
+            ),
+        )
+        monkeypatch.setattr(reconcile_mod, "save_plan", lambda _plan, _path=None: None)
+
+        reconcile_mod.reconcile_plan_post_scan(runtime)
+
+        events = load_progression(progression_file)
+        checkpoint = [e for e in events if e["event_type"] == "plan_checkpoint"][-1]
+        payload = checkpoint["payload"]
+        assert payload["trigger"] == "no_subjective_review_needed"
+        assert checkpoint["source_command"] == "scan"
+        assert "source_command" not in payload
+        assert payload["plan_start_scores"]["strict"] == 74.5
+        assert payload["previous_plan_start_scores"]["strict"] == 70.0
+        assert payload["queue_summary"] == {}
+        assert payload["resolved_since_last"] == ["issue-after", "issue-done"]
+        assert payload["skipped_since_last"] == ["issue-skip"]
+        assert payload["execution_summary"] == {
+            "resolve": 1,
+            "done": 1,
+            "skip": 1,
+        }
+
+    def test_emits_full_checkpoint_delta_when_no_prior_checkpoint_exists(
+        self,
+        monkeypatch,
+        tmp_path: Path,
+    ) -> None:
+        progression_file = tmp_path / "progression.jsonl"
+        plan = empty_plan()
+        plan["plan_start_scores"] = {"strict": 70.0}
+        plan["execution_log"] = [
+            {
+                "timestamp": "2026-01-02T00:00:00Z",
+                "action": "resolve",
+                "issue_ids": ["issue-1"],
+            },
+            {
+                "timestamp": "2026-01-03T00:00:00Z",
+                "action": "done",
+                "issue_ids": ["issue-2"],
+            },
+            {
+                "timestamp": "2026-01-04T00:00:00Z",
+                "action": "skip",
+                "issue_ids": ["issue-3"],
+            },
+        ]
+        runtime = _runtime(
+            state=_make_state(
+                strict_score=74.5,
+                overall_score=76.0,
+                objective_score=90.0,
+                verified_strict_score=73.5,
+            )
+        )
+
+        monkeypatch.setattr(reconcile_mod, "load_plan", lambda _path=None: plan)
+        monkeypatch.setattr(
+            "desloppify.engine._state.progression.progression_path",
+            lambda: progression_file,
+        )
+        monkeypatch.setattr(reconcile_mod, "_sync_post_scan_without_policy", lambda **_kwargs: False)
+        monkeypatch.setattr(reconcile_mod, "_sync_postflight_scan_completion_and_log", lambda *args, **kwargs: False)
+        monkeypatch.setattr(reconcile_mod, "append_log_entry", lambda *_a, **_k: None)
+        monkeypatch.setattr(reconcile_mod, "_display_reconcile_results", lambda *_a, **_k: None)
+        monkeypatch.setattr(reconcile_mod, "maybe_append_entered_planning", lambda *_a, **_k: None)
+
+        def fake_reconcile(_plan, _state, **_kwargs):
+            _plan["plan_start_scores"] = {"strict": 74.5}
+            _plan["previous_plan_start_scores"] = {"strict": 70.0}
+            return reconcile_mod.ReconcileResult(
+                communicate_score=QueueSyncResult(
+                    auto_resolved=["workflow::communicate-score"]
+                ),
+                checkpoint_plan_start={"strict": 74.5},
+                checkpoint_prev_start={"strict": 70.0},
+            )
+
+        monkeypatch.setattr(reconcile_mod, "reconcile_plan", fake_reconcile)
+        monkeypatch.setattr(
+            reconcile_mod,
+            "_sync_plan_start_scores_and_log",
+            lambda _plan, _state: (
+                _plan.__setitem__("plan_start_scores", {})
+                or _plan.__setitem__("previous_plan_start_scores", {})
+                or True
+            ),
+        )
+        monkeypatch.setattr(reconcile_mod, "save_plan", lambda _plan, _path=None: None)
+
+        reconcile_mod.reconcile_plan_post_scan(runtime)
+
+        events = load_progression(progression_file)
+        checkpoint = [e for e in events if e["event_type"] == "plan_checkpoint"][-1]
+        payload = checkpoint["payload"]
+        assert payload["resolved_since_last"] == ["issue-1", "issue-2"]
+        assert payload["skipped_since_last"] == ["issue-3"]
+        assert payload["execution_summary"] == {
+            "resolve": 1,
+            "done": 1,
+            "skip": 1,
+        }
+
+    def test_does_not_emit_plan_checkpoint_when_subjective_review_is_now_queued(
+        self,
+        monkeypatch,
+        tmp_path: Path,
+    ) -> None:
+        progression_file = tmp_path / "progression.jsonl"
+        plan = empty_plan()
+        plan["plan_start_scores"] = {"strict": 70.0}
+        runtime = _runtime(state=_make_state(strict_score=74.5))
+
+        monkeypatch.setattr(reconcile_mod, "load_plan", lambda _path=None: plan)
+        monkeypatch.setattr(
+            "desloppify.engine._state.progression.progression_path",
+            lambda: progression_file,
+        )
+        monkeypatch.setattr(reconcile_mod, "_sync_post_scan_without_policy", lambda **_kwargs: False)
+        monkeypatch.setattr(reconcile_mod, "_sync_plan_start_scores_and_log", lambda *_a, **_k: False)
+        monkeypatch.setattr(reconcile_mod, "_sync_postflight_scan_completion_and_log", lambda *args, **kwargs: False)
+        monkeypatch.setattr(reconcile_mod, "_display_reconcile_results", lambda *_a, **_k: None)
+        monkeypatch.setattr(reconcile_mod, "maybe_append_entered_planning", lambda *_a, **_k: None)
+        monkeypatch.setattr(reconcile_mod, "save_plan", lambda _plan, _path=None: None)
+        monkeypatch.setattr(
+            reconcile_mod,
+            "reconcile_plan",
+            lambda _plan, _state, **_kwargs: (
+                _plan["queue_order"].append("subjective::naming_quality")
+                or reconcile_mod.ReconcileResult(communicate_score=QueueSyncResult())
+            ),
+        )
+
+        reconcile_mod.reconcile_plan_post_scan(runtime)
+
+        events = load_progression(progression_file)
+        assert not any(e["event_type"] == "plan_checkpoint" for e in events)
+
+    def test_does_not_emit_plan_checkpoint_when_boundary_not_crossed(
+        self,
+        monkeypatch,
+        tmp_path: Path,
+    ) -> None:
+        progression_file = tmp_path / "progression.jsonl"
+        plan = empty_plan()
+        plan["queue_order"] = ["unused::dead-import"]
+        runtime = _runtime(state=_make_state(strict_score=74.5))
+
+        monkeypatch.setattr(reconcile_mod, "load_plan", lambda _path=None: plan)
+        monkeypatch.setattr(
+            "desloppify.engine._state.progression.progression_path",
+            lambda: progression_file,
+        )
+        monkeypatch.setattr(reconcile_mod, "_sync_post_scan_without_policy", lambda **_kwargs: False)
+        monkeypatch.setattr(reconcile_mod, "_sync_plan_start_scores_and_log", lambda *_a, **_k: False)
+        monkeypatch.setattr(reconcile_mod, "_sync_postflight_scan_completion_and_log", lambda *args, **kwargs: False)
+        monkeypatch.setattr(reconcile_mod, "maybe_append_entered_planning", lambda *_a, **_k: None)
+        monkeypatch.setattr(reconcile_mod, "save_plan", lambda _plan, _path=None: None)
+
+        reconcile_mod.reconcile_plan_post_scan(runtime)
+
+        events = load_progression(progression_file)
+        assert not any(e["event_type"] == "plan_checkpoint" for e in events)
+
+    def test_does_not_emit_plan_checkpoint_when_communicate_score_was_already_resolved(
+        self,
+        monkeypatch,
+        tmp_path: Path,
+    ) -> None:
+        progression_file = tmp_path / "progression.jsonl"
+        plan = empty_plan()
+        plan["previous_plan_start_scores"] = {"strict": 70.0}
+        runtime = _runtime(state=_make_state(strict_score=74.5))
+
+        monkeypatch.setattr(reconcile_mod, "load_plan", lambda _path=None: plan)
+        monkeypatch.setattr(
+            "desloppify.engine._state.progression.progression_path",
+            lambda: progression_file,
+        )
+        monkeypatch.setattr(reconcile_mod, "_sync_post_scan_without_policy", lambda **_kwargs: False)
+        monkeypatch.setattr(reconcile_mod, "_sync_plan_start_scores_and_log", lambda *_a, **_k: False)
+        monkeypatch.setattr(reconcile_mod, "_sync_postflight_scan_completion_and_log", lambda *args, **kwargs: False)
+        monkeypatch.setattr(reconcile_mod, "_display_reconcile_results", lambda *_a, **_k: None)
+        monkeypatch.setattr(reconcile_mod, "maybe_append_entered_planning", lambda *_a, **_k: None)
+        monkeypatch.setattr(reconcile_mod, "save_plan", lambda _plan, _path=None: None)
+        monkeypatch.setattr(
+            reconcile_mod,
+            "reconcile_plan",
+            lambda _plan, _state, **_kwargs: reconcile_mod.ReconcileResult(
+                communicate_score=QueueSyncResult()
+            ),
+        )
+
+        reconcile_mod.reconcile_plan_post_scan(runtime)
+
+        events = load_progression(progression_file)
+        assert not any(e["event_type"] == "plan_checkpoint" for e in events)

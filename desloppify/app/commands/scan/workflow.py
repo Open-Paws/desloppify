@@ -166,7 +166,6 @@ class ScanRuntime:
     coverage_warnings: list[DetectorCoverageRecord] = field(default_factory=list)
     force_rescan: bool = False
     scan_diff: dict[str, object] | None = None
-    prev_scores: dict[str, float | None] | None = None
     prev_dim_scores: dict[str, object] | None = None
     prev_last_scan: str | None = None
 
@@ -481,12 +480,6 @@ def merge_scan_results(
 
     _clear_needs_rescan_flag(runtime.config)
     runtime.scan_diff = diff
-    runtime.prev_scores = {
-        "overall": prev.overall,
-        "objective": prev.objective,
-        "strict": prev.strict,
-        "verified_strict": prev.verified,
-    }
     runtime.prev_dim_scores = prev_dim_scores
     _reconcile_plan_post_scan(runtime)
 
