@@ -40,9 +40,8 @@ pytest-full.xml
 .claude/
 .agents/
 /skills/
-CLAUDE.md
-!desloppify/data/global/CLAUDE.md
-AGENTS.md
+/CLAUDE.md
+/AGENTS.md
 tasks/
 /scripts/
 cotton-desloppify/
