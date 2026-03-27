@@ -22,7 +22,7 @@ def _normalize_graph_paths(graph: dict) -> dict:
     def _to_rel(path: str) -> str:
         return path[len(root_prefix) :] if path.startswith(root_prefix) else path
 
-    needs_norm = any(k.startswith(root_prefix) for k in list(graph)[:3])
+    needs_norm = any(k.startswith(root_prefix) for k in graph)
     if not needs_norm:
         return graph
 
