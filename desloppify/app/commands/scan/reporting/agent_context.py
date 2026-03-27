@@ -9,6 +9,7 @@ from typing import Any
 
 from desloppify import state as state_mod
 from desloppify.base.output.user_message import print_user_message
+from desloppify.app.commands.helpers.rendering import _count_cluster_remaining
 from desloppify.app.commands.update_skill import (
     resolve_interface,
     update_installed_skill,
@@ -398,8 +399,8 @@ def _print_living_plan_notice(plan_snapshot: dict[str, object]) -> None:
     print(f"LIVING PLAN ACTIVE: {ordered} ordered, {skipped} skipped.")
     if isinstance(active, str) and active:
         cluster = plan_snapshot.get("clusters", {}).get(active)
-        issue_ids = cluster.get("issue_ids", []) if isinstance(cluster, dict) else []
-        remaining = len(issue_ids) if isinstance(issue_ids, list) else 0
+        safe_cluster = cluster if isinstance(cluster, dict) else {}
+        remaining = _count_cluster_remaining(plan_snapshot, safe_cluster)
         print(f"Focused on: {active} ({remaining} items remaining).")
     print("The plan is the single source of truth for work order.")
     print("Use `desloppify next` which respects the plan.")
