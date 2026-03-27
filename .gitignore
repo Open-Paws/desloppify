@@ -40,7 +40,6 @@ pytest-full.xml
 .claude/
 .agents/
 /skills/
-/CLAUDE.md
 /AGENTS.md
 tasks/
 /scripts/
