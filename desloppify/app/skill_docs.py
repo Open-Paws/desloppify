@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from pathlib import Path
 
 from desloppify.base.discovery.paths import get_project_root
 
@@ -45,6 +46,31 @@ SKILL_TARGETS: dict[str, tuple[str, str, bool]] = {
     "hermes": ("AGENTS.md", "HERMES", False),
 }
 
+# Global (user-level) skill install targets.
+# Single source of truth — setup/cmd.py imports this.
+# interface -> (path relative to ~/, overlay name, tool config dir to check, dedicated)
+#
+# Verified against official docs (2026-03-22):
+#   claude:   code.claude.com/docs/en/skills
+#   codex:    developers.openai.com/codex/guides/agents-md
+#   gemini:   geminicli.com/docs/cli/skills/
+#   amp:      ampcode.com/news/agent-skills
+#   opencode: opencode.ai/docs/skills/
+#
+# Cursor is excluded — global rules are UI-only (cursor.com/docs/rules).
+GLOBAL_TARGETS: dict[str, tuple[str, str, str, bool]] = {
+    "claude": (".claude/skills/desloppify/SKILL.md", "CLAUDE", ".claude", True),
+    "codex": (".codex/AGENTS.md", "CODEX", ".codex", False),
+    "gemini": (".gemini/skills/desloppify/SKILL.md", "GEMINI", ".gemini", True),
+    "amp": (".config/agents/skills/desloppify/SKILL.md", "AMP", ".config/agents", True),
+    "opencode": (
+        ".config/opencode/skills/desloppify/SKILL.md",
+        "OPENCODE",
+        ".config/opencode",
+        True,
+    ),
+}
+
 
 @dataclass
 class SkillInstall:
@@ -56,6 +82,22 @@ class SkillInstall:
     stale: bool
 
 
+def _parse_skill_content(rel_path: str, content: str) -> SkillInstall | None:
+    """Extract version/overlay metadata from skill file content."""
+    version_match = SKILL_VERSION_RE.search(content)
+    if not version_match:
+        return None
+    installed_version = int(version_match.group(1))
+    overlay_match = SKILL_OVERLAY_RE.search(content)
+    overlay = overlay_match.group(1) if overlay_match else None
+    return SkillInstall(
+        rel_path=rel_path,
+        version=installed_version,
+        overlay=overlay,
+        stale=installed_version < SKILL_VERSION,
+    )
+
+
 def find_installed_skill() -> SkillInstall | None:
     """Find installed skill document metadata, or None."""
     project_root = get_project_root()
@@ -65,34 +107,63 @@ def find_installed_skill() -> SkillInstall | None:
             continue
         try:
             content = full.read_text(encoding="utf-8", errors="replace")
-        except OSError as exc:
-            _ = exc
+        except OSError:
             continue
-        version_match = SKILL_VERSION_RE.search(content)
-        if not version_match:
-            continue
-        installed_version = int(version_match.group(1))
-        overlay_match = SKILL_OVERLAY_RE.search(content)
-        overlay = overlay_match.group(1) if overlay_match else None
-        return SkillInstall(
-            rel_path=rel_path,
-            version=installed_version,
-            overlay=overlay,
-            stale=installed_version < SKILL_VERSION,
-        )
+        install = _parse_skill_content(rel_path, content)
+        if install is not None:
+            return install
     return None
+
+
+def _scan_global_installs() -> list[SkillInstall]:
+    """Find all globally-installed skill documents."""
+    home = Path.home()
+    results: list[SkillInstall] = []
+    for rel_path, _overlay, _check_dir, _dedicated in GLOBAL_TARGETS.values():
+        full = home / rel_path
+        if not full.is_file():
+            continue
+        try:
+            content = full.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        install = _parse_skill_content(f"~/{rel_path}", content)
+        if install is not None:
+            results.append(install)
+    return results
+
+
+def find_stale_global_installs() -> list[SkillInstall]:
+    """Return all globally-installed skill documents that are stale."""
+    return [i for i in _scan_global_installs() if i.stale]
+
+
+def find_any_global_install() -> bool:
+    """Return True if any global skill install exists (stale or current)."""
+    return bool(_scan_global_installs())
 
 
 def check_skill_version() -> str | None:
     """Return a warning if installed skill doc is outdated."""
+    # Per-project takes precedence (it's what the tool loads in-project).
     install = find_installed_skill()
-    if not install or not install.stale:
-        return None
-    return (
-        f"Your desloppify skill document is outdated "
-        f"(v{install.version}, current v{SKILL_VERSION}). "
-        "Run: desloppify update-skill"
-    )
+    if install:
+        if not install.stale:
+            return None
+        return (
+            f"Your desloppify skill document is outdated "
+            f"(v{install.version}, current v{SKILL_VERSION}). "
+            "Run: desloppify update-skill"
+        )
+    # Check global installs.
+    stale_globals = find_stale_global_installs()
+    if stale_globals:
+        return (
+            f"Your global desloppify skill is outdated "
+            f"(v{stale_globals[0].version}, current v{SKILL_VERSION}). "
+            "Run: desloppify setup"
+        )
+    return None
 
 
 __all__ = [
@@ -103,7 +174,10 @@ __all__ = [
     "SKILL_END",
     "SKILL_SEARCH_PATHS",
     "SKILL_TARGETS",
+    "GLOBAL_TARGETS",
     "SkillInstall",
     "find_installed_skill",
+    "find_stale_global_installs",
+    "find_any_global_install",
     "check_skill_version",
 ]

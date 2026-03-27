@@ -222,51 +222,6 @@ def _print_narrative_status(narrative: dict[str, Any] | None) -> None:
     print()
 
 
-def _detect_agent_interface() -> str | None:
-    """Detect the current agent interface from environment variables."""
-    # Check AGENT first — AMP sets both AGENT=amp and CLAUDECODE=1,
-    # so we must identify it before falling through to the CLAUDECODE check.
-    agent_var = os.environ.get("AGENT", "").lower()
-    if agent_var == "amp":
-        return "amp"
-    if os.environ.get("CLAUDECODE"):
-        return "claude"
-    if os.environ.get("GEMINI_CLI"):
-        return "gemini"
-    if os.environ.get("CODEX_SANDBOX_NETWORK_DISABLED") or os.environ.get("CODEX_SANDBOX"):
-        return "codex"
-    if os.environ.get("CURSOR_TRACE_ID"):
-        return "cursor"
-    return None
-
-
-def _try_auto_update_skill() -> None:
-    """Attempt to auto-install or auto-update the skill document.
-
-    Best-effort: swallows all exceptions so a network failure or permission
-    error never breaks the scan.
-    """
-    install = skill_docs_mod.find_installed_skill()
-
-    if install and not install.stale:
-        return  # Up to date.
-
-    try:
-        if install:
-            interface = resolve_interface(install=install)
-        else:
-            interface = _detect_agent_interface()
-
-        if interface:
-            update_installed_skill(interface)
-    except (ImportError, OSError, RuntimeError, ValueError) as exc:
-        log_best_effort_failure(
-            logger,
-            "auto-update installed skill guidance",
-            exc,
-        )
-
-
 def _print_badge_hint(badge_path: Path | None) -> None:
     if not (badge_path and badge_path.exists()):
         return
@@ -408,28 +363,26 @@ def _print_living_plan_notice(plan_snapshot: dict[str, object]) -> None:
 
 
 def auto_update_skill() -> None:
-    """Auto-install or update the skill document if we detect an agent.
+    """Warn if skill document is outdated. Does not auto-update.
 
     Called unconditionally from the scan workflow — not gated on scores.
+    Checks per-project first, then global installs.
     """
     if not is_agent_environment():
         return
 
-    _try_auto_update_skill()
+    warning = skill_docs_mod.check_skill_version()
+    if warning:
+        print(warning)
+        return
 
-    # Single post-check: whatever happened above, is the doc current now?
-    install = skill_docs_mod.find_installed_skill()
-    if not install:
-        names = ", ".join(sorted(skill_docs_mod.SKILL_TARGETS))
+    # check_skill_version returned None — either a current install exists,
+    # or no install at all.  Distinguish the two cases.
+    if not skill_docs_mod.find_installed_skill() and not skill_docs_mod.find_any_global_install():
         print(
-            f"No skill document found. Install one for better workflow guidance: "
-            f"desloppify update-skill <{names}>"
-        )
-    elif install.stale:
-        print(
-            f"Skill document is outdated "
-            f"(v{install.version}, current v{skill_docs_mod.SKILL_VERSION}). "
-            f"Run: desloppify update-skill"
+            "No desloppify skill document found. Run `desloppify setup` for "
+            "globally supported interfaces, or `desloppify update-skill <interface>` "
+            "for a per-project install."
         )
 
 

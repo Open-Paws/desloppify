@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from desloppify.app.commands.helpers.lang import load_lang_config
+from desloppify.app.skill_docs import GLOBAL_TARGETS
 from .parser_groups_admin_review import _add_review_parser  # noqa: F401 (re-export)
 
 logger = logging.getLogger(__name__)
@@ -232,5 +233,6 @@ def _add_setup_parser(sub) -> None:
     p.add_argument(
         "--interface",
         default=None,
-        help="Install for a specific interface only (claude, cursor)",
+        choices=sorted(GLOBAL_TARGETS),
+        help="Install for a specific interface only",
     )
