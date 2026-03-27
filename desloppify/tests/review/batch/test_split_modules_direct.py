@@ -69,6 +69,36 @@ def test_store_assessments_keeps_holistic_precedence():
     assert state["subjective_assessments"]["naming_quality"]["score"] == 90
 
 
+def test_store_assessments_handles_raw_int_in_existing_state():
+    """Regression test for #465: raw int in state should not crash store_assessments."""
+    state = {
+        "subjective_assessments": {
+            "type_safety": 55,  # corrupted/old-format: raw int instead of dict
+        }
+    }
+    # Should not raise AttributeError on the raw int
+    store_assessments(state, {"type_safety": 70}, source="per_file")
+    # The raw int should be overwritten with a proper dict
+    result = state["subjective_assessments"]["type_safety"]
+    assert isinstance(result, dict)
+    assert result["score"] == 70
+    assert result["source"] == "per_file"
+
+
+def test_store_assessments_raw_int_overwritten_by_holistic():
+    """Raw int in state should not block holistic source from overwriting."""
+    state = {
+        "subjective_assessments": {
+            "type_safety": 55,  # corrupted raw int
+        }
+    }
+    store_assessments(state, {"type_safety": 80}, source="holistic")
+    result = state["subjective_assessments"]["type_safety"]
+    assert isinstance(result, dict)
+    assert result["score"] == 80
+    assert result["source"] == "holistic"
+
+
 def test_remediation_empty_plan_renders_scores_block():
     state = {
         "overall_score": 95.1,

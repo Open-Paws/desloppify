@@ -77,7 +77,7 @@ def store_assessments(
             continue
 
         existing = store.get(dimension_key)
-        if existing and existing.get("source") == "holistic" and source == "per_file":
+        if isinstance(existing, dict) and existing.get("source") == "holistic" and source == "per_file":
             continue
 
         cleaned_components: list[str] = []

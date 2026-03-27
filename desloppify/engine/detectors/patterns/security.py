@@ -179,6 +179,63 @@ def is_env_lookup(line: str) -> bool:
     return any(lookup in line for lookup in ENV_LOOKUPS)
 
 
+# Field-name pattern: lowercase words joined by underscores.
+# e.g. "token_usage", "transition_token", "some_config_key"
+_FIELD_NAME_RE = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$")
+
+
+def _has_low_entropy(value: str) -> bool:
+    """Return True if *value* looks low-entropy (no digits AND no mixed case)."""
+    has_digits = any(ch.isdigit() for ch in value)
+    has_upper = any(ch.isupper() for ch in value)
+    has_lower = any(ch.islower() for ch in value)
+    mixed_case = has_upper and has_lower
+    return not has_digits and not mixed_case
+
+
+def _looks_like_non_secret_value(value: str) -> bool:
+    """Heuristic: return True if value is clearly not a secret.
+
+    Catches field-name constants, dict keys, sentinel markers, and other
+    non-secret string values that happen to live in variables with
+    secret-sounding names (e.g. TOKEN_USAGE = "token_usage").
+    """
+    stripped = value.strip()
+    if not stripped:
+        return True
+
+    # Pure field-name pattern: lowercase words joined by underscores.
+    # e.g. "token_usage", "transition_token"
+    # Only safe when the value has low entropy (no digits, no mixed case).
+    # A value like "prod_password_2026" has digits and must NOT be skipped.
+    if _FIELD_NAME_RE.match(stripped) and _has_low_entropy(stripped):
+        return True
+
+    # Contains spaces — likely a sentinel/label, not a secret.
+    # e.g. " flow ticket_flow start "
+    # Only safe when all-lowercase, no digits, AND the value contains
+    # non-alpha-space characters (underscores, symbols) or the original
+    # value has leading/trailing whitespace (sentinel markers).
+    # Pure multi-word strings like "correct horse battery staple" are
+    # potential passphrases and must NOT be skipped.
+    if " " in stripped:
+        _only_alpha_spaces = all(ch.isalpha() or ch == " " for ch in stripped)
+        _has_leading_trailing_ws = value != value.strip()
+        if (
+            stripped == stripped.lower()
+            and not any(ch.isdigit() for ch in stripped)
+            and (not _only_alpha_spaces or _has_leading_trailing_ws)
+        ):
+            return True
+
+    # Contains non-space label-like separators (@, :, /) and is all lowercase.
+    # e.g. "agent_workspace@", "redis://localhost"
+    if re.search(r"[@:/]", stripped) and stripped == stripped.lower():
+        return True
+
+    return False
+
+
 def is_placeholder(value: str) -> bool:
     """Check if a value is a placeholder, not a real secret."""
     lower = value.lower().strip()
@@ -186,4 +243,9 @@ def is_placeholder(value: str) -> bool:
         return True
     if any(lower.startswith(prefix) for prefix in PLACEHOLDER_PREFIXES):
         return True
-    return len(value) < 8
+    if len(value) < 8:
+        return True
+    # Heuristic: non-secret-looking values (field names, identifiers, etc.)
+    if _looks_like_non_secret_value(value):
+        return True
+    return False
