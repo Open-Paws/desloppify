@@ -75,4 +75,20 @@ def print_strict_target_nudge(
         print(colorize(f"  Strict {strict:.1f} — target {target:.1f} reached!", "green"))
 
 
-__all__ = ["print_score_update", "print_strict_target_nudge"]
+def print_score_checkpoint_message(plan: dict, communicate_score: object | None) -> None:
+    """Print the auto-resolved score checkpoint message.
+
+    Called after sync_communicate_score_needed auto-resolves to show the
+    user that a score checkpoint was saved without a manual queue step.
+    """
+    if not communicate_score or not communicate_score.auto_resolved:
+        return
+    strict = (plan.get("plan_start_scores") or {}).get("strict")
+    if isinstance(strict, (int, float)):
+        message = f"  Plan: score checkpoint saved (strict: {strict:.1f})."
+    else:
+        message = "  Plan: score checkpoint saved."
+    print(colorize(message, "dim"))
+
+
+__all__ = ["print_score_checkpoint_message", "print_score_update", "print_strict_target_nudge"]

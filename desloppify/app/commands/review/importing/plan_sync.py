@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from desloppify.app.commands.helpers.issue_id_display import short_issue_id
+from desloppify.app.commands.helpers.score_update import print_score_checkpoint_message
 from desloppify.app.commands.helpers.transition_messages import emit_transition_message
 from desloppify.app.commands.plan.triage.completion_flow import (
     count_log_activity_since,
@@ -209,14 +210,7 @@ def _print_workflow_injected_message(workflow_injected_ids: list[str]) -> None:
 
 
 def _print_auto_resolved_workflow_message(plan: dict, result: ReconcileResult) -> None:
-    if not result.communicate_score or not result.communicate_score.auto_resolved:
-        return
-    strict = (plan.get("plan_start_scores") or {}).get("strict")
-    if isinstance(strict, (int, float)):
-        message = f"  Plan: score checkpoint saved (strict: {strict:.1f})."
-    else:
-        message = "  Plan: score checkpoint saved."
-    print(colorize(message, "dim"))
+    print_score_checkpoint_message(plan, result.communicate_score)
 
 
 def _build_import_sync_inputs(
