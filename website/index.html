@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Desloppify — make your codebase beautiful</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Patrick+Hand&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/roughjs@4.6.6/bundled/rough.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <a href="#main-content" class="sr-only skip-link">Skip to content</a>
+
+  <!-- ─── NAV ─── -->
+  <nav id="nav" aria-label="Main navigation">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">desloppify</a>
+      <div class="nav-links">
+        <a href="token.html">Experimental Token</a>
+        <a href="https://github.com/peteromallet/desloppify" target="_blank">GitHub</a>
+        <a href="https://discord.gg/aZdzbZrHaY" target="_blank">Discord</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ─── HERO ─── -->
+  <main id="main-content">
+  <section id="hero">
+    <div class="hero-content">
+      <img src="mascot-no-bg.png" alt="Desloppify mascot — a funnel filtering messy code" class="hero-mascot">
+      <h1>desloppify</h1>
+      <p class="tagline">an agent harness to make your codebase <span class="chef-kiss">beautiful</span></p>
+      <p class="subtitle">
+        Give your AI coding agent a north star. Desloppify scans, scores, and
+        systematically improves code quality — mechanical issues and subjective ones —
+        across 29 languages. The score resists gaming. The only way up is to actually
+        make the code better.
+      </p>
+      <div class="hero-actions">
+        <a href="#how-it-works" class="btn btn-primary">See how it works</a>
+        <button id="copy-instructions" class="btn btn-secondary" onclick="copyAgentInstructions()">Copy agent instructions</button>
+      </div>
+      <div class="hero-badges">
+        <img src="https://img.shields.io/pypi/v/desloppify" alt="PyPI version">
+        <img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python 3.11+">
+        <img src="https://img.shields.io/badge/languages-29-green" alt="29 languages">
+      </div>
+    </div>
+    <canvas id="hero-canvas" aria-hidden="true"></canvas>
+  </section>
+
+  <!-- ─── HOW IT WORKS ─── -->
+  <section id="how-it-works">
+    <h2>How it works</h2>
+    <p class="how-desc">
+      Desloppify combines mechanical detection (dead code, duplication, complexity) with
+      subjective LLM review (naming, abstractions, module boundaries). It scans your codebase,
+      builds a prioritized plan, then works through a fix loop — one issue at a time. State
+      persists across sessions so it chips away over multiple runs, and the scoring is designed
+      to resist gaming. A score above 98 should correlate with a codebase a seasoned engineer
+      would call beautiful.
+    </p>
+    <div class="how-image-wrap" data-rough>
+      <img src="explained.png" alt="Desloppify flow: scan, detect, plan, fix loop" class="how-image">
+    </div>
+  </section>
+
+  <!-- ─── VIBE ENGINEERING ─── -->
+  <section id="vibe">
+    <h2>From vibe coding to vibe engineering</h2>
+    <div class="vibe-layout">
+      <div class="vibe-text">
+        <p>
+          Vibe coding gets things built fast. But the codebases it produces rot in ways
+          that are hard to see — abstractions drift, naming degrades, error handling
+          diverges. It works, but working <em>in</em> it gets worse.
+        </p>
+        <p>
+          LLMs are good at spotting this now, if you ask the right questions. The bet:
+          an agent with the right framework can hold a codebase to the standard that
+          used to require a senior engineer paying close attention over months.
+        </p>
+        <p class="vibe-cta">
+          Join the community of vibe engineers who want to build beautiful things →
+          <a href="https://discord.gg/aZdzbZrHaY" target="_blank">Discord</a>
+        </p>
+      </div>
+      <div class="vibe-image-wrap">
+        <img src="engineering.png" alt="Vibe Coding vs Vibe Engineering vs Vibe Engineering with Desloppify" class="vibe-image">
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── RELEASES ─── -->
+  <section id="releases">
+    <h2>Releases</h2>
+    <p class="releases-sub">Pulled live from GitHub.</p>
+    <div id="releases-list" class="releases-list">
+      <div class="releases-loading">Loading releases...</div>
+    </div>
+  </section>
+
+  <!-- ─── TOKEN ─── -->
+  <section id="token">
+    <h2>Experimental Token</h2>
+    <div class="token-card sketchy-border">
+      <p class="token-status">The $Desloppify Experiment</p>
+      <p>
+        Community crypto folks created a Solana token for Desloppify and gave us ~7%
+        of the supply plus creator fees. We're putting 100% of it toward boosting
+        the open source ecosystem — bounties, challenges, and funding.
+      </p>
+      <p>
+        Our first initiative: a $1,000 bounty to find something poorly engineered in
+        our 91k-line AI-built codebase. 262 comments. Winner:
+        <a href="https://github.com/agustif" target="_blank">@agustif</a>.
+        Now live: <a href="https://github.com/peteromallet/desloppify/issues/421" target="_blank">$1,000
+        if Desloppify does something stupid when refactoring your codebase</a>.
+      </p>
+      <p class="token-note">
+        <a href="token.html">Read the full token page &rarr;</a>
+      </p>
+    </div>
+  </section>
+
+  </main>
+
+  <!-- ─── FOOTER ─── -->
+  <footer>
+    <div class="footer-inner">
+      <p>MIT License &middot; <a href="https://github.com/peteromallet/desloppify">GitHub</a> &middot; <a href="https://discord.gg/aZdzbZrHaY">Discord</a> &middot; <a href="https://pypi.org/project/desloppify/">PyPI</a></p>
+    </div>
+  </footer>
+
+  <!-- SVG filter for hand-drawn border effect -->
+  <svg style="position:absolute;width:0;height:0" aria-hidden="true">
+    <filter id="sketchy-filter">
+      <feTurbulence type="turbulence" baseFrequency="0.015" numOctaves="3" result="noise" seed="2"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </svg>
+
+  <script src="main.js"></script>
+</body>
+</html>

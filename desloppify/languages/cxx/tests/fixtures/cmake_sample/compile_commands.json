@@ -1,0 +1,14 @@
+[
+  {
+    "file": "src/main.cpp",
+    "command": "clang++ -Iinclude -c src/main.cpp"
+  },
+  {
+    "file": "include/a.hpp",
+    "command": "clang++ -x c++-header -Iinclude -c include/a.hpp"
+  },
+  {
+    "file": "include/b.hpp",
+    "command": "clang++ -x c++-header -Iinclude -c include/b.hpp"
+  }
+]

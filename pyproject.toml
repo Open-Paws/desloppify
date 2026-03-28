@@ -1,0 +1,116 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "desloppify"
+version = "0.9.12"
+description = "Multi-language codebase health scanner and technical debt tracker"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Peter O'Malley", email = "pom@banodoco.ai"},
+]
+keywords = ["code-quality", "technical-debt", "linter", "static-analysis", "refactoring"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/peteromallet/desloppify"
+Repository = "https://github.com/peteromallet/desloppify"
+Issues = "https://github.com/peteromallet/desloppify/issues"
+
+[project.optional-dependencies]
+treesitter = [
+  "tree-sitter>=0.21",
+  "tree-sitter-language-pack>=0.3",
+]
+csharp-xml = ["defusedxml>=0.7.0"]
+python-security = ["bandit>=1.7.8"]
+scorecard = ["Pillow>=9.0.0"]
+plan-yaml = ["PyYAML>=6.0"]
+full = [
+  "defusedxml>=0.7.0",
+  "tree-sitter>=0.21",
+  "tree-sitter-language-pack>=0.3",
+  "bandit>=1.7.8",
+  "Pillow>=9.0.0",
+  "PyYAML>=6.0",
+]
+
+[project.scripts]
+desloppify = "desloppify.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["desloppify*"]
+exclude = ["desloppify.tests", "desloppify.tests.*"]
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.package-data]
+"desloppify.data.global" = ["*.md"]
+"desloppify.languages._framework" = ["review_data/*.json"]
+"desloppify.languages.python" = ["review_data/*.json"]
+"desloppify.languages.typescript" = ["review_data/*.json"]
+"desloppify.languages.csharp" = ["review_data/*.json"]
+"desloppify.languages.cxx" = ["review_data/*.json"]
+"desloppify.languages.dart" = ["review_data/*.json"]
+"desloppify.languages.gdscript" = ["review_data/*.json"]
+"desloppify.languages.go" = ["review_data/*.json"]
+"desloppify.languages.rust" = ["review_data/*.json"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ['desloppify/tests', 'desloppify/languages/python/tests', 'desloppify/languages/typescript/tests', 'desloppify/languages/csharp/tests', 'desloppify/languages/cxx/tests', 'desloppify/languages/dart/tests', 'desloppify/languages/gdscript/tests', 'desloppify/languages/go/tests', 'desloppify/languages/rust/tests', 'desloppify/languages/javascript/tests']
+norecursedirs = ["desloppify/tests/fixtures"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unreachable = true
+show_error_codes = true
+strict_optional = true
+ignore_missing_imports = true
+follow_imports = "skip"
+pretty = true
+files = [
+  "desloppify/app/commands/review/cmd.py",
+  "desloppify/app/commands/review/prepare.py",
+  "desloppify/app/commands/review/batch/core_models.py",
+  "desloppify/app/commands/review/batch/core_parse.py",
+  "desloppify/app/commands/review/batch/core_normalize.py",
+  "desloppify/app/commands/review/batch/core_merge_support.py",
+  "desloppify/app/commands/review/batch/orchestrator.py",
+  "desloppify/app/commands/review/importing/cmd.py",
+  "desloppify/app/commands/review/runtime/__init__.py",
+  "desloppify/app/commands/scan/reporting/dimensions.py",
+  "desloppify/app/commands/scan/reporting/summary.py",
+  "desloppify/app/commands/scan/reporting/presentation.py",
+  "desloppify/app/commands/scan/reporting/subjective.py",
+  "desloppify/app/commands/scan/workflow.py",
+  "desloppify/app/cli_support/parser.py",
+  "desloppify/app/cli_support/parser_groups.py",
+]

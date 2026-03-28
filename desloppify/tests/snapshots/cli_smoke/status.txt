@@ -1,0 +1,44 @@
+  → query.json updated
+
+  Scores: overall 25.0/100 · objective 100.0/100 · strict 25.0/100 · verified 25.0/100
+  1 files · 9 LOC · 1 dirs · Last scan: 2026-02-18T10:53:26+00:00
+  ────────────────────────────────────────────────────────────
+
+  Dimension               Checks  Health  Strict  Bar                    Tier  Action
+  ──────────────────────────────────────────────────────────────────────────────────────
+  Code quality                 3  100.0%  100.0%  ████████████████████  T3  fix  
+  Duplication                  1  100.0%  100.0%  ████████████████████  T3  refactor  
+  ── Subjective Measures (matches scorecard.png) ──────────────────────
+  AI Generated Debt            —    0.0%    0.0%  ░░░░░░░░░░░░░░░░░░░░  T4  review ←
+  Abstraction Fit              —    0.0%    0.0%  ░░░░░░░░░░░░░░░░░░░░  T4  review  
+  Contracts                    —    0.0%    0.0%  ░░░░░░░░░░░░░░░░░░░░  T4  review  
+  Elegance                     —    0.0%    0.0%  ░░░░░░░░░░░░░░░░░░░░  T4  review  
+  Error Consistency            —    0.0%    0.0%  ░░░░░░░░░░░░░░░░░░░░  T4  review  
+  Logic Clarity                —    0.0%    0.0%  ░░░░░░░░░░░░░░░░░░░░  T4  review  
+  Naming Quality               —    0.0%    0.0%  ░░░░░░░░░░░░░░░░░░░░  T4  review  
+  Health = open penalized | Strict = open + wontfix penalized
+  Action: fix=auto-fixer | move=reorganize | refactor=manual rewrite | manual=review & fix
+
+  Score recipe:
+    overall = 25% mechanical + 75% subjective
+    Pool averages: mechanical 100.0% · subjective 0.0%
+    Biggest weighted drags:
+      - High Elegance: -16.50 pts (score 0.0%, 22.0% of subjective pool)
+      - Mid Elegance: -16.50 pts (score 0.0%, 22.0% of subjective pool)
+      - Type Safety: -9.00 pts (score 0.0%, 12.0% of subjective pool)
+      - Contracts: -9.00 pts (score 0.0%, 12.0% of subjective pool)
+      - Low Elegance: -9.00 pts (score 0.0%, 12.0% of subjective pool)
+
+  Focus: AI Generated Debt (0.0%) — re-review to improve
+
+  Subjective quality (<98%): AI Generated Debt 0.0%, Abstraction Fit 0.0%, Contracts 0.0%
+  Next command to improve subjective scores: `desloppify review --prepare --dimensions ai_generated_debt,abstraction_fitness,contract_coherence`
+
+  AGENT PLAN (use `desloppify next --count 20` to inspect more items):
+  Agent focus: `desloppify review --prepare` — 1 files need design review — run holistic review to refresh subjective scores
+  Biggest things impacting score:
+    - subjective_review: 1 open — `desloppify review --prepare`
+
+  → First scan complete. 1 open findings across 3 dimensions.
+
+

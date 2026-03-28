@@ -1,0 +1,117 @@
+"""Direct coverage smoke tests for recently split helper modules."""
+
+from __future__ import annotations
+
+import desloppify.engine.planning.scorecard_dimensions as scorecard_dimensions
+import desloppify.app.output.scorecard_parts.theme as scorecard_theme
+import desloppify.engine._scoring.detection as scoring_detection
+import desloppify.engine._scoring.policy.core as scoring_policy
+import desloppify.engine._scoring.results.core as scoring_results
+import desloppify.engine._scoring.subjective.core as scoring_subjective
+import desloppify.engine._state.merge_history as merge_history
+import desloppify.engine._state.merge_issues as merge_issues
+import desloppify.engine._work_queue.ranking as work_queue_ranking
+import desloppify.engine._work_queue.synthetic as work_queue_synthetic
+import desloppify.intelligence.review.prepare_batches_builders as review_prepare_batches
+
+
+def test_split_module_direct_coverage_smoke_signals():
+    assert callable(scorecard_dimensions.prepare_scorecard_dimensions)
+    assert callable(scorecard_dimensions.prepare_scorecard_dimensions)
+    assert callable(scorecard_theme.score_color)
+    assert isinstance(scorecard_theme.BG, tuple)
+
+    assert callable(review_prepare_batches.build_investigation_batches)
+
+    assert callable(scoring_detection.detector_pass_rate)
+    assert callable(scoring_detection.merge_potentials)
+    assert isinstance(scoring_policy.DIMENSIONS, list)
+    assert isinstance(scoring_policy.FILE_BASED_DETECTORS, set)
+    assert callable(scoring_results.compute_score_bundle)
+    assert callable(scoring_subjective.append_subjective_dimensions)
+
+    assert callable(merge_issues.upsert_issues)
+    assert callable(merge_issues.verify_disappeared)
+    assert callable(merge_history._append_scan_history)
+    assert callable(merge_history._build_merge_diff)
+
+    assert callable(work_queue_synthetic.build_subjective_items)
+    assert callable(work_queue_synthetic._subjective_dimension_aliases)
+    assert callable(work_queue_ranking.item_sort_key)
+    assert callable(work_queue_ranking.group_queue_items)
+
+
+# ---------------------------------------------------------------------------
+# Behavioral tests for key split-module functions
+# ---------------------------------------------------------------------------
+
+
+def test_merge_potentials_sums_across_langs():
+    """merge_potentials sums detector counts across language partitions."""
+    potentials = {
+        "python": {"smells": 10, "unused": 5},
+        "typescript": {"smells": 20, "deps": 3},
+    }
+    merged = scoring_detection.merge_potentials(potentials)
+    assert merged["smells"] == 30
+    assert merged["unused"] == 5
+    assert merged["deps"] == 3
+
+
+def test_merge_potentials_empty():
+    """merge_potentials returns empty dict for empty input."""
+    assert scoring_detection.merge_potentials({}) == {}
+
+
+def test_item_sort_key_confidence_ordering():
+    """item_sort_key orders by confidence (high before low)."""
+    hi_item = {"tier": 1, "confidence": "high", "id": "a"}
+    lo_item = {"tier": 3, "confidence": "low", "id": "b"}
+    assert work_queue_ranking.item_sort_key(hi_item) < work_queue_ranking.item_sort_key(
+        lo_item
+    )
+
+
+def test_item_sort_key_review_uses_confidence():
+    """Review issues sort by confidence like mechanical issues."""
+    review = {
+        "is_review": True,
+        "review_weight": 1.0,
+        "tier": 2,
+        "confidence": "low",
+        "id": "r1",
+    }
+    mech = {"tier": 1, "confidence": "high", "id": "a"}
+    # High confidence sorts before low confidence
+    assert work_queue_ranking.item_sort_key(mech) < work_queue_ranking.item_sort_key(
+        review
+    )
+
+
+def test_group_queue_items_by_detector():
+    """group_queue_items groups items by detector field."""
+    items = [
+        {"detector": "smells", "file": "a.py"},
+        {"detector": "smells", "file": "b.py"},
+        {"detector": "unused", "file": "c.py"},
+    ]
+    grouped = work_queue_ranking.group_queue_items(items, "detector")
+    assert len(grouped["smells"]) == 2
+    assert len(grouped["unused"]) == 1
+
+
+def test_scoring_policy_dimensions_non_empty():
+    """DIMENSIONS list has real entries with required fields."""
+    assert len(scoring_policy.DIMENSIONS) > 0
+    first = scoring_policy.DIMENSIONS[0]
+    assert hasattr(first, "name")
+    assert hasattr(first, "tier")
+    assert hasattr(first, "detectors")
+
+
+def test_scorecard_theme_score_color():
+    """score_color returns a color tuple for any score value."""
+    color = scorecard_theme.score_color(0.0)
+    assert isinstance(color, tuple) and len(color) == 3
+    color_high = scorecard_theme.score_color(100.0)
+    assert isinstance(color_high, tuple) and len(color_high) == 3

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>$Desloppify Token — Experimental Open Source Flywheel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Patrick+Hand&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/roughjs@4.6.6/bundled/rough.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="token.css">
+</head>
+<body>
+
+  <a href="#main-content" class="sr-only skip-link">Skip to content</a>
+
+  <!-- ─── NAV ─── -->
+  <nav id="nav" aria-label="Main navigation">
+    <div class="nav-inner">
+      <a href="index.html" class="nav-logo">desloppify</a>
+      <div class="nav-links">
+        <a href="token.html" class="nav-active">Experimental Token</a>
+        <a href="https://github.com/peteromallet/desloppify" target="_blank">GitHub</a>
+        <a href="https://discord.gg/aZdzbZrHaY" target="_blank">Discord</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ─── HERO ─── -->
+  <main id="main-content">
+  <section id="token-hero">
+    <h1>The $Desloppify Token</h1>
+    <p class="token-hero-sub">An experiment in funding open source with crypto</p>
+  </section>
+
+  <!-- ─── INTRO ─── -->
+  <section id="intro">
+    <div class="intro-content">
+      <p>
+        Some random crypto community folks created a Solana token for Desloppify. We didn't
+        launch it, didn't ask for it, and don't control it. But they gave us ~7% of the
+        supply plus the creator fees — roughly $7k at the time. So we're going to put it to good use.
+      </p>
+      <p>
+        The goal: build a flywheel where funds improve and market Desloppify, which grows
+        the community, which grows the token, which creates more funds.
+        <strong>100% of everything goes back into the open source ecosystem.</strong>
+        This isn't a profit play. It's an experiment.
+      </p>
+    </div>
+  </section>
+
+  <!-- ─── FLYWHEEL ─── -->
+  <section id="flywheel">
+    <h2>The Flywheel</h2>
+    <p class="section-desc">Our goal is to build two reinforcing loops that both improve Desloppify and fund the open source ecosystem.</p>
+
+    <div class="flywheel-image-wrap" data-rough>
+      <img src="flywheel.jpeg" alt="The $Desloppify Loop — two reinforcing cycles that grow the ecosystem" class="flywheel-image">
+    </div>
+
+    <div class="two-loops">
+      <div class="loop-card sketchy-border">
+        <h3>Loop 1: Creator Fees &rarr; Ecosystem</h3>
+        <p>
+          100% of token creator fees go toward bounties, challenges, and improvements
+          that make Desloppify better. Better tool = more users = more attention =
+          token demand grows = more fees. Repeat.
+        </p>
+      </div>
+      <div class="loop-card sketchy-border">
+        <h3>Loop 2: 7% LP &rarr; Open Source</h3>
+        <p>
+          If the token hits $10M market cap, we begin selling off the 7% allocation.
+          Every cent funds open source projects — AI credits, compute, infrastructure.
+          All accounted for with invoices. Growth feeds funding feeds more growth.
+        </p>
+      </div>
+    </div>
+
+    <p class="commitment">
+      Aside from using some resources to run these programs, I will not profit from this in any way.
+      This is an experiment. It might not work. But if it does and we can fund something
+      good from crypto — that'd be pretty cool, right?
+    </p>
+  </section>
+
+  <!-- ─── INITIATIVES ─── -->
+  <section id="initiatives">
+    <h2>Initial Bounties</h2>
+
+    <div class="initiative sketchy-border">
+      <div class="initiative-header">
+        <span class="initiative-badge">Initiative #1</span>
+        <span class="initiative-status status-complete">Complete</span>
+      </div>
+      <h3>$1,000 Bounty: Find Something Poorly Engineered in This ~91k LOC Codebase</h3>
+      <p>
+        We challenged people to find something genuinely poorly engineered in Desloppify's
+        ~91k line, almost entirely AI-built codebase. We got 262 submissions and almost 50
+        that both Claude and GPT agreed were poorly engineered. We used these to improve
+        both our process and our codebase.
+      </p>
+      <div class="initiative-result sketchy-border">
+        <p class="result-label">Winner: <a href="https://github.com/agustif" target="_blank">@agustif</a></p>
+        <p class="result-winner">
+          Found a circular dependency where <code>base/</code> imported upward into
+          <code>intelligence/</code>, violating the project's own architecture contract.
+        </p>
+        <p class="result-prize">$1,000 paid in SOL</p>
+      </div>
+      <p class="initiative-links">
+        <a href="https://github.com/peteromallet/desloppify/issues/204" target="_blank">
+          Full challenge details, all submissions & scoreboard &rarr;
+        </a>
+      </p>
+    </div>
+
+    <div class="initiative sketchy-border">
+      <div class="initiative-header">
+        <span class="initiative-badge">Initiative #2</span>
+        <span class="initiative-status status-active">Active</span>
+      </div>
+      <h3>$1,000 if Desloppify Does Something Stupid When Refactoring Your Codebase</h3>
+      <p>
+        Desloppify is an agent harness that refactors and improves code quality. We're
+        reasonably confident it generally improves codebases — but we want to surface
+        the cases where it genuinely makes something worse.
+      </p>
+      <p>
+        If Desloppify refactors your codebase and makes a demonstrably stupid decision —
+        an abstraction that degrades readability, a change that introduces fragility, a
+        refactor that makes the code harder to maintain — share your evidence and you
+        could claim $1,000.
+      </p>
+      <div class="initiative-result sketchy-border">
+        <p class="result-label">Requirements</p>
+        <p class="result-winner">
+          Codebase must be 10k+ lines. Run with Claude 4.5/Sonnet 4.6 or GPT-5.3/5.4.
+          Share your logs and code evidence. One submission per person.
+          Deadline: March 21st 23:59:59 UTC.
+        </p>
+        <p class="result-prize">$1,000 in SOL to the winner</p>
+      </div>
+      <p class="initiative-links">
+        <a href="https://github.com/peteromallet/desloppify/issues/421" target="_blank">
+          Full challenge details & submit your entry &rarr;
+        </a>
+      </p>
+    </div>
+  </section>
+
+  <!-- ─── DETAILS ─── -->
+  <section id="details">
+    <h2>Details & Accountability</h2>
+    <div class="details-grid">
+      <div class="detail-item">
+        <span class="detail-label">Token CA</span>
+        <code class="detail-value ca-code">6mjs2797K62H8vXWUkYikdkNiP3zsfmybC9Zq6z4pump</code>
+      </div>
+      <div class="detail-item">
+        <span class="detail-label">Pump.fun</span>
+        <a href="https://pump.fun/coin/6mjs2797K62H8vXWUkYikdkNiP3zsfmybC9Zq6z4pump" target="_blank" class="detail-value">
+          View on Pump.fun &rarr;
+        </a>
+      </div>
+      <div class="detail-item">
+        <span class="detail-label">Public commitments & wallet</span>
+        <a href="https://pom.voyage/assorted/accountability" target="_blank" class="detail-value">
+          pom.voyage/assorted/accountability &rarr;
+        </a>
+      </div>
+      <div class="detail-item">
+        <span class="detail-label">GitHub</span>
+        <a href="https://github.com/peteromallet/desloppify" target="_blank" class="detail-value">
+          peteromallet/desloppify &rarr;
+        </a>
+      </div>
+    </div>
+  </section>
+
+  </main>
+
+  <!-- ─── FOOTER ─── -->
+  <footer>
+    <div class="footer-inner">
+      <p>MIT License &middot; <a href="index.html">Home</a> &middot; <a href="https://github.com/peteromallet/desloppify">GitHub</a> &middot; <a href="https://discord.gg/aZdzbZrHaY">Discord</a> &middot; <a href="https://pypi.org/project/desloppify/">PyPI</a></p>
+    </div>
+  </footer>
+
+  <!-- SVG filter for hand-drawn border effect -->
+  <svg style="position:absolute;width:0;height:0" aria-hidden="true">
+    <filter id="sketchy-filter">
+      <feTurbulence type="turbulence" baseFrequency="0.015" numOctaves="3" result="noise" seed="2"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </svg>
+
+  <script src="main.js"></script>
+</body>
+</html>

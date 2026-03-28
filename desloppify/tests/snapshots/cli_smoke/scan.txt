@@ -1,0 +1,84 @@
+  Zones: test: 1
+  [1/14] Unused (ruff)...
+         0 instances -> 0 findings
+  [2/14] Structural analysis...
+         -> 0 structural findings
+  [3/14] Responsibility cohesion...
+  [4/14] Coupling + cycles + orphaned...
+         single-use: 0 found, 0 suppressed (50-200 LOC)
+         -> 0 coupling/structural findings total
+  [5/14] Test coverage...
+         test coverage: clean (0 production files)
+  [6/14] Code smells...
+         -> 0 smell findings
+  [7/14] Mutable state...
+  [8/14] Security...
+         security: clean (0 files scanned)
+  [9/14] Private imports...
+         private imports: clean (1 files scanned)
+  [10/14] Layer violations...
+  [11/14] Dict key flow...
+         -> 0 dict key findings
+  [12/14] Subjective review...
+         subjective review: 1 findings (0 reviewable files)
+  [13/14] Boilerplate duplication...
+  [14/14] Duplicates...
+         0 clusters, 0 suppressed (<10 LOC)
+
+  Total: 1 findings
+  → query.json updated
+
+Desloppify Scan (python)
+
+  Scan complete
+  ──────────────────────────────────────────────────
+  +1 new
+  Scores: overall 25.0/100 (+25.0)  objective 100.0/100 (+100.0)  strict 25.0/100 (+25.0)  verified 25.0/100 (+25.0)  |  1 open / 1 total
+  Scorecard dimensions (matches scorecard.png):
+  File health        ░░░░░░░░░░░░░░░   0.0%  (strict   0.0%)
+  AI Generated Debt  ░░░░░░░░░░░░░░░   0.0%  (strict   0.0%)
+  Abstraction Fit    ░░░░░░░░░░░░░░░   0.0%  (strict   0.0%)
+  Code quality       ███████████████ 100.0%  (strict 100.0%)
+  Contracts          ░░░░░░░░░░░░░░░   0.0%  (strict   0.0%)
+  Duplication        ███████████████ 100.0%  (strict 100.0%)
+  Elegance           ░░░░░░░░░░░░░░░   0.0%  (strict   0.0%)
+  Error Consistency  ░░░░░░░░░░░░░░░   0.0%  (strict   0.0%)
+  Logic Clarity      ░░░░░░░░░░░░░░░   0.0%  (strict   0.0%)
+  Naming Quality     ░░░░░░░░░░░░░░░   0.0%  (strict   0.0%)
+  Security           ░░░░░░░░░░░░░░░   0.0%  (strict   0.0%)
+  Test health        ░░░░░░░░░░░░░░░   0.0%  (strict   0.0%)
+
+  Score recipe:
+    overall = 25% mechanical + 75% subjective
+    Pool averages: mechanical 100.0% · subjective 0.0%
+    Biggest weighted drags:
+      - High Elegance: -16.50 pts (score 0.0%, 22.0% of subjective pool)
+      - Mid Elegance: -16.50 pts (score 0.0%, 22.0% of subjective pool)
+      - Type Safety: -9.00 pts (score 0.0%, 12.0% of subjective pool)
+      - Contracts: -9.00 pts (score 0.0%, 12.0% of subjective pool)
+      - Low Elegance: -9.00 pts (score 0.0%, 12.0% of subjective pool)
+
+  Needs attention:
+    Naming Quality (0%) — run `desloppify review --prepare` to assess
+    Error Consistency (0%) — run `desloppify review --prepare` to assess
+    Abstraction Fit (0%) — run `desloppify review --prepare` to assess
+    Logic Clarity (0%) — run `desloppify review --prepare` to assess
+    AI Generated Debt (0%) — run `desloppify review --prepare` to assess
+    Type Safety (0%) — run `desloppify review --prepare` to assess
+    Contracts (0%) — run `desloppify review --prepare` to assess
+    High Elegance (0%) — run `desloppify review --prepare` to assess
+    Mid Elegance (0%) — run `desloppify review --prepare` to assess
+    Low Elegance (0%) — run `desloppify review --prepare` to assess
+
+  Subjective: 10 below target, 10 unassessed, 1 files need review.
+  Run `desloppify show subjective` for details.
+
+  AGENT PLAN (use `desloppify next --count 20` to inspect more items):
+  Agent focus: `desloppify review --prepare` — 1 files need design review — run holistic review to refresh subjective scores
+  Strategy: Work through actions in priority order. Rescan after each fix to track progress.
+
+  Biggest things impacting score:
+    - subjective_review: 1 open — `desloppify review --prepare`
+
+  → First scan complete. 1 open findings across 3 dimensions.
+
