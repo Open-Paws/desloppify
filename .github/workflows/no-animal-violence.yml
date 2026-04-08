@@ -1,18 +1,13 @@
 name: No Animal Violence Check
 on:
   pull_request:
-    paths:
-      - '**/*.py'
-      - '**/*.ts'
-      - '**/*.tsx'
-      - '**/*.js'
-      - '**/*.astro'
-      - '**/*.md'
-      - '**/*.yaml'
-      - '**/*.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  checks: write
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: Open-Paws/no-animal-violence-action@main
+      - uses: Open-Paws/no-animal-violence-action@c538eae3ed55e222b8ea9edb6fa78a9522bdeb30
