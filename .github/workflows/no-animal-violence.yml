@@ -2,12 +2,11 @@ name: No Animal Violence Check
 on:
   pull_request:
   workflow_dispatch:
-permissions:
-  contents: read
-  checks: write
 jobs:
   check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: Open-Paws/no-animal-violence-action@c538eae3ed55e222b8ea9edb6fa78a9522bdeb30
