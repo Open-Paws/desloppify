@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -12,4 +15,4 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: Open-Paws/no-animal-violence-action@c538eae3ed55e222b8ea9edb6fa78a9522bdeb30
+      - uses: Open-Paws/no-animal-violence-action@4dd17909ccdb87b4174dacae1a8e157aa09a17ef # main
