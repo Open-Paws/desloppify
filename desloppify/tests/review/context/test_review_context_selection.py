@@ -326,6 +326,12 @@ class TestPrepareReview:
             "incomplete_migration",
             "package_organization",
             "design_coherence",
+            "advocacy_language_quality",
+            "advocacy_security_posture",
+            "advocacy_terminology_consistency",
+            "advocacy_data_sovereignty",
+            "advocacy_ux_inclusivity",
+            "advocacy_tool_integration",
         ]
         assert "system_prompt" in data
         assert len(data["files"]) == 1

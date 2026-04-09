@@ -38,7 +38,7 @@ Orchestrate triage with per-stage subagents:
    - Note: `strategize` is auto-confirmed on record — `--confirm` is optional for that stage only
 3. Complete: `desloppify plan triage --complete --strategy "..." --attestation "..."`
 
-## Files in data/global/
+## Files in docs/
 
 | File | What it covers | When to read |
 |------|---------------|--------------|
@@ -47,17 +47,23 @@ Orchestrate triage with per-stage subagents:
 | `CODEX.md` | Codex agent overlay | Using desloppify with Codex |
 | `COPILOT.md` | GitHub Copilot agent overlay | Using desloppify with Copilot |
 | `CURSOR.md` | Cursor agent overlay | Using desloppify with Cursor |
+| `DEVELOPMENT_PHILOSOPHY.md` | Upstream development philosophy and scoring principles | Understanding scoring decisions |
 | `DROID.md` | Droid agent overlay | Using desloppify with Droid |
 | `GEMINI.md` | Gemini CLI agent overlay | Using desloppify with Gemini CLI |
 | `HERMES.md` | Hermes agent overlay | Using desloppify with Hermes |
 | `OPENCODE.md` | OpenCode/graze agent overlay | Using desloppify with graze-cli |
+| `QUEUE_LIFECYCLE.md` | Work queue lifecycle documentation | Understanding plan/next flow |
 | `SKILL.md` | Universal skill file for any agent | When installing desloppify skill |
 | `WINDSURF.md` | Windsurf agent overlay | Using desloppify with Windsurf |
+| `ci_plan.md` | CI planning documentation | CI setup |
+| `commit-summary-since-0.7.0.md` | Commit history since v0.7.0 | Understanding recent changes |
+| `work-batches-since-0.7.0-ticket-digest.md` | Work batch digest since v0.7.0 | Understanding work history |
 
 ## Cross-References
 
-- For the root agent instructions and full architecture, see `../../../../CLAUDE.md`
-- For the identical overlay in docs/, see `../../../../docs/CLAUDE.md`
+- For the root agent instructions, see `../CLAUDE.md`
+- For the identical overlay in data/global/, see `../desloppify/data/global/CLAUDE.md`
+- For the full desloppify architecture, see `../CLAUDE.md`
 
 <!-- desloppify-overlay: claude -->
 <!-- desloppify-end -->

@@ -116,7 +116,7 @@ def _call_import_holistic_issues(issues_data, state, lang_name, **kwargs):
 
 class TestHolisticConstants:
     def test_fifteen_dimensions(self):
-        assert len(DIMENSIONS) == 20
+        assert len(DIMENSIONS) == 26
 
     def test_all_dimensions_have_prompts(self):
         for dim in DIMENSIONS:
@@ -172,8 +172,8 @@ class TestHolisticDimensionsByLang:
 
         data = _call_prepare_holistic_review(tmp_path, lang, state, files=[f1])
 
-        # Full scorecard: all 20 dimensions, not the curated subset
-        assert len(data["dimensions"]) == 20
+        # Full scorecard: all 26 dimensions, not the curated subset
+        assert len(data["dimensions"]) == 26
         assert "package_organization" in data["dimensions"]
         assert "api_surface_coherence" in data["dimensions"]
         assert "high_level_elegance" in data["dimensions"]
@@ -190,8 +190,8 @@ class TestHolisticDimensionsByLang:
 
         data = _call_prepare_holistic_review(tmp_path, lang, state, files=[f1])
 
-        # Full scorecard: all 20 dimensions, not the curated subset
-        assert len(data["dimensions"]) == 20
+        # Full scorecard: all 26 dimensions, not the curated subset
+        assert len(data["dimensions"]) == 26
         assert "api_surface_coherence" in data["dimensions"]
         assert "package_organization" in data["dimensions"]
         assert "high_level_elegance" in data["dimensions"]
@@ -324,8 +324,8 @@ class TestPrepareHolisticReview:
 
         assert data["mode"] == "holistic"
         assert data["command"] == "review"
-        # Full scorecard: all 20 dimensions (no longer filtered to curated subset)
-        assert len(data["dimensions"]) == 20
+        # Full scorecard: all 26 dimensions (no longer filtered to curated subset)
+        assert len(data["dimensions"]) == 26
         assert "holistic_context" in data
         assert "system_prompt" in data
 
