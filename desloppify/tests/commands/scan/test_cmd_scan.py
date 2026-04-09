@@ -59,6 +59,7 @@ class TestCmdScanExecution:
             effective_include_slow=True,
             profile="full",
             lang=SimpleNamespace(name="python"),
+            path=".",
         )
         merge = SimpleNamespace(
             diff={"new": 0, "auto_resolved": 0, "reopened": 0},
@@ -149,6 +150,7 @@ class TestCmdScanExecution:
             effective_include_slow=True,
             profile="full",
             lang=SimpleNamespace(name="python"),
+            path=".",
             coverage_warnings=[
                 {
                     "detector": "security",

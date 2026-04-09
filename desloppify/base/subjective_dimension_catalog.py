@@ -29,7 +29,7 @@ DISPLAY_NAMES: dict[str, str] = {
     # ── Open Paws animal advocacy dimensions ──────────────
     "advocacy_language_quality": "Advocacy language",
     "advocacy_security_posture": "Advocacy security",
-    "advocacy_terminology_consistency": "Advocacy terminology",
+    "advocacy_terminology_consistency": "Advocacy terms",
     "advocacy_data_sovereignty": "Data sovereignty",
     "advocacy_ux_inclusivity": "Advocacy UX",
     "advocacy_tool_integration": "Advocacy tools",
@@ -51,7 +51,7 @@ _SUBJECTIVE_WEIGHTS_BY_DISPLAY: dict[str, float] = {
     # Open Paws animal advocacy dimensions
     "advocacy language": 8.0,
     "advocacy security": 10.0,
-    "advocacy terminology": 4.0,
+    "advocacy terms": 4.0,
     "data sovereignty": 6.0,
     "advocacy ux": 4.0,
     "advocacy tools": 3.0,

@@ -152,7 +152,7 @@ def test_scan_reset_seeds_subjective_dimensions_when_missing():
     reset_count = _reset_subjective_assessments_for_scan_reset(state)
 
     assessments = state["subjective_assessments"]
-    assert reset_count == 11
+    assert reset_count == 17
     assert assessments["naming_quality"]["score"] == 0.0
     assert assessments["package_organization"]["score"] == 0.0
     assert assessments["high_level_elegance"]["score"] == 0.0

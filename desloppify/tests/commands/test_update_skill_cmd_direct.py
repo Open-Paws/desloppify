@@ -79,6 +79,7 @@ def test_update_installed_skill_handles_download_and_shared_file_write(
         "_download",
         lambda filename: skill_content if filename == "SKILL.md" else overlay_content,
     )
+    monkeypatch.setattr(update_skill_cmd_mod, "_read_local_docs_file", lambda _filename: None)
     monkeypatch.setattr(update_skill_cmd_mod, "get_project_root", lambda: tmp_path)
     monkeypatch.setattr(
         update_skill_cmd_mod,

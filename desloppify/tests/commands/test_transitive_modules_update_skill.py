@@ -152,8 +152,9 @@ class TestCmdUpdateSkill:
 
 class TestUpdateInstalledSkill:
     @patch("desloppify.app.commands.update_skill.colorize", side_effect=lambda t, _c: t)
+    @patch("desloppify.app.commands.update_skill.cmd._read_local_docs_file", return_value=None)
     @patch("desloppify.app.commands.update_skill._download")
-    def test_download_failure(self, mock_download, _mock_colorize, capsys):
+    def test_download_failure(self, mock_download, _mock_local, _mock_colorize, capsys):
         import urllib.error
         mock_download.side_effect = urllib.error.URLError("no network")
         result = update_installed_skill("claude")
@@ -162,8 +163,9 @@ class TestUpdateInstalledSkill:
         assert "Download failed" in out
 
     @patch("desloppify.app.commands.update_skill.colorize", side_effect=lambda t, _c: t)
+    @patch("desloppify.app.commands.update_skill.cmd._read_local_docs_file", return_value=None)
     @patch("desloppify.app.commands.update_skill._download")
-    def test_bad_content(self, mock_download, _mock_colorize, capsys):
+    def test_bad_content(self, mock_download, _mock_local, _mock_colorize, capsys):
         mock_download.return_value = "random html garbage"
         result = update_installed_skill("claude")
         assert result is False
