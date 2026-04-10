@@ -1,18 +1,107 @@
-# .coderabbit.yaml
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# desloppify — Multi-language code quality scanner with advocacy extensions.
+# Meta: the quality scanner is reviewed by the quality scanner.
 language: en-US
+tone_instructions: "Direct and concise. Apply extra rigor — DRY violations and shallow abstractions here are especially ironic."
+
 reviews:
-  profile: chill          # don't nitpick style; focus on correctness
-  request_changes_workflow: false   # don't block; flag and comment
+  profile: assertive
+  request_changes_workflow: true
   high_level_summary: true
   poem: false
   review_status: true
+  estimate_code_review_effort: true
+  suggested_labels: true
+  auto_apply_labels: false
+
+  labeling_instructions:
+    - label: "breaking-change"
+      instructions: "Apply when changes modify the scoring algorithm, scan output format, or CLI interface in ways that break existing integrations."
+
+  path_filters:
+    - "!dist/**"
+    - "!node_modules/**"
+    - "!**/*.lock"
+    - "!.claude/worktrees/**"
+
+  path_instructions:
+    - path: "src/**"
+      instructions: |
+        The scoring algorithm must be deterministic and resistant to gaming — the only way to improve a score is to actually improve the code.
+        Check that the 6-stage agent workflow is correctly sequenced with no skippable steps or escape hatches.
+        Output format must be machine-parseable for CI integration (JSON output must have stable schema).
+        Activist security checks must cover the 3-adversary threat model: state surveillance, industry infiltration, AI model bias.
+        Check that advocacy language patterns are current against the no-animal-violence canonical rule list.
+        DRY violations in desloppify itself would undermine the tool's credibility — apply 10-point checklist rigorously.
+    - path: "**/*.test.{ts,js,py}"
+      instructions: |
+        Every test must fail if covered behavior breaks. No snapshot tests. No mock file systems in integration tests.
+        desloppify's own tests should have high mutation scores — if mutation testing can't kill a test, the test is theater.
+
   auto_review:
     enabled: true
+    auto_incremental_review: true
+    ignore_title_keywords: ["WIP", "DO NOT MERGE"]
     drafts: false
     base_branches: ["main"]
+    ignore_usernames: ["dependabot[bot]", "renovate[bot]"]
+
+  pre_merge_checks:
+    custom_checks:
+      - name: "No hardcoded secrets or credentials"
+        mode: "error"
+        instructions: "Fail if non-test files contain hardcoded API keys, tokens, passwords, or credentials."
+      - name: "No speciesist idioms"
+        mode: "error"
+        instructions: "Fail on: 'livestock', 'master/slave', 'whitelist/blacklist', 'cattle vs pets', 'kill two birds', 'guinea pig' as test subject, 'farm' as industry euphemism."
+
+  finishing_touches:
+    unit_tests:
+      enabled: true
+    custom:
+      - name: "fix NAV violations"
+        instructions: "Replace speciesist idioms. 'livestock'→'farmed animals', 'master/slave'→'primary/replica', 'whitelist/blacklist'→'allowlist/denylist'. Full list: https://github.com/Open-Paws/no-animal-violence"
+
+  tools:
+    semgrep:
+      enabled: true
+      config_file: "semgrep-no-animal-violence.yaml"
+    betterleaks:
+      enabled: true
+    trufflehog:
+      enabled: true
+    github-checks:
+      enabled: true
+      timeout_ms: 90000
 
 chat:
   auto_reply: true
+  art: false
 
 knowledge_base:
-  opt_out: true           # don't train on our codebase
+  opt_out: false
+  web_search:
+    enabled: false
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "**/CLAUDE.md"
+      - "**/AGENTS.md"
+  learnings:
+    scope: "local"
+  issues:
+    scope: "local"
+  pull_requests:
+    scope: "local"
+  jira:
+    usage: "disabled"
+  linear:
+    usage: "disabled"
+  mcp:
+    usage: "disabled"
+
+code_generation:
+  unit_tests:
+    path_instructions:
+      - path: "src/**"
+        instructions: "Every test must fail if covered behavior breaks. No snapshot tests. Mutation testing should kill every test — if it can't, rewrite the assertion."
