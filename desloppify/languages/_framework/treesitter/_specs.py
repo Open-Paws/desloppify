@@ -1,10 +1,9 @@
 """Compatibility bridge to grouped tree-sitter namespace module.
 
-Canonical implementation now lives in desloppify.languages._framework.treesitter.specs.specs.
+Canonical implementation lives in desloppify.languages._framework.treesitter.specs.specs.
 """
 
 from __future__ import annotations
 
-from ._compat_bridge import load_compat_exports
-
-_IMPL, __all__ = load_compat_exports(globals(), "desloppify.languages._framework.treesitter.specs.specs")
+from desloppify.languages._framework.treesitter.specs.specs import *  # noqa: F401, F403
+from desloppify.languages._framework.treesitter.specs.specs import __all__
