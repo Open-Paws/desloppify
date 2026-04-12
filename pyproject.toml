@@ -63,6 +63,7 @@ include-package-data = false
 
 [tool.setuptools.package-data]
 "desloppify.data.global" = ["*.md"]
+"desloppify.engine.detectors" = ["advocacy_rules/*.yaml", "advocacy_rules/context-rules/*.yaml"]
 "desloppify.languages._framework" = ["review_data/*.json"]
 "desloppify.languages.python" = ["review_data/*.json"]
 "desloppify.languages.typescript" = ["review_data/*.json"]
