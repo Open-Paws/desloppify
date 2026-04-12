@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import subprocess  # nosec
+import subprocess  # nosec B404 — subprocess required for CLI runner
 import threading
 import time
 from contextlib import contextmanager
