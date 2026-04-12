@@ -34,12 +34,6 @@ from desloppify.languages.typescript.phases_basic import (
     phase_logs,
     phase_unused,
 )
-from desloppify.languages.typescript.phases_config import (
-    TS_COMPLEXITY_SIGNALS,
-    TS_GOD_RULES,
-    TS_SKIP_DIRS,
-    TS_SKIP_NAMES,
-)
 from desloppify.languages.typescript.phases_coupling import phase_coupling
 from desloppify.languages.typescript.phases_smells import phase_smells
 from desloppify.languages.typescript.phases_structural import phase_structural
