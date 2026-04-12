@@ -1,0 +1,942 @@
+{
+  "version": 8,
+  "created": "2026-04-12T07:19:37+00:00",
+  "updated": "2026-04-12T08:03:29+00:00",
+  "queue_order": [
+    "subjective::abstraction_fitness",
+    "subjective::advocacy_data_sovereignty",
+    "subjective::advocacy_language_quality",
+    "subjective::advocacy_security_posture",
+    "subjective::advocacy_terminology_consistency",
+    "subjective::advocacy_tool_integration",
+    "subjective::advocacy_ux_inclusivity",
+    "subjective::ai_generated_debt",
+    "subjective::api_surface_coherence",
+    "subjective::authorization_consistency",
+    "subjective::contract_coherence",
+    "subjective::convention_outlier",
+    "subjective::cross_module_architecture",
+    "subjective::dependency_health",
+    "subjective::design_coherence",
+    "subjective::error_consistency",
+    "subjective::high_level_elegance",
+    "subjective::incomplete_migration",
+    "subjective::initialization_coupling",
+    "subjective::logic_clarity",
+    "subjective::low_level_elegance",
+    "subjective::mid_level_elegance",
+    "subjective::naming_quality",
+    "subjective::package_organization",
+    "subjective::test_strategy",
+    "subjective::type_safety",
+    "unused::desloppify/app/commands/helpers/queue_progress.py::desloppify.engine._plan.refresh_lifecycle.current_lifecycle_phase:14",
+    "unused::desloppify/app/commands/helpers/transition_messages.py::desloppify.engine._plan.refresh_lifecycle.LIFECYCLE_PHASE_EXECUTE:14",
+    "unused::desloppify/app/commands/helpers/transition_messages.py::desloppify.engine._plan.refresh_lifecycle.LIFECYCLE_PHASE_SCAN:15",
+    "unused::desloppify/app/commands/persona_qa/profiles.py::glob:5",
+    "unused::desloppify/app/commands/persona_qa/profiles.py::os:6",
+    "unused::desloppify/app/commands/plan/triage/stage_queue.py::desloppify.engine._plan.triage.lifecycle.clear_triage_stage_skips:9",
+    "unused::desloppify/app/commands/plan/triage/stage_queue.py::desloppify.engine.plan_triage.TRIAGE_STAGE_IDS:15",
+    "unused::desloppify/app/commands/plan/triage/stages/helpers.py::desloppify.engine._state.issue_semantics.is_triage_finding:7",
+    "unused::desloppify/app/commands/scan/reporting/agent_context.py::desloppify.app.commands.update_skill.resolve_interface:14",
+    "unused::desloppify/app/commands/scan/reporting/agent_context.py::desloppify.app.commands.update_skill.update_installed_skill:15",
+    "unused::desloppify/engine/_plan/sync/pipeline.py::desloppify.engine._plan.constants.WORKFLOW_IMPORT_SCORES_ID:14",
+    "unused::desloppify/engine/_scoring/state_integration_subjective.py::copy.deepcopy:5",
+    "unused::desloppify/engine/_scoring/subjective/core.py::integrity_penalty:59",
+    "unused::desloppify/engine/detectors/advocacy_language.py::os:13",
+    "unused::desloppify/engine/detectors/advocacy_security.py::os:19",
+    "unused::desloppify/languages/_framework/frameworks/registry.py::collections.abc.Iterable:5",
+    "unused::desloppify/tests/commands/plan/test_strategist.py::pytest:8",
+    "unused::desloppify/tests/engine/test_schema_scores_json_default.py::pathlib.PurePosixPath:12",
+    "unused::desloppify/tests/plan/test_queue_metadata.py::pytest:5",
+    "unused::desloppify/tests/plan/test_queue_metadata.py::desloppify.engine._plan.cluster_semantics.normalize_cluster_semantics:18"
+  ],
+  "deferred": [],
+  "skipped": {},
+  "active_cluster": null,
+  "overrides": {
+    "unused::desloppify/app/commands/helpers/queue_progress.py::desloppify.engine._plan.refresh_lifecycle.current_lifecycle_phase:14": {
+      "issue_id": "unused::desloppify/app/commands/helpers/queue_progress.py::desloppify.engine._plan.refresh_lifecycle.current_lifecycle_phase:14",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/unused",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "unused::desloppify/app/commands/helpers/transition_messages.py::desloppify.engine._plan.refresh_lifecycle.LIFECYCLE_PHASE_EXECUTE:14": {
+      "issue_id": "unused::desloppify/app/commands/helpers/transition_messages.py::desloppify.engine._plan.refresh_lifecycle.LIFECYCLE_PHASE_EXECUTE:14",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/unused",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "unused::desloppify/app/commands/helpers/transition_messages.py::desloppify.engine._plan.refresh_lifecycle.LIFECYCLE_PHASE_SCAN:15": {
+      "issue_id": "unused::desloppify/app/commands/helpers/transition_messages.py::desloppify.engine._plan.refresh_lifecycle.LIFECYCLE_PHASE_SCAN:15",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/unused",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "unused::desloppify/app/commands/persona_qa/profiles.py::glob:5": {
+      "issue_id": "unused::desloppify/app/commands/persona_qa/profiles.py::glob:5",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/unused",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "unused::desloppify/app/commands/persona_qa/profiles.py::os:6": {
+      "issue_id": "unused::desloppify/app/commands/persona_qa/profiles.py::os:6",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/unused",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "unused::desloppify/app/commands/plan/triage/stage_queue.py::desloppify.engine._plan.triage.lifecycle.clear_triage_stage_skips:9": {
+      "issue_id": "unused::desloppify/app/commands/plan/triage/stage_queue.py::desloppify.engine._plan.triage.lifecycle.clear_triage_stage_skips:9",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/unused",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "unused::desloppify/app/commands/plan/triage/stage_queue.py::desloppify.engine.plan_triage.TRIAGE_STAGE_IDS:15": {
+      "issue_id": "unused::desloppify/app/commands/plan/triage/stage_queue.py::desloppify.engine.plan_triage.TRIAGE_STAGE_IDS:15",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/unused",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "unused::desloppify/app/commands/plan/triage/stages/helpers.py::desloppify.engine._state.issue_semantics.is_triage_finding:7": {
+      "issue_id": "unused::desloppify/app/commands/plan/triage/stages/helpers.py::desloppify.engine._state.issue_semantics.is_triage_finding:7",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/unused",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "unused::desloppify/app/commands/scan/reporting/agent_context.py::desloppify.app.commands.update_skill.resolve_interface:14": {
+      "issue_id": "unused::desloppify/app/commands/scan/reporting/agent_context.py::desloppify.app.commands.update_skill.resolve_interface:14",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/unused",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "unused::desloppify/app/commands/scan/reporting/agent_context.py::desloppify.app.commands.update_skill.update_installed_skill:15": {
+      "issue_id": "unused::desloppify/app/commands/scan/reporting/agent_context.py::desloppify.app.commands.update_skill.update_installed_skill:15",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/unused",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "unused::desloppify/engine/_plan/sync/pipeline.py::desloppify.engine._plan.constants.WORKFLOW_IMPORT_SCORES_ID:14": {
+      "issue_id": "unused::desloppify/engine/_plan/sync/pipeline.py::desloppify.engine._plan.constants.WORKFLOW_IMPORT_SCORES_ID:14",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/unused",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "unused::desloppify/engine/_scoring/state_integration_subjective.py::copy.deepcopy:5": {
+      "issue_id": "unused::desloppify/engine/_scoring/state_integration_subjective.py::copy.deepcopy:5",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/unused",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "unused::desloppify/engine/_scoring/subjective/core.py::integrity_penalty:59": {
+      "issue_id": "unused::desloppify/engine/_scoring/subjective/core.py::integrity_penalty:59",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/unused",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "unused::desloppify/engine/detectors/advocacy_language.py::os:13": {
+      "issue_id": "unused::desloppify/engine/detectors/advocacy_language.py::os:13",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/unused",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "unused::desloppify/engine/detectors/advocacy_security.py::os:19": {
+      "issue_id": "unused::desloppify/engine/detectors/advocacy_security.py::os:19",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/unused",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "unused::desloppify/languages/_framework/frameworks/registry.py::collections.abc.Iterable:5": {
+      "issue_id": "unused::desloppify/languages/_framework/frameworks/registry.py::collections.abc.Iterable:5",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/unused",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "unused::desloppify/tests/commands/plan/test_strategist.py::pytest:8": {
+      "issue_id": "unused::desloppify/tests/commands/plan/test_strategist.py::pytest:8",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/unused",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "unused::desloppify/tests/engine/test_schema_scores_json_default.py::pathlib.PurePosixPath:12": {
+      "issue_id": "unused::desloppify/tests/engine/test_schema_scores_json_default.py::pathlib.PurePosixPath:12",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/unused",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "unused::desloppify/tests/plan/test_queue_metadata.py::pytest:5": {
+      "issue_id": "unused::desloppify/tests/plan/test_queue_metadata.py::pytest:5",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/unused",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "unused::desloppify/tests/plan/test_queue_metadata.py::desloppify.engine._plan.cluster_semantics.normalize_cluster_semantics:18": {
+      "issue_id": "unused::desloppify/tests/plan/test_queue_metadata.py::desloppify.engine._plan.cluster_semantics.normalize_cluster_semantics:18",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/unused",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/app/commands/helpers/dynamic_loaders.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/app/commands/helpers/dynamic_loaders.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/app/commands/plan/triage/runner/stage_prompts_strategist.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/app/commands/plan/triage/runner/stage_prompts_strategist.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/engine/detectors/advocacy_tool_presence.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/engine/detectors/advocacy_tool_presence.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/engine/_plan/triage/lifecycle.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/engine/_plan/triage/lifecycle.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/languages/_framework/node/js_text.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/languages/_framework/node/js_text.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/app/commands/persona_qa/findings.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/app/commands/persona_qa/findings.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/app/commands/persona_qa/defaults.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/app/commands/persona_qa/defaults.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/engine/detectors/advocacy_language.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/engine/detectors/advocacy_language.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/app/commands/plan/triage/confirmations/strategize.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/app/commands/plan/triage/confirmations/strategize.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/languages/cxx/detectors/deps.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/languages/cxx/detectors/deps.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/app/commands/plan/__init__.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/app/commands/plan/__init__.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/app/commands/persona_qa/browser_check.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/app/commands/persona_qa/browser_check.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/engine/detectors/advocacy_security.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/engine/detectors/advocacy_security.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/engine/detectors/advocacy_common.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/engine/detectors/advocacy_common.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/engine/_plan/policy/execution_constraints.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/engine/_plan/policy/execution_constraints.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/languages/_framework/frameworks/phases.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/languages/_framework/frameworks/phases.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/app/commands/persona_qa/__init__.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/app/commands/persona_qa/__init__.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/engine/detectors/frontend_detection.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/engine/detectors/frontend_detection.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/app/commands/persona_qa/profiles.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/app/commands/persona_qa/profiles.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/languages/cxx/_parse_helpers.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/languages/cxx/_parse_helpers.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/app/commands/persona_qa/cmd.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/app/commands/persona_qa/cmd.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/app/commands/directives.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/app/commands/directives.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/languages/_framework/frameworks/registry.py::transitive_only": {
+      "issue_id": "test_coverage::desloppify/languages/_framework/frameworks/registry.py::transitive_only",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-transitive_only",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::desloppify/languages/r/phases_smells.py::untested_module": {
+      "issue_id": "test_coverage::desloppify/languages/r/phases_smells.py::untested_module",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-untested_module",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "test_coverage::dev/review/validate.py::untested_module": {
+      "issue_id": "test_coverage::dev/review/validate.py::untested_module",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/test_coverage-untested_module",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "security::desloppify/app/commands/helpers/transition_messages.py::security::B310::desloppify/app/commands/helpers/transition_messages.py::50": {
+      "issue_id": "security::desloppify/app/commands/helpers/transition_messages.py::security::B310::desloppify/app/commands/helpers/transition_messages.py::50",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/security-B310",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "security::desloppify/app/commands/helpers/transition_messages.py::security::B310::desloppify/app/commands/helpers/transition_messages.py::66": {
+      "issue_id": "security::desloppify/app/commands/helpers/transition_messages.py::security::B310::desloppify/app/commands/helpers/transition_messages.py::66",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/security-B310",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::desloppify/app/commands/plan/triage/runner/orchestrator_codex_pipeline_execution.py::abort": {
+      "issue_id": "advocacy_language::desloppify/app/commands/plan/triage/runner/orchestrator_codex_pipeline_execution.py::abort",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::desloppify/app/commands/review/runner_failures.py::abort": {
+      "issue_id": "advocacy_language::desloppify/app/commands/review/runner_failures.py::abort",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::desloppify/app/commands/review/runner_process_impl/attempts.py::abort": {
+      "issue_id": "advocacy_language::desloppify/app/commands/review/runner_process_impl/attempts.py::abort",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::desloppify/intelligence/review/context_signals/auth.py::abort": {
+      "issue_id": "advocacy_language::desloppify/intelligence/review/context_signals/auth.py::abort",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::desloppify/tests/review/test_runner_internals.py::abort": {
+      "issue_id": "advocacy_language::desloppify/tests/review/test_runner_internals.py::abort",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::desloppify/tests/detectors/test_complexity.py::abort": {
+      "issue_id": "advocacy_language::desloppify/tests/detectors/test_complexity.py::abort",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::desloppify/languages/typescript/detectors/logs.py::abort": {
+      "issue_id": "advocacy_language::desloppify/languages/typescript/detectors/logs.py::abort",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::desloppify/languages/rust/tests/test_custom.py::abort": {
+      "issue_id": "advocacy_language::desloppify/languages/rust/tests/test_custom.py::abort",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::desloppify/languages/rust/detectors/safety.py::abort": {
+      "issue_id": "advocacy_language::desloppify/languages/rust/detectors/safety.py::abort",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::desloppify/languages/_framework/registry/discovery.py::abort": {
+      "issue_id": "advocacy_language::desloppify/languages/_framework/registry/discovery.py::abort",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::desloppify/data/global/commit-summary-since-0.7.0.md::abort": {
+      "issue_id": "advocacy_language::desloppify/data/global/commit-summary-since-0.7.0.md::abort",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::.claude/rules/advocacy-domain.md::kill two birds with one stone": {
+      "issue_id": "advocacy_language::.claude/rules/advocacy-domain.md::kill two birds with one stone",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::.claude/rules/advocacy-domain.md::beat a dead horse": {
+      "issue_id": "advocacy_language::.claude/rules/advocacy-domain.md::beat a dead horse",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::.claude/rules/advocacy-domain.md::more than one way to skin a cat": {
+      "issue_id": "advocacy_language::.claude/rules/advocacy-domain.md::more than one way to skin a cat",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::.claude/rules/advocacy-domain.md::guinea pig": {
+      "issue_id": "advocacy_language::.claude/rules/advocacy-domain.md::guinea pig",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::.claude/rules/advocacy-domain.md::open a can of worms": {
+      "issue_id": "advocacy_language::.claude/rules/advocacy-domain.md::open a can of worms",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::.claude/rules/advocacy-domain.md::wild goose chase": {
+      "issue_id": "advocacy_language::.claude/rules/advocacy-domain.md::wild goose chase",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::.claude/rules/advocacy-domain.md::cattle vs. pets": {
+      "issue_id": "advocacy_language::.claude/rules/advocacy-domain.md::cattle vs. pets",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::.claude/rules/advocacy-domain.md::pet project": {
+      "issue_id": "advocacy_language::.claude/rules/advocacy-domain.md::pet project",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::.claude/rules/advocacy-domain.md::master/slave": {
+      "issue_id": "advocacy_language::.claude/rules/advocacy-domain.md::master/slave",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::.claude/rules/advocacy-domain.md::whitelist/blacklist": {
+      "issue_id": "advocacy_language::.claude/rules/advocacy-domain.md::whitelist/blacklist",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::.claude/rules/advocacy-domain.md::grandfathered": {
+      "issue_id": "advocacy_language::.claude/rules/advocacy-domain.md::grandfathered",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::.claude/skills/security-audit/SKILL.md::kill process": {
+      "issue_id": "advocacy_language::.claude/skills/security-audit/SKILL.md::kill process",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "advocacy_language::docs/commit-summary-since-0.7.0.md::abort": {
+      "issue_id": "advocacy_language::docs/commit-summary-since-0.7.0.md::abort",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/advocacy_language",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::abstraction_fitness": {
+      "issue_id": "subjective::abstraction_fitness",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::advocacy_data_sovereignty": {
+      "issue_id": "subjective::advocacy_data_sovereignty",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::advocacy_language_quality": {
+      "issue_id": "subjective::advocacy_language_quality",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::advocacy_security_posture": {
+      "issue_id": "subjective::advocacy_security_posture",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::advocacy_terminology_consistency": {
+      "issue_id": "subjective::advocacy_terminology_consistency",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::advocacy_tool_integration": {
+      "issue_id": "subjective::advocacy_tool_integration",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::advocacy_ux_inclusivity": {
+      "issue_id": "subjective::advocacy_ux_inclusivity",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::ai_generated_debt": {
+      "issue_id": "subjective::ai_generated_debt",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::api_surface_coherence": {
+      "issue_id": "subjective::api_surface_coherence",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::authorization_consistency": {
+      "issue_id": "subjective::authorization_consistency",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::contract_coherence": {
+      "issue_id": "subjective::contract_coherence",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::convention_outlier": {
+      "issue_id": "subjective::convention_outlier",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::cross_module_architecture": {
+      "issue_id": "subjective::cross_module_architecture",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::dependency_health": {
+      "issue_id": "subjective::dependency_health",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::design_coherence": {
+      "issue_id": "subjective::design_coherence",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::error_consistency": {
+      "issue_id": "subjective::error_consistency",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::high_level_elegance": {
+      "issue_id": "subjective::high_level_elegance",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::incomplete_migration": {
+      "issue_id": "subjective::incomplete_migration",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::initialization_coupling": {
+      "issue_id": "subjective::initialization_coupling",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::logic_clarity": {
+      "issue_id": "subjective::logic_clarity",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::low_level_elegance": {
+      "issue_id": "subjective::low_level_elegance",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::mid_level_elegance": {
+      "issue_id": "subjective::mid_level_elegance",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::naming_quality": {
+      "issue_id": "subjective::naming_quality",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::package_organization": {
+      "issue_id": "subjective::package_organization",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::test_strategy": {
+      "issue_id": "subjective::test_strategy",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    },
+    "subjective::type_safety": {
+      "issue_id": "subjective::type_safety",
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "cluster": "auto/initial-review",
+      "updated_at": "2026-04-12T07:19:37+00:00"
+    }
+  },
+  "clusters": {
+    "auto/unused": {
+      "name": "auto/unused",
+      "description": "Remove 20 unused issues",
+      "issue_ids": [
+        "unused::desloppify/app/commands/helpers/queue_progress.py::desloppify.engine._plan.refresh_lifecycle.current_lifecycle_phase:14",
+        "unused::desloppify/app/commands/helpers/transition_messages.py::desloppify.engine._plan.refresh_lifecycle.LIFECYCLE_PHASE_EXECUTE:14",
+        "unused::desloppify/app/commands/helpers/transition_messages.py::desloppify.engine._plan.refresh_lifecycle.LIFECYCLE_PHASE_SCAN:15",
+        "unused::desloppify/app/commands/persona_qa/profiles.py::glob:5",
+        "unused::desloppify/app/commands/persona_qa/profiles.py::os:6",
+        "unused::desloppify/app/commands/plan/triage/stage_queue.py::desloppify.engine._plan.triage.lifecycle.clear_triage_stage_skips:9",
+        "unused::desloppify/app/commands/plan/triage/stage_queue.py::desloppify.engine.plan_triage.TRIAGE_STAGE_IDS:15",
+        "unused::desloppify/app/commands/plan/triage/stages/helpers.py::desloppify.engine._state.issue_semantics.is_triage_finding:7",
+        "unused::desloppify/app/commands/scan/reporting/agent_context.py::desloppify.app.commands.update_skill.resolve_interface:14",
+        "unused::desloppify/app/commands/scan/reporting/agent_context.py::desloppify.app.commands.update_skill.update_installed_skill:15",
+        "unused::desloppify/engine/_plan/sync/pipeline.py::desloppify.engine._plan.constants.WORKFLOW_IMPORT_SCORES_ID:14",
+        "unused::desloppify/engine/_scoring/state_integration_subjective.py::copy.deepcopy:5",
+        "unused::desloppify/engine/_scoring/subjective/core.py::integrity_penalty:59",
+        "unused::desloppify/engine/detectors/advocacy_language.py::os:13",
+        "unused::desloppify/engine/detectors/advocacy_security.py::os:19",
+        "unused::desloppify/languages/_framework/frameworks/registry.py::collections.abc.Iterable:5",
+        "unused::desloppify/tests/commands/plan/test_strategist.py::pytest:8",
+        "unused::desloppify/tests/engine/test_schema_scores_json_default.py::pathlib.PurePosixPath:12",
+        "unused::desloppify/tests/plan/test_queue_metadata.py::pytest:5",
+        "unused::desloppify/tests/plan/test_queue_metadata.py::desloppify.engine._plan.cluster_semantics.normalize_cluster_semantics:18"
+      ],
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "updated_at": "2026-04-12T07:19:37+00:00",
+      "auto": true,
+      "cluster_key": "auto::unused",
+      "action": "desloppify autofix unused-imports --dry-run",
+      "execution_status": "active",
+      "user_modified": false,
+      "action_type": "auto_fix",
+      "execution_policy": "ephemeral_autopromote"
+    },
+    "auto/test_coverage-transitive_only": {
+      "name": "auto/test_coverage-transitive_only",
+      "description": "Fix 23 test coverage issues",
+      "issue_ids": [
+        "test_coverage::desloppify/app/commands/helpers/dynamic_loaders.py::transitive_only",
+        "test_coverage::desloppify/app/commands/plan/triage/runner/stage_prompts_strategist.py::transitive_only",
+        "test_coverage::desloppify/engine/detectors/advocacy_tool_presence.py::transitive_only",
+        "test_coverage::desloppify/engine/_plan/triage/lifecycle.py::transitive_only",
+        "test_coverage::desloppify/languages/_framework/node/js_text.py::transitive_only",
+        "test_coverage::desloppify/app/commands/persona_qa/findings.py::transitive_only",
+        "test_coverage::desloppify/app/commands/persona_qa/defaults.py::transitive_only",
+        "test_coverage::desloppify/engine/detectors/advocacy_language.py::transitive_only",
+        "test_coverage::desloppify/app/commands/plan/triage/confirmations/strategize.py::transitive_only",
+        "test_coverage::desloppify/languages/cxx/detectors/deps.py::transitive_only",
+        "test_coverage::desloppify/app/commands/plan/__init__.py::transitive_only",
+        "test_coverage::desloppify/app/commands/persona_qa/browser_check.py::transitive_only",
+        "test_coverage::desloppify/engine/detectors/advocacy_security.py::transitive_only",
+        "test_coverage::desloppify/engine/detectors/advocacy_common.py::transitive_only",
+        "test_coverage::desloppify/engine/_plan/policy/execution_constraints.py::transitive_only",
+        "test_coverage::desloppify/languages/_framework/frameworks/phases.py::transitive_only",
+        "test_coverage::desloppify/app/commands/persona_qa/__init__.py::transitive_only",
+        "test_coverage::desloppify/engine/detectors/frontend_detection.py::transitive_only",
+        "test_coverage::desloppify/app/commands/persona_qa/profiles.py::transitive_only",
+        "test_coverage::desloppify/languages/cxx/_parse_helpers.py::transitive_only",
+        "test_coverage::desloppify/app/commands/persona_qa/cmd.py::transitive_only",
+        "test_coverage::desloppify/app/commands/directives.py::transitive_only",
+        "test_coverage::desloppify/languages/_framework/frameworks/registry.py::transitive_only"
+      ],
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "updated_at": "2026-04-12T07:19:37+00:00",
+      "auto": true,
+      "cluster_key": "detector::test_coverage::transitive_only",
+      "action": "review test coverage gaps",
+      "execution_status": "review",
+      "user_modified": false,
+      "action_type": "refactor",
+      "execution_policy": "planned_only"
+    },
+    "auto/test_coverage-untested_module": {
+      "name": "auto/test_coverage-untested_module",
+      "description": "Fix 2 test coverage issues",
+      "issue_ids": [
+        "test_coverage::desloppify/languages/r/phases_smells.py::untested_module",
+        "test_coverage::dev/review/validate.py::untested_module"
+      ],
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "updated_at": "2026-04-12T07:19:37+00:00",
+      "auto": true,
+      "cluster_key": "detector::test_coverage::untested_module",
+      "action": "review test coverage gaps",
+      "execution_status": "review",
+      "user_modified": false,
+      "action_type": "refactor",
+      "execution_policy": "planned_only"
+    },
+    "auto/security-B310": {
+      "name": "auto/security-B310",
+      "description": "Fix 2 security issues",
+      "issue_ids": [
+        "security::desloppify/app/commands/helpers/transition_messages.py::security::B310::desloppify/app/commands/helpers/transition_messages.py::50",
+        "security::desloppify/app/commands/helpers/transition_messages.py::security::B310::desloppify/app/commands/helpers/transition_messages.py::66"
+      ],
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "updated_at": "2026-04-12T07:19:37+00:00",
+      "auto": true,
+      "cluster_key": "detector::security::B310",
+      "action": "review and fix security issues",
+      "execution_status": "review",
+      "user_modified": false,
+      "action_type": "manual_fix",
+      "execution_policy": "planned_only"
+    },
+    "auto/advocacy_language": {
+      "name": "auto/advocacy_language",
+      "description": "Fix 24 advocacy language issues",
+      "issue_ids": [
+        "advocacy_language::desloppify/app/commands/plan/triage/runner/orchestrator_codex_pipeline_execution.py::abort",
+        "advocacy_language::desloppify/app/commands/review/runner_failures.py::abort",
+        "advocacy_language::desloppify/app/commands/review/runner_process_impl/attempts.py::abort",
+        "advocacy_language::desloppify/intelligence/review/context_signals/auth.py::abort",
+        "advocacy_language::desloppify/tests/review/test_runner_internals.py::abort",
+        "advocacy_language::desloppify/tests/detectors/test_complexity.py::abort",
+        "advocacy_language::desloppify/languages/typescript/detectors/logs.py::abort",
+        "advocacy_language::desloppify/languages/rust/tests/test_custom.py::abort",
+        "advocacy_language::desloppify/languages/rust/detectors/safety.py::abort",
+        "advocacy_language::desloppify/languages/_framework/registry/discovery.py::abort",
+        "advocacy_language::desloppify/data/global/commit-summary-since-0.7.0.md::abort",
+        "advocacy_language::.claude/rules/advocacy-domain.md::kill two birds with one stone",
+        "advocacy_language::.claude/rules/advocacy-domain.md::beat a dead horse",
+        "advocacy_language::.claude/rules/advocacy-domain.md::more than one way to skin a cat",
+        "advocacy_language::.claude/rules/advocacy-domain.md::guinea pig",
+        "advocacy_language::.claude/rules/advocacy-domain.md::open a can of worms",
+        "advocacy_language::.claude/rules/advocacy-domain.md::wild goose chase",
+        "advocacy_language::.claude/rules/advocacy-domain.md::cattle vs. pets",
+        "advocacy_language::.claude/rules/advocacy-domain.md::pet project",
+        "advocacy_language::.claude/rules/advocacy-domain.md::master/slave",
+        "advocacy_language::.claude/rules/advocacy-domain.md::whitelist/blacklist",
+        "advocacy_language::.claude/rules/advocacy-domain.md::grandfathered",
+        "advocacy_language::.claude/skills/security-audit/SKILL.md::kill process",
+        "advocacy_language::docs/commit-summary-since-0.7.0.md::abort"
+      ],
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "updated_at": "2026-04-12T07:19:37+00:00",
+      "auto": true,
+      "cluster_key": "detector::advocacy_language",
+      "action": "replace speciesist language with inclusive alternatives \u2014 see the replacement suggestions in the issue summary",
+      "execution_status": "review",
+      "user_modified": false,
+      "action_type": "manual_fix",
+      "execution_policy": "planned_only"
+    },
+    "auto/initial-review": {
+      "name": "auto/initial-review",
+      "description": "Initial review of 26 unscored subjective dimensions",
+      "issue_ids": [
+        "subjective::abstraction_fitness",
+        "subjective::advocacy_data_sovereignty",
+        "subjective::advocacy_language_quality",
+        "subjective::advocacy_security_posture",
+        "subjective::advocacy_terminology_consistency",
+        "subjective::advocacy_tool_integration",
+        "subjective::advocacy_ux_inclusivity",
+        "subjective::ai_generated_debt",
+        "subjective::api_surface_coherence",
+        "subjective::authorization_consistency",
+        "subjective::contract_coherence",
+        "subjective::convention_outlier",
+        "subjective::cross_module_architecture",
+        "subjective::dependency_health",
+        "subjective::design_coherence",
+        "subjective::error_consistency",
+        "subjective::high_level_elegance",
+        "subjective::incomplete_migration",
+        "subjective::initialization_coupling",
+        "subjective::logic_clarity",
+        "subjective::low_level_elegance",
+        "subjective::mid_level_elegance",
+        "subjective::naming_quality",
+        "subjective::package_organization",
+        "subjective::test_strategy",
+        "subjective::type_safety"
+      ],
+      "created_at": "2026-04-12T07:19:37+00:00",
+      "updated_at": "2026-04-12T07:19:37+00:00",
+      "auto": true,
+      "cluster_key": "subjective::unscored",
+      "action": "desloppify review --prepare --dimensions abstraction_fitness,advocacy_data_sovereignty,advocacy_language_quality,advocacy_security_posture,advocacy_terminology_consistency,advocacy_tool_integration,advocacy_ux_inclusivity,ai_generated_debt,api_surface_coherence,authorization_consistency,contract_coherence,convention_outlier,cross_module_architecture,dependency_health,design_coherence,error_consistency,high_level_elegance,incomplete_migration,initialization_coupling,logic_clarity,low_level_elegance,mid_level_elegance,naming_quality,package_organization,test_strategy,type_safety",
+      "execution_status": "review",
+      "user_modified": false,
+      "action_type": "manual_fix",
+      "execution_policy": "planned_only"
+    }
+  },
+  "superseded": {},
+  "promoted_ids": [],
+  "plan_start_scores": {
+    "strict": 19.2,
+    "overall": 19.2,
+    "objective": 76.8,
+    "verified": 76.8
+  },
+  "refresh_state": {
+    "_subjective_migration_pruned": true,
+    "lifecycle_phase": "plan",
+    "postflight_scan_completed_at_scan_count": 9
+  },
+  "execution_log": [
+    {
+      "timestamp": "2026-04-12T07:19:37+00:00",
+      "action": "sync_subjective",
+      "issue_ids": [],
+      "cluster_name": null,
+      "actor": "system",
+      "note": null,
+      "detail": {
+        "changes": true
+      }
+    },
+    {
+      "timestamp": "2026-04-12T07:19:37+00:00",
+      "action": "auto_cluster",
+      "issue_ids": [],
+      "cluster_name": null,
+      "actor": "system",
+      "note": null,
+      "detail": {
+        "changes": true
+      }
+    },
+    {
+      "timestamp": "2026-04-12T07:19:37+00:00",
+      "action": "sync_lifecycle_phase",
+      "issue_ids": [],
+      "cluster_name": null,
+      "actor": "system",
+      "note": null,
+      "detail": {
+        "phase": "review_initial"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T07:19:37+00:00",
+      "action": "seed_start_scores",
+      "issue_ids": [],
+      "cluster_name": null,
+      "actor": "system",
+      "note": null,
+      "detail": {}
+    },
+    {
+      "timestamp": "2026-04-12T07:25:33+00:00",
+      "action": "clear_start_scores",
+      "issue_ids": [],
+      "cluster_name": null,
+      "actor": "system",
+      "note": null,
+      "detail": {}
+    },
+    {
+      "timestamp": "2026-04-12T07:25:33+00:00",
+      "action": "complete_postflight_scan",
+      "issue_ids": [],
+      "cluster_name": null,
+      "actor": "system",
+      "note": null,
+      "detail": {
+        "scan_count": 3
+      }
+    },
+    {
+      "timestamp": "2026-04-12T07:25:40+00:00",
+      "action": "seed_start_scores",
+      "issue_ids": [],
+      "cluster_name": null,
+      "actor": "system",
+      "note": null,
+      "detail": {}
+    },
+    {
+      "timestamp": "2026-04-12T08:01:08+00:00",
+      "action": "complete_postflight_scan",
+      "issue_ids": [],
+      "cluster_name": null,
+      "actor": "system",
+      "note": null,
+      "detail": {
+        "scan_count": 8
+      }
+    },
+    {
+      "timestamp": "2026-04-12T08:03:29+00:00",
+      "action": "complete_postflight_scan",
+      "issue_ids": [],
+      "cluster_name": null,
+      "actor": "system",
+      "note": null,
+      "detail": {
+        "scan_count": 9
+      }
+    }
+  ],
+  "epic_triage_meta": {},
+  "commit_log": [],
+  "uncommitted_issues": [],
+  "commit_tracking_branch": null,
+  "scan_count_at_plan_start": 4
+}
