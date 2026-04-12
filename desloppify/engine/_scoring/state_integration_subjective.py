@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
-
 from desloppify.engine._scoring.policy.core import matches_target_score
 
 _SUBJECTIVE_TARGET_RESET_THRESHOLD = 2

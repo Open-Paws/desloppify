@@ -10,11 +10,7 @@ import urllib.request as _urlreq
 
 from desloppify.base.config import load_config
 from desloppify.base.output.user_message import print_user_message
-from desloppify.engine._plan.refresh_lifecycle import (
-    LIFECYCLE_PHASE_EXECUTE,
-    LIFECYCLE_PHASE_SCAN,
-    user_facing_mode,
-)
+from desloppify.engine._plan.refresh_lifecycle import user_facing_mode
 
 logger = logging.getLogger(__name__)
 
