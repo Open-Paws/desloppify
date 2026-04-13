@@ -1,8 +1,7 @@
 .DS_Store
 __pycache__/
 *.egg-info/
-.desloppify/
-.desloppify.*/
+# .desloppify/ tracked intentionally — quality state committed per org policy
 .venv/
 build/
 dist/
