@@ -39,11 +39,11 @@ def _hermes_port() -> int:
 
 def _hermes_get(path: str) -> dict:
     """GET a Hermes control API endpoint. Stdlib-only, no deps."""
-    url = f"http://127.0.0.1:{_hermes_port()}{path}"
+    url = f"http://127.0.0.1:{_hermes_port()}{path}"  # nosec B310 — localhost only
     req = _urlreq.Request(url, method="GET",
                           headers={"X-Hermes-Control": "1"})
     try:
-        with _urlreq.urlopen(req, timeout=5) as resp:
+        with _urlreq.urlopen(req, timeout=5) as resp:  # nosec B310 — localhost only
             return _json.loads(resp.read())
     except _urlerr.HTTPError as e:
         return _json.loads(e.read())
@@ -53,13 +53,13 @@ def _hermes_get(path: str) -> dict:
 
 def _hermes_send_message(text: str, mode: str = "queue") -> dict:
     """Send a message/command to the running Hermes agent. Stdlib-only, no deps."""
-    url = f"http://127.0.0.1:{_hermes_port()}/sessions/_any/message"
+    url = f"http://127.0.0.1:{_hermes_port()}/sessions/_any/message"  # nosec B310 — localhost only
     data = _json.dumps({"text": text, "mode": mode}).encode()
     req = _urlreq.Request(url, data=data, method="POST",
                           headers={"Content-Type": "application/json",
                                    "X-Hermes-Control": "1"})
     try:
-        with _urlreq.urlopen(req, timeout=5) as resp:
+        with _urlreq.urlopen(req, timeout=5) as resp:  # nosec B310 — localhost only
             return _json.loads(resp.read())
     except _urlerr.HTTPError as e:
         return _json.loads(e.read())

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-import subprocess  # nosec
+import subprocess  # nosec B404 — subprocess required for CLI runner
 import time
 from typing import Any
 

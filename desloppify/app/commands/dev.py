@@ -201,7 +201,7 @@ def _cmd_test_hermes() -> None:
         ("openrouter", "meta-llama/llama-4-scout"),
         ("openrouter", "mistralai/mistral-medium-3"),
     ]
-    test_provider, test_model = random.choice(test_models)
+    test_provider, test_model = random.choice(test_models)  # nosec B311 — non-security use
 
     # Switch to test model
     print(f"  Switching to: {test_provider}:{test_model}")

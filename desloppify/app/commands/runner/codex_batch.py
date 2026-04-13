@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import shutil
-import subprocess
+import subprocess  # nosec B404 — subprocess required for CLI runner
 import sys
 from pathlib import Path
 
