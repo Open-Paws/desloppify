@@ -10,10 +10,6 @@ from typing import Any
 from desloppify import state as state_mod
 from desloppify.base.output.user_message import print_user_message
 from desloppify.app.commands.helpers.rendering import _count_cluster_remaining
-from desloppify.app.commands.update_skill import (
-    resolve_interface,
-    update_installed_skill,
-)
 from desloppify.base import registry as registry_mod
 from desloppify.app import skill_docs as skill_docs_mod
 from desloppify.base.exception_sets import PLAN_LOAD_EXCEPTIONS

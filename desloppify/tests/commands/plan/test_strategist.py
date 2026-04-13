@@ -5,8 +5,6 @@ from __future__ import annotations
 import argparse
 from types import SimpleNamespace
 
-import pytest
-
 import desloppify.app.commands.plan.triage.stages.strategize as strategize_mod
 from desloppify.app.cli_support.parser_groups_plan_impl_sections_triage_commit_scan import (
     _add_triage_subparser,

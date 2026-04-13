@@ -10,9 +10,6 @@ from typing import TYPE_CHECKING
 from desloppify.base.exception_sets import PLAN_LOAD_EXCEPTIONS
 from desloppify.app.commands.helpers.dynamic_loaders import load_score_update_module
 from desloppify.base.output.terminal import colorize
-from desloppify.engine._plan.refresh_lifecycle import (
-    current_lifecycle_phase,
-)
 from desloppify.engine.plan_state import load_plan
 from desloppify.state_scoring import score_snapshot
 from desloppify.engine._work_queue.core import QueueBuildOptions
