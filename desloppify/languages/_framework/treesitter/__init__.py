@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 
 from desloppify.base.output.fallbacks import log_best_effort_failure
+
 from .types import TreeSitterLangSpec
 
 logger = logging.getLogger(__name__)
@@ -69,12 +70,18 @@ PARSE_INIT_ERRORS: tuple[type[Exception], ...] = (
     RuntimeError,
 )
 
+from .phases import (  # noqa: E402
+    all_treesitter_phases,
+    make_ast_smells_phase,
+    make_cohesion_phase,
+    make_unused_imports_phase,
+)
 from .specs.specs import (  # noqa: E402
     BASH_SPEC,
+    C_SPEC,
     CLOJURE_SPEC,
     CPP_SPEC,
     CSHARP_SPEC,
-    C_SPEC,
     DART_SPEC,
     ELIXIR_SPEC,
     ERLANG_SPEC,
@@ -100,12 +107,6 @@ from .specs.specs import (  # noqa: E402
     TREESITTER_SPECS,
     TYPESCRIPT_SPEC,
     ZIG_SPEC,
-)
-from .phases import (  # noqa: E402
-    all_treesitter_phases,
-    make_ast_smells_phase,
-    make_cohesion_phase,
-    make_unused_imports_phase,
 )
 
 
