@@ -17,7 +17,7 @@ Open Paws fork of [peteromallet/desloppify](https://github.com/peteromallet/desl
 
 **Upstream tracking:** Fork tracks `peteromallet/desloppify` as `upstream` remote. Fork-specific code lives in new files. Upstream merges: `git fetch upstream && git merge upstream/main`.
 
-**Strategy references:** Fetch current strategy context before acting:
+**Strategy references — fetch fresh each session:**
 
 ```bash
 gh api repos/Open-Paws/open-paws-strategy/contents/org-overview.md --jq '.content' | base64 -d
