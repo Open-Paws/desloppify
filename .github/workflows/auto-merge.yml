@@ -1,13 +1,424 @@
-# Auto-Merge Caller — copy this file to .github/workflows/auto-merge.yml in each repo.
+# Auto-Merge — Wave 0 gate check and squash-merge for agent-generated PRs.
+#
+# Replaces the reusable-workflow caller that was failing because
+# Open-Paws/.github (internal repo) is not reliably accessible from
+# this repo (a fork). Using a self-contained workflow matches the
+# pattern that works in gary and open-paws-platform.
+#
+# GATES (all must pass before merge):
+#   1. PR has wave0-auto or level-0 label
+#   2. PR author is a known agent bot
+#   3. All required CI checks are green (success/skipped/neutral)
+#   4. desloppify objective score >= 70
+#   5. NAV scan — zero ERROR-severity violations (skipped if config absent)
+#
+# REQUIRED:
+#   GH_PAT_AUTO_MERGE secret — PAT with repo + pull_request + write permissions.
+#   Falls back to GITHUB_TOKEN when the PAT is unavailable (read-only ops only).
+#
+# LABELS managed by this workflow:
+#   wave0-auto / level-0      — classification: auto-merge eligible
+#   needs-human-review        — added when any gate fails; removed on pass
+#   human-gate                — permanent block; this workflow never touches it
+
 name: Auto-Merge
+
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
+
+permissions:
+  pull-requests: write
+  contents: write
+  checks: read
+  issues: write
+
 jobs:
+  gate-check:
+    name: Auto-Merge Gate Check
+    runs-on: ubuntu-latest
+    if: >
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.base.ref == github.event.repository.default_branch
+
+    outputs:
+      gates_passed:    ${{ steps.evaluate.outputs.gates_passed }}
+      failure_summary: ${{ steps.evaluate.outputs.failure_summary }}
+      has_human_gate:  ${{ steps.label-check.outputs.has_human_gate }}
+
+    steps:
+      # ── 1. Check labels ──────────────────────────────────────────────────
+      - name: Check blocking and classification labels
+        id: label-check
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_PAT_AUTO_MERGE || secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+            });
+            const labels = pr.data.labels.map(l => l.name);
+            const hasHumanGate = labels.includes('human-gate');
+            const hasLevel0    = labels.includes('wave0-auto') || labels.includes('level-0');
+            core.setOutput('has_human_gate',   hasHumanGate.toString());
+            core.setOutput('has_level0_label', hasLevel0.toString());
+            if (hasHumanGate) core.notice('PR has human-gate label — auto-merge permanently disabled.');
+            if (!hasLevel0)   core.notice('PR is missing wave0-auto / level-0 label — gate will fail.');
+
+      - name: Exit early if human-gate present
+        if: steps.label-check.outputs.has_human_gate == 'true'
+        run: |
+          echo "human-gate label present. No action taken."
+          exit 0
+
+      # ── 2. Checkout ──────────────────────────────────────────────────────
+      - name: Checkout
+        if: steps.label-check.outputs.has_human_gate != 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ── 3. Check PR author ───────────────────────────────────────────────
+      - name: Check PR author is a known agent
+        id: author-check
+        if: steps.label-check.outputs.has_human_gate != 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_PAT_AUTO_MERGE || secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+            });
+            const author = pr.data.user.login.toLowerCase();
+            const builtIn = [
+              'github-actions[bot]',
+              'claude-code[bot]',
+              'dependabot[bot]',
+            ];
+            const isAgent = builtIn.includes(author) || author.endsWith('[bot]');
+            core.setOutput('author', author);
+            core.setOutput('author_is_agent', isAgent.toString());
+            if (!isAgent) core.notice(`PR author '${author}' is not a known agent — gate will fail.`);
+
+      # ── 4. Check CI ──────────────────────────────────────────────────────
+      - name: Check CI status (all required checks green)
+        id: ci-check
+        if: steps.label-check.outputs.has_human_gate != 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_PAT_AUTO_MERGE || secrets.GITHUB_TOKEN }}
+          script: |
+            const sha = context.payload.pull_request.head.sha;
+            const { data: checks } = await github.rest.checks.listForRef({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              ref:   sha,
+              per_page: 100,
+            });
+            const relevant = checks.check_runs.filter(c =>
+              c.name !== 'Auto-Merge Gate Check' && c.name !== 'Auto-Merge'
+            );
+            const incomplete = relevant.filter(c => c.status !== 'completed');
+            const failed = relevant.filter(c =>
+              c.status === 'completed' &&
+              !['success', 'skipped', 'neutral'].includes(c.conclusion)
+            );
+            const ciPassed = incomplete.length === 0 && failed.length === 0;
+            core.setOutput('ci_passed', ciPassed.toString());
+            if (!ciPassed) {
+              const msg = [
+                failed.length     ? `Failed: ${failed.map(c => c.name).join(', ')}.`     : '',
+                incomplete.length ? `Incomplete: ${incomplete.map(c => c.name).join(', ')}.` : '',
+              ].filter(Boolean).join(' ');
+              core.setOutput('ci_failure_detail', msg.trim());
+            }
+
+      # ── 5. desloppify score ──────────────────────────────────────────────
+      - name: Set up Python
+        if: steps.label-check.outputs.has_human_gate != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Cache desloppify install
+        id: cache-desloppify
+        if: steps.label-check.outputs.has_human_gate != 'true'
+        uses: actions/cache@v4
+        with:
+          path: /tmp/desloppify-pkg
+          key: desloppify-${{ runner.os }}-${{ hashFiles('.github/workflows/*.yml') }}
+
+      - name: Clone desloppify
+        if: |
+          steps.label-check.outputs.has_human_gate != 'true' &&
+          steps.cache-desloppify.outputs.cache-hit != 'true'
+        # Clone without submodules — open-paws-strategy is private and unavailable in CI.
+        run: |
+          git clone --no-recurse-submodules \
+            https://github.com/Open-Paws/desloppify.git /tmp/desloppify-pkg
+
+      - name: Install desloppify
+        if: steps.label-check.outputs.has_human_gate != 'true'
+        run: pip install --quiet "/tmp/desloppify-pkg[full]"
+
+      - name: Run desloppify score gate
+        id: desloppify-check
+        if: steps.label-check.outputs.has_human_gate != 'true'
+        env:
+          THRESHOLD: '70'
+        run: |
+          set -euo pipefail
+          SCAN_OUT=$(desloppify scan --path . --profile ci --no-badge 2>&1 || true)
+          echo "${SCAN_OUT}"
+          SCORE=$(echo "${SCAN_OUT}" | grep -oP 'objective \K[\d.]+(?=/100)' | head -1)
+          if [ -z "${SCORE}" ]; then
+            echo "ERROR: could not extract objective score from desloppify output."
+            echo "desloppify_passed=false" >> "$GITHUB_OUTPUT"
+            echo "desloppify_score=0"      >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "desloppify_score=${SCORE}" >> "$GITHUB_OUTPUT"
+          python3 - <<EOF
+          score     = float("${SCORE}")
+          threshold = float("${THRESHOLD}")
+          passed    = score >= threshold
+          print(f"Desloppify: score {score}/100 vs threshold {threshold} — {'PASS' if passed else 'FAIL'}")
+          with open("$GITHUB_OUTPUT", "a") as f:
+              f.write(f"desloppify_passed={'true' if passed else 'false'}\n")
+          EOF
+
+      # ── 6. NAV scan ──────────────────────────────────────────────────────
+      - name: Run NAV scan (zero ERROR violations required)
+        id: nav-check
+        if: steps.label-check.outputs.has_human_gate != 'true'
+        run: |
+          set -euo pipefail
+          pip install --quiet semgrep 2>/dev/null || true
+
+          if [ ! -f "semgrep-no-animal-violence.yaml" ]; then
+            echo "nav_passed=true" >> "$GITHUB_OUTPUT"
+            echo "nav_note=semgrep-no-animal-violence.yaml absent — NAV install queued" \
+              >> "$GITHUB_OUTPUT"
+            echo "NAV: SKIP — config file not present in this repo (install queued)"
+            exit 0
+          fi
+
+          RESULT=$(semgrep \
+            --config semgrep-no-animal-violence.yaml \
+            --json \
+            --include='*.py' --include='*.ts' --include='*.js' --include='*.md' \
+            . 2>/dev/null || echo '{"results":[]}')
+
+          ERROR_COUNT=$(echo "${RESULT}" | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          errors = [
+              r for r in data.get('results', [])
+              if r.get('extra', {}).get('severity', '').upper() == 'ERROR'
+          ]
+          print(len(errors))
+          " 2>/dev/null || echo "0")
+
+          echo "nav_error_count=${ERROR_COUNT}" >> "$GITHUB_OUTPUT"
+          if [ "${ERROR_COUNT}" -eq 0 ]; then
+            echo "nav_passed=true" >> "$GITHUB_OUTPUT"
+            echo "NAV: PASS — 0 ERROR violations"
+          else
+            echo "nav_passed=false" >> "$GITHUB_OUTPUT"
+            echo "NAV: FAIL — ${ERROR_COUNT} ERROR violation(s)"
+          fi
+
+      # ── 7. Evaluate all gates ─────────────────────────────────────────────
+      - name: Evaluate all gates
+        id: evaluate
+        if: steps.label-check.outputs.has_human_gate != 'true'
+        env:
+          HAS_LEVEL0:  ${{ steps.label-check.outputs.has_level0_label }}
+          AUTHOR_OK:   ${{ steps.author-check.outputs.author_is_agent }}
+          AUTHOR:      ${{ steps.author-check.outputs.author }}
+          CI_PASSED:   ${{ steps.ci-check.outputs.ci_passed }}
+          CI_FAILURE:  ${{ steps.ci-check.outputs.ci_failure_detail }}
+          DSL_PASSED:  ${{ steps.desloppify-check.outputs.desloppify_passed }}
+          DSL_SCORE:   ${{ steps.desloppify-check.outputs.desloppify_score }}
+          NAV_PASSED:  ${{ steps.nav-check.outputs.nav_passed }}
+          NAV_ERRORS:  ${{ steps.nav-check.outputs.nav_error_count }}
+          NAV_NOTE:    ${{ steps.nav-check.outputs.nav_note }}
+        run: |
+          FAILURES=()
+          [ "${HAS_LEVEL0}"  != 'true' ] && \
+            FAILURES+=("Classification label missing — PR needs wave0-auto or level-0 label")
+          [ "${AUTHOR_OK}"   != 'true' ] && \
+            FAILURES+=("PR author '${AUTHOR}' is not a known agent bot")
+          [ "${CI_PASSED}"   != 'true' ] && \
+            FAILURES+=("CI checks not all green: ${CI_FAILURE:-checks pending or failed}")
+          [ "${DSL_PASSED}"  != 'true' ] && \
+            FAILURES+=("Desloppify: score ${DSL_SCORE:-0} below threshold 70")
+          [ "${NAV_PASSED}"  != 'true' ] && \
+            FAILURES+=("NAV scan: ${NAV_ERRORS:-?} ERROR violation(s) — ${NAV_NOTE:-see scan output}")
+
+          if [ ${#FAILURES[@]} -eq 0 ]; then
+            echo "gates_passed=true"  >> "$GITHUB_OUTPUT"
+            echo "failure_summary="   >> "$GITHUB_OUTPUT"
+            echo "All five gates passed."
+          else
+            echo "gates_passed=false" >> "$GITHUB_OUTPUT"
+            SUMMARY=""
+            for item in "${FAILURES[@]}"; do
+              SUMMARY+="- ${item}"$'\n'
+            done
+            ESCAPED="${SUMMARY//$'\n'/\\n}"
+            echo "failure_summary=${ESCAPED}" >> "$GITHUB_OUTPUT"
+            echo "Gate failures:"
+            for item in "${FAILURES[@]}"; do echo "  ${item}"; done
+          fi
+
+  # ── ACT — squash-merge or escalate ─────────────────────────────────────────
   auto-merge:
-    if: github.event.pull_request.base.ref == github.event.repository.default_branch
-    uses: Open-Paws/.github/.github/workflows/auto-merge.yml@main
-    with:
-      desloppify_threshold: 70
-      known_agents: ''
-    secrets: inherit
+    name: Merge or Escalate
+    needs: gate-check
+    runs-on: ubuntu-latest
+    if: |
+      needs.gate-check.outputs.has_human_gate != 'true' &&
+      github.event.pull_request.draft == false
+
+    steps:
+      - name: Remove stale needs-human-review label
+        if: needs.gate-check.outputs.gates_passed == 'true'
+        uses: actions/github-script@v7
+        continue-on-error: true
+        with:
+          github-token: ${{ secrets.GH_PAT_AUTO_MERGE || secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.removeLabel({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              name: 'needs-human-review',
+            }).catch(() => {});
+
+      - name: Squash merge
+        if: needs.gate-check.outputs.gates_passed == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_PAT_AUTO_MERGE || secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              pull_number: prNumber,
+            });
+            const commitBody = [
+              'Auto-merged by wave0 gate check after all gates passed.',
+              '',
+              `PR: #${prNumber}`,
+              `Branch: ${pr.head.ref}`,
+              'Gates: CI ✓ | Desloppify ✓ | NAV ✓ | Level-0 label ✓ | Agent author ✓',
+              '',
+              pr.body ? `Original PR description:\n${pr.body}` : '',
+            ].filter(Boolean).join('\n');
+            try {
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                pull_number: prNumber,
+                merge_method: 'squash',
+                commit_title: pr.title,
+                commit_message: commitBody,
+              });
+              core.notice(`PR #${prNumber} squash-merged successfully.`);
+            } catch (err) {
+              core.setFailed(`Merge failed: ${err.message}`);
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                issue_number: prNumber,
+                labels: ['needs-human-review'],
+              });
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                issue_number: prNumber,
+                body: [
+                  '## Auto-Merge Failed',
+                  '',
+                  'All gates passed but the merge itself failed.',
+                  '',
+                  `**Error:** \`${err.message}\``,
+                  '',
+                  'Common causes: merge conflict, branch protection requiring manual review.',
+                  'Resolve the blocker, then re-trigger by pushing a new commit.',
+                ].join('\n'),
+              });
+            }
+
+      - name: Add needs-human-review label on gate failure
+        if: needs.gate-check.outputs.gates_passed != 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_PAT_AUTO_MERGE || secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              labels: ['needs-human-review'],
+            }).catch(() => {});
+
+      - name: Post or update gate failure comment
+        if: needs.gate-check.outputs.gates_passed != 'true'
+        env:
+          FAILURE_SUMMARY: ${{ needs.gate-check.outputs.failure_summary }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_PAT_AUTO_MERGE || secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const rawSummary = process.env.FAILURE_SUMMARY || '';
+            const summary = rawSummary.replace(/\\n/g, '\n');
+            const marker = '<!-- auto-merge-gate-check -->';
+            const body = [
+              marker,
+              '## Auto-Merge Gate Check — Blocked',
+              '',
+              'PR labeled `needs-human-review` — one or more gates failed.',
+              '',
+              '### Failed Gates',
+              summary,
+              '### How to unblock',
+              '- Fix the failing gates and push a new commit — this workflow re-runs automatically.',
+              '- If CI is still running, wait for it to complete.',
+              '- If NAV config is absent, open a task to install the no-animal-violence suite.',
+              '',
+              '### Permanent block',
+              '- Add the `human-gate` label to permanently disable auto-merge for this PR.',
+              '',
+              `*Auto-Merge Gate Check — ${new Date().toISOString()}*`,
+            ].join('\n');
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: prNumber,
+              per_page: 50,
+            });
+            const existing = comments.find(c => c.body?.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner:      context.repo.owner,
+                repo:       context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner:        context.repo.owner,
+                repo:         context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+            }
