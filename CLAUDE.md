@@ -17,10 +17,13 @@ Open Paws fork of [peteromallet/desloppify](https://github.com/peteromallet/desl
 
 **Upstream tracking:** Fork tracks `peteromallet/desloppify` as `upstream` remote. Fork-specific code lives in new files. Upstream merges: `git fetch upstream && git merge upstream/main`.
 
-**Strategy references:**
-- `open-paws-strategy/ecosystem/repos.md` — desloppify entry with full feature breakdown
-- `open-paws-strategy/ecosystem/integration-todos.md` — integration todos for connecting desloppify to downstream consumers
-- `open-paws-strategy/closed-decisions.md` — 2026-04-01 external contribution safety (advocacy language detector is used by project-compassionate-code)
+**Strategy references:** Fetch current strategy context before acting:
+
+```bash
+gh api repos/Open-Paws/open-paws-strategy/contents/org-overview.md --jq '.content' | base64 -d
+gh api repos/Open-Paws/open-paws-strategy/contents/priorities.md --jq '.content' | base64 -d
+gh api repos/Open-Paws/open-paws-strategy/contents/settled-decisions.md --jq '.content' | base64 -d
+```
 
 ## Quick Start
 
