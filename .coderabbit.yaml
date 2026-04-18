@@ -2,7 +2,7 @@
 # desloppify — Multi-language code quality scanner with advocacy extensions.
 # Meta: the quality scanner is reviewed by the quality scanner.
 language: en-US
-tone_instructions: "Direct and concise. Apply extra rigor — DRY violations and shallow abstractions here are especially ironic."
+tone_instructions: "Direct and concise. Flag actionable issues only. DRY violations here are especially ironic — apply extra rigor. Use movement terminology: campaign, investigation, coalition, farmed animal, slaughterhouse."
 
 reviews:
   profile: assertive
@@ -54,6 +54,9 @@ reviews:
       - name: "No speciesist idioms"
         mode: "error"
         instructions: "Fail on: 'livestock', 'master/slave', 'whitelist/blacklist', 'cattle vs pets', 'kill two birds', 'guinea pig' as test subject, 'farm' as industry euphemism."
+      - name: "No Tier 3 data committed"
+        mode: "error"
+        instructions: "Fail if files contain activist or whistleblower identities, legal strategy or privileged attorney communications, operational security protocols with specific implementation details, investigative footage or chain of custody records, activist PII combining name and contact info and advocacy role, NGO internal financials or strategy docs from partner organizations, or critical credentials."
 
   finishing_touches:
     unit_tests:
