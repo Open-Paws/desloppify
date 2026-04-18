@@ -47,14 +47,13 @@ SNAPSHOT_PATTERNS: list[re.Pattern[str]] = []
 TEST_FUNCTION_RE = re.compile(r"""(?:it|test)\s*\(\s*['"]""")
 
 
-def parse_test_import_specs(content: str) -> list[str]:
+def parse_test_import_specs(content: str) -> set[str]:
     """Extract import/require specs from a JavaScript test file."""
-    results = []
-    for m in _IMPORT_RE.finditer(content):
-        spec = m.group(1) or m.group(2)
-        if spec:
-            results.append(spec)
-    return results
+    return {
+        spec
+        for m in _IMPORT_RE.finditer(content)
+        if (spec := m.group(1) or m.group(2))
+    }
 
 
 def map_test_to_source(test_path: str, production_set: set[str]) -> str | None:
@@ -76,15 +75,22 @@ def map_test_to_source(test_path: str, production_set: set[str]) -> str | None:
     if dir_basename == "__tests__" and parent:
         candidates.append(os.path.join(parent, basename))
 
-    for prod in production_set:
-        prod_base = os.path.basename(prod)
-        for c in candidates:
-            if os.path.basename(c) == prod_base and prod in production_set:
-                return prod
-
+    # Exact path match takes priority.
     for c in candidates:
         if c in production_set:
             return c
+
+    # Deterministic basename fallback: build a sorted basename → path mapping,
+    # then return the first match across sorted candidates to avoid non-determinism
+    # when multiple production files share the same basename.
+    prod_base_map: dict[str, list[str]] = {}
+    for prod in sorted(production_set):
+        prod_base_map.setdefault(os.path.basename(prod), []).append(prod)
+
+    for c in sorted(candidates):
+        matches = prod_base_map.get(os.path.basename(c), [])
+        if matches:
+            return matches[0]
 
     return None
 
