@@ -1,24 +1,73 @@
+[![PyPI version](https://img.shields.io/pypi/v/desloppify)](https://pypi.org/project/desloppify/) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE) [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/) [![Last commit](https://img.shields.io/github/last-commit/Open-Paws/desloppify)](https://github.com/Open-Paws/desloppify/commits/main)
+
 # Desloppify — Open Paws Fork
 
-[Open Paws](https://github.com/Open-Paws) fork of [peteromallet/desloppify](https://github.com/peteromallet/desloppify). Adds advocacy-specific detectors for speciesist language and activist security antipatterns, persona-based browser QA, and Windows platform fixes — while tracking upstream for general improvements.
+A multi-language codebase health scanner that combines mechanical detection (dead code, duplication, complexity, security) with LLM-based subjective review (naming, abstractions, module boundaries), then works through a prioritized fix loop. This Open Paws fork adds 65 advocacy language rules, a 3-adversary activist security detector, and persona-based browser QA — all integrated into the same scoring and queue system as the upstream detectors.
 
-![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green)
-
-## What Is Desloppify?
-
-A multi-language codebase health scanner that combines mechanical detection (dead code, duplication, complexity, security) with subjective LLM review (naming, abstractions, module boundaries), then works through a prioritized fix loop. State persists across scans so it chips away over multiple sessions, and the scoring resists gaming — the only way up is genuinely better code.
-
-**29 languages supported.** Full plugin depth for TypeScript, Python, C#, C++, Dart, GDScript, Go, and Rust. Generic linter + tree-sitter support for Ruby, Java, Kotlin, and 18 more.
-
-**Overall score = 25% mechanical + 75% subjective.** A score above 98 should correlate with a codebase a seasoned engineer would call beautiful.
+> [!NOTE]
+> This project is part of the [Open Paws](https://openpaws.ai) ecosystem — AI infrastructure for the animal liberation movement. [Explore the full platform →](https://github.com/Open-Paws)
 
 <img src="assets/explained.png" width="100%">
 
-## What This Fork Adds
+## Quickstart
 
-### Advocacy Language Detector — 65 rules
+Requires **Python 3.11+**.
 
-Detects speciesist language patterns in code, comments, and documentation across all 29 supported languages plus `.md`, `.txt`, `.rst` files. Rules are defined in YAML, sourced from [project-compassionate-code](https://github.com/Open-Paws/project-compassionate-code).
+```bash
+# Install from this fork
+pip install "git+https://github.com/Open-Paws/desloppify.git#egg=desloppify[full]"
+
+# Exclude generated directories, then scan
+desloppify exclude node_modules dist
+desloppify scan --path .
+
+# Run the fix loop: next → fix → resolve → repeat
+desloppify next
+```
+
+Or without installing:
+
+```bash
+uvx --from "git+https://github.com/Open-Paws/desloppify.git" desloppify scan --path .
+```
+
+Add `.desloppify/` to `.gitignore` — it holds local state that should not be committed.
+
+## Features
+
+### Scoring model
+
+Overall score = **25% mechanical + 75% subjective**. A score above 98 correlates with a codebase a seasoned engineer would call well-crafted. The scoring resists gaming — the only path upward is genuinely better code.
+
+**Mechanical pool (25% of overall)**
+
+| Dimension | Weight |
+|-----------|--------|
+| File health | 2.0 |
+| Code quality | 1.0 |
+| Duplication | 1.0 |
+| Test health | 1.0 |
+| Security | 1.0 |
+| Advocacy language *(fork addition)* | 1.0 |
+| Advocacy security *(fork addition)* | 1.0 |
+| Persona QA *(fork addition)* | 1.0 |
+
+**Subjective pool (75% of overall)** — scored by an LLM against a blind review packet. Includes high/mid/low elegance, contracts, type safety, design coherence, abstraction fit, logic clarity, naming quality, and more.
+
+**Minimum score thresholds** (Open Paws internal policy):
+- Gary (autonomous agent): ≥ 80
+- Platform repos: ≥ 75
+- All other repos: ≥ 70
+
+### Language support
+
+**29 languages.** Full plugin depth for TypeScript, Python, C#, C++, Dart, GDScript, Go, and Rust. Generic linter + tree-sitter support for Ruby, Java, Kotlin, and 18 more.
+
+### Fork additions
+
+**Advocacy language detector — 65 rules**
+
+Detects speciesist language in code, comments, and documentation across all 29 languages plus `.md`, `.txt`, `.rst`. Rules sourced from [no-animal-violence](https://github.com/Open-Paws/no-animal-violence).
 
 | Category | Count | Examples |
 |----------|-------|---------|
@@ -26,231 +75,124 @@ Detects speciesist language patterns in code, comments, and documentation across
 | Metaphors | 21 | "sacred cow", "cash cow", "sacrificial lamb" |
 | Insults | 6 | "code monkey", "cowboy coding" |
 | Process language | 5 | "nuke", "cull", "kill process" |
-| Terminology | 3 | "master/slave", "whitelist/blacklist", "grandfathered" |
+| Terminology | 3 | "master/slave", "whitelist/blacklist" |
 
 Each finding includes a suggested replacement. Context suppression reduces false positives for technical terms (POSIX `kill()`, git `master` branch), proper nouns, and quotations.
 
-### Advocacy Security Detector — 3-adversary threat model
+**Advocacy security detector — 3-adversary threat model**
 
-Heuristic detector for activist protection antipatterns based on three adversaries:
+Heuristic detection for activist protection antipatterns against three adversaries:
 
 - **State surveillance** — ag-gag statutes, warrants, device seizure
 - **Industry infiltration** — corporate investigators, social engineering
 - **AI model bias** — training data encoding speciesist defaults, telemetry leakage
 
-Detects: identity leakage in logs/errors, sensitive data to external AI APIs without zero-retention headers, investigation materials in public paths, unencrypted writes of sensitive data, IP address logging, sensitive data in browser storage.
+Detects: identity leakage in logs/errors, sensitive data routed to external AI APIs without zero-retention headers, investigation materials in public paths, unencrypted writes of sensitive data, IP address logging, sensitive data in browser storage.
 
-### Persona-Based Browser QA
-
-New `persona-qa` command for browser-based testing with configurable persona profiles (YAML). Findings integrate into the standard work queue alongside mechanical and subjective issues.
+**Persona-based browser QA**
 
 ```bash
 desloppify persona-qa --prepare --url https://example.com   # generate agent instructions
-# agent runs Playwright, captures findings in JSON
+# agent runs browser testing and captures findings in JSON
 desloppify persona-qa --import findings.json                 # merge into state
 desloppify persona-qa --status                               # per-persona summary
 desloppify next                                              # persona QA items appear in queue
 ```
 
-### Windows Platform Fixes
+**Windows platform fixes**
 
-- `input()` blocking in TypeScript logs detector — replaced with `isatty()` guard
-- `msvcrt.locking()` infinite wait — replaced with 5s retry timeout (`LK_NBLCK`)
-- Dataclass JSON serialization crash on state save — fixed with `dataclasses.asdict()` fallback
+- `input()` blocking in TypeScript logs detector replaced with `isatty()` guard
+- `msvcrt.locking()` infinite wait replaced with 5-second retry timeout
+- Dataclass JSON serialization crash on state save fixed with `dataclasses.asdict()` fallback
 
-### Scoring Dimensions Added
-
-Three new mechanical dimensions (weight 1.0 each):
-
-| Dimension | What it measures |
-|-----------|-----------------|
-| Advocacy language | Speciesist language in code and docs |
-| Advocacy security | Activist protection antipatterns |
-| Persona QA | Browser-based usability findings |
-
-## Installation
-
-Requires **Python 3.11+**.
-
-### From the fork (recommended)
+### Fix loop
 
 ```bash
-pip install "git+https://github.com/Open-Paws/desloppify.git#egg=desloppify[full]"
+desloppify next          # get the top-priority item; it shows which file and the resolve command
+# fix the code
+desloppify plan resolve  # mark it done
+desloppify next          # get the next item
 ```
 
-### From a local clone
+State persists across sessions in `.desloppify/` so the tool chips away over multiple runs.
+
+## Documentation
+
+| Document | Purpose |
+|----------|---------|
+| [docs/SKILL.md](docs/SKILL.md) | Full agent workflow guide (scan → review → plan → execute) |
+| [docs/CLAUDE.md](docs/CLAUDE.md) | Claude Code integration |
+| [docs/CURSOR.md](docs/CURSOR.md) | Cursor integration |
+| [docs/CODEX.md](docs/CODEX.md) | OpenAI Codex integration |
+| [docs/GEMINI.md](docs/GEMINI.md) | Gemini integration |
+| [docs/WINDSURF.md](docs/WINDSURF.md) | Windsurf integration |
+| [docs/QUEUE_LIFECYCLE.md](docs/QUEUE_LIFECYCLE.md) | Queue and plan lifecycle |
+| [desloppify-fork-architecture.md](desloppify-fork-architecture.md) | Fork architecture and extension points |
+| [persona-qa-architecture.md](persona-qa-architecture.md) | Persona QA design |
+
+Install agent skill files directly from the CLI:
 
 ```bash
-git clone https://github.com/Open-Paws/desloppify.git
-cd desloppify
-pip install -e ".[full]"
+desloppify update-skill claude    # options: claude, cursor, codex, copilot, droid, windsurf, gemini
 ```
 
-### With uvx (no install needed)
+## Architecture
 
-```bash
-uvx --from "git+https://github.com/Open-Paws/desloppify.git" desloppify scan --path .
-```
+<details>
+<summary>Internal structure</summary>
 
-### Verify installation
+The package is organized into five main layers:
 
-```bash
-command -v desloppify >/dev/null 2>&1 && echo "desloppify: installed" || echo "NOT INSTALLED"
-```
+**`desloppify/languages/`** — per-language configs. Each language is a `LangConfig` dataclass with ordered `DetectorPhase` callables, dependency graph builder, function extractor, and subjective review dimensions. Full plugin depth: TypeScript, Python, C#, C++, Dart, GDScript, Go, Rust. Generic support via tree-sitter for 21 more languages.
 
-The `[full]` extra includes tree-sitter, PyYAML (for advocacy rules), bandit, Pillow, and defusedxml. For minimal install, drop `[full]` — advocacy detectors will fall back to a built-in YAML parser.
+**`desloppify/engine/`** — scoring, plan, work queue, and scan workflow. Scoring uses two pools (mechanical 25%, subjective 75%) with per-dimension weighted averages and sample dampening for small codebases. Plan and queue state persist in `.desloppify/` with file locking for safe concurrent access.
 
-## Quick Start for AI Agents
+**`desloppify/intelligence/`** — subjective review logic. Prepares blind review packets and normalizes LLM assessment output into the same `Issue` format as mechanical detectors. Never calls an LLM directly — model selection happens at the orchestration layer, keeping this layer model-agnostic.
 
-Paste this into your agent's conversation or system prompt:
+**`desloppify/app/`** — CLI commands and orchestration. Each command (`scan`, `next`, `review`, `persona-qa`, etc.) lives in its own subdirectory. The command registry is a plain dict mapping.
 
-```
-I want you to improve the quality of this codebase. Install and run desloppify.
-Run ALL of the following (requires Python 3.11+):
+**`desloppify/base/`** — detector metadata catalog (65+ built-in entries), scoring policy registry, and the `DetectorMeta` / `LangConfig` type contracts.
 
-pip install --upgrade "git+https://github.com/Open-Paws/desloppify.git#egg=desloppify[full]"
-desloppify update-skill claude    # installs the full workflow guide
-                                  # options: claude, cursor, codex, copilot, droid, windsurf, gemini
+**Fork-specific files:**
+- `desloppify/engine/detectors/advocacy_language.py` — shells out to semgrep/eslint/vale for the 65-rule advocacy language check
+- `desloppify/engine/detectors/advocacy_security.py` — heuristic activist security checks
+- `desloppify/app/commands/persona_qa/` — browser QA command and persona profile handling
 
-Add .desloppify/ to your .gitignore — it contains local state that shouldn't be committed.
+**Upstream tracking:**
 
-Before scanning, exclude noise directories:
-desloppify exclude node_modules
-desloppify exclude dist
-# exclude vendor, build output, generated code, worktrees, etc.
-
-desloppify scan --path .
-desloppify next
-
-THE LOOP: run `next`. It tells you what to fix, which file, and the resolve command.
-Fix it, resolve it, run `next` again. This is your main job.
-
-Your goal is the highest possible strict score. The scoring resists gaming — the only
-way to improve it is to actually make the code better.
-
-Don't be lazy. Large refactors and small detailed fixes — do both with equal energy.
-No task is too big or too small. Fix things properly, not minimally.
-
-Use `plan` / `plan queue` to reorder priorities or cluster related issues. Rescan
-periodically. The scan output includes agent instructions — follow them.
-```
-
-## How It Works — The Full Agent Workflow
-
-### Phase 1: Scan — understand the codebase
-
-```bash
-desloppify scan --path .       # runs all mechanical detectors (including advocacy)
-desloppify status              # check scores
-```
-
-The scan will tell you if subjective dimensions need review. Follow its instructions.
-
-### Phase 2: Review — score subjective dimensions (75% of the score)
-
-```bash
-desloppify review --prepare    # generates blind review packet
-# launch subagents to score dimensions against the blind packet
-desloppify review --import merged.json --scan-after-import
-```
-
-Subjective scores start at 0% until reviewed. This is where most of the score lives.
-
-### Phase 3: Plan — triage and order the queue
-
-```bash
-desloppify next                # shows top-priority execution item
-desloppify plan                # see the living plan
-desloppify plan queue          # compact execution queue view
-desloppify plan reorder <pat> top       # reorder priorities
-desloppify plan cluster create <name>   # group related issues
-```
-
-### Phase 4: Execute — grind the queue
-
-```bash
-git checkout -b desloppify/code-health
-
-# The loop:
-desloppify next                          # 1. get next item
-# fix the code                           # 2. make the change
-# run the resolve command next shows     # 3. mark it done
-git add <files> && git commit -m "..."   # 4. commit when logical
-desloppify plan commit-log record        # 5. record the commit
-desloppify next                          # 6. repeat
-```
-
-When the queue is empty, go back to Phase 1. New issues will surface, cascades will resolve, priorities will shift.
-
-## Command Reference
-
-| Command | Purpose |
-|---------|---------|
-| `scan --path .` | Analyze codebase, save findings |
-| `status` | Summary of scores and dimension health |
-| `next` | Top-priority item from execution queue |
-| `backlog` | All open work items |
-| `plan` | View/manage the living plan |
-| `plan queue` | Compact execution queue |
-| `plan reorder` | Reorder priorities |
-| `plan cluster` | Group related issues |
-| `resolve` | Mark issues fixed |
-| `autofix` | Auto-fix (when available) |
-| `review --prepare` | Generate blind review packet |
-| `review --import` | Import review scores |
-| `show <pattern>` | Display specific findings |
-| `suppress` | Suppress false positives |
-| `exclude <path>` | Exclude paths from scanning |
-| `persona-qa` | Browser QA persona testing |
-| `update-skill <agent>` | Generate agent skill file |
-| `config` | Show/edit configuration |
-| `directives` | Agent lifecycle directives |
-| `viz` / `tree` | Dependency graph visualization |
-| `langs` | Show supported languages |
-
-## Advocacy Guidance for Agents
-
-When fixing issues from the advocacy detectors, follow this guidance.
-
-### Fixing Speciesist Language
-
-Replace the flagged term with the first suggested alternative. Don't add comments explaining why. Don't wrap in feature flags. Just change it.
-
-### Fixing Security Antipatterns
-
-- **Identity leakage**: Remove PII from log/error output. Use pseudonymous identifiers. Never log IP, email, or real names in the same statement.
-- **External API calls**: Add zero-retention headers or route through self-hosted inference.
-- **Public path exposure**: Move investigation/evidence data out of `public`/`static` directories. Use encrypted storage.
-
-### Ubiquitous Language
-
-Use these terms correctly in code, comments, and commit messages:
-
-| Term | Meaning | NOT |
-|------|---------|-----|
-| Campaign | Coordinated advocacy action | Marketing campaign |
-| Investigation | Covert evidence gathering | Bug investigation |
-| Coalition | Cross-org partnership | Generic collaboration |
-| Witness | Person providing testimony | Test witness |
-| Sanctuary | Rescue facility for animals | Sandbox |
-| Companion animal | Animal living with humans | Pet |
-| Farmed animal | Animal in agriculture | Livestock |
-
-## Upstream Tracking
-
-This fork tracks `peteromallet/desloppify` as `upstream`. Fork-specific changes live in new files (advocacy detectors, persona QA command) and minimal patches to scoring constants and language configs. Upstream merges should be clean.
+This fork tracks [`peteromallet/desloppify`](https://github.com/peteromallet/desloppify) as `upstream`. Fork-specific changes live in new files and minimal patches to scoring constants and language configs. Upstream merges are designed to stay clean.
 
 ```bash
 git fetch upstream
 git merge upstream/main
 ```
 
+</details>
+
 ## Contributing
 
-Issues and PRs go to [github.com/Open-Paws/desloppify](https://github.com/Open-Paws/desloppify).
+Issues and pull requests go to [github.com/Open-Paws/desloppify](https://github.com/Open-Paws/desloppify).
 
-For upstream bugs unrelated to the advocacy extensions, file at [github.com/peteromallet/desloppify](https://github.com/peteromallet/desloppify).
+For bugs in the upstream scanner unrelated to the advocacy extensions, file at [github.com/peteromallet/desloppify](https://github.com/peteromallet/desloppify).
+
+Contributions to the advocacy language rules (new patterns, replacements, context suppressions) are especially welcome — the rule set lives in [Open-Paws/no-animal-violence](https://github.com/Open-Paws/no-animal-violence) and is shared across the full tooling suite (semgrep, ESLint, Vale, pre-commit, GitHub Actions).
+
+If you maintain an open-source project and want to add compassionate language checks, see [project-compassionate-code](https://github.com/Open-Paws/project-compassionate-code) for the broader initiative.
 
 ## License
 
-MIT — same as upstream.
+MIT — same as upstream. See [LICENSE](LICENSE).
+
+**Upstream:** [peteromallet/desloppify](https://github.com/peteromallet/desloppify) by Peter O'Malley.
+
+**Advocacy rules:** [Open-Paws/no-animal-violence](https://github.com/Open-Paws/no-animal-violence).
+
+---
+
+<!-- tech_stack: Python, semgrep, ESLint, Vale, tree-sitter -->
+<!-- project_status: active -->
+<!-- difficulty: intermediate -->
+<!-- skill_tags: code-quality, static-analysis, advocacy-language, security, browser-qa -->
+<!-- related_repos: no-animal-violence, project-compassionate-code, gary, platform -->
+
+[Donate](https://openpaws.ai/donate) · [Discord](https://discord.gg/openpaws) · [openpaws.ai](https://openpaws.ai) · [Volunteer](https://openpaws.ai/volunteer)
