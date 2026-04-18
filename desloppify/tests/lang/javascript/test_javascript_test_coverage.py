@@ -17,6 +17,7 @@ def test_parse_test_import_specs_handles_esm_and_cjs() -> None:
     specs = js_cov.parse_test_import_specs(content)
     assert isinstance(specs, set)
     assert "./foo.js" in specs
+    assert "./side-effect.js" in specs
     assert "./bar" in specs
     assert "./lazy.js" in specs
 
@@ -74,4 +75,5 @@ def test_map_test_to_source_is_deterministic_on_basename_collision() -> None:
     # Call twice — result must be stable (no randomness from set iteration).
     result2 = js_cov.map_test_to_source("test/util.test.js", production)
     assert result1 == result2
-    assert result1 in production
+    # Sorted basename fallback must pick the lexicographically first path.
+    assert result1 == "a/util.js"
