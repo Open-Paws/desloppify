@@ -2,7 +2,7 @@
 
 [Open Paws](https://github.com/Open-Paws) fork of [peteromallet/desloppify](https://github.com/peteromallet/desloppify). Adds advocacy-specific detectors for speciesist language and activist security antipatterns, persona-based browser QA, and Windows platform fixes — while tracking upstream for general improvements.
 
-![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green)
+![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green) [![desloppify score](https://img.shields.io/badge/desloppify-24.7%2F100-red)](scorecard.png)
 
 ## What Is Desloppify?
 
@@ -244,6 +244,10 @@ This fork tracks `peteromallet/desloppify` as `upstream`. Fork-specific changes 
 git fetch upstream
 git merge upstream/main
 ```
+
+## Code Quality
+
+<img src="scorecard.png" width="100%">
 
 ## Contributing
 
