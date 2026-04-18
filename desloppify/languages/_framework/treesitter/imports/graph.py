@@ -75,6 +75,16 @@ def ts_build_dep_graph(
             if resolved is None:
                 continue
 
+            # Check if the resolver returned a relative path that is already
+            # in the file set (relative to the project root) before converting
+            # to absolute. This handles cases where resolve_import returns a
+            # project-root-relative path rather than a scan-root-relative one.
+            if not os.path.isabs(resolved) and resolved in file_set:
+                graph[filepath]["imports"].add(resolved)
+                if resolved in graph:
+                    graph[resolved]["importers"].add(filepath)
+                continue
+
             # Normalize to absolute path.
             if not os.path.isabs(resolved):
                 resolved = os.path.normpath(os.path.join(scan_path, resolved))
