@@ -9,6 +9,7 @@ from desloppify.languages._framework.phases_advocacy import (
 )
 from desloppify.languages._framework.treesitter import JS_SPEC
 from desloppify.languages.javascript._zones import JS_ZONE_RULES
+from desloppify.languages.javascript import test_coverage as js_test_coverage_hooks
 
 
 cfg = generic_lang(
@@ -31,6 +32,7 @@ cfg = generic_lang(
     treesitter_spec=JS_SPEC,
     zone_rules=JS_ZONE_RULES,
     frameworks=True,
+    test_coverage_module=js_test_coverage_hooks,
 )
 
 # Append Open Paws advocacy phases to the generic config.
