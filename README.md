@@ -1,4 +1,4 @@
-[![PyPI version](https://img.shields.io/pypi/v/desloppify)](https://pypi.org/project/desloppify/) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE) [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/) [![Last commit](https://img.shields.io/github/last-commit/Open-Paws/desloppify)](https://github.com/Open-Paws/desloppify/commits/main)
+[![PyPI version](https://img.shields.io/pypi/v/desloppify)](https://pypi.org/project/desloppify/) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE) [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/) [![Last commit](https://img.shields.io/github/last-commit/Open-Paws/desloppify)](https://github.com/Open-Paws/desloppify/commits/main) [![desloppify score](https://img.shields.io/badge/desloppify-24.7%2F100-red)](scorecard.png)
 
 # Desloppify — Open Paws Fork
 
@@ -168,6 +168,10 @@ git merge upstream/main
 ```
 
 </details>
+
+## Code Quality
+
+<img src="scorecard.png" alt="Desloppify scorecard showing strict score 24.7/100 and objective/verified score 98.8" width="100%">
 
 ## Contributing
 
