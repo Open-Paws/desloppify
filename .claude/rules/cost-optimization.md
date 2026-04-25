@@ -4,7 +4,13 @@ Advocacy organizations operate on nonprofit budgets. Every dollar spent on AI co
 
 ## Model Routing — Right Model for Each Task
 
-Route tasks to the cheapest model capable of handling them well. Use cheaper, faster models for: test generation, boilerplate code, formatting assistance, simple refactoring, and documentation. Use mid-tier models for: debugging, multi-file changes, code review, and integration work. Reserve frontier models for: hard architectural problems, complex debugging, novel design challenges, and security-critical code review. Aider achieves comparable benchmark scores at 3x fewer tokens than some alternatives — consider token-efficient tools for routine workflows.
+Route tasks to the cheapest model capable of handling them well.
+
+- **Cheap tier — Claude Haiku 4.5 (`claude-haiku-4-5-20251001`)**: test generation, boilerplate code, formatting assistance, simple refactoring, mechanical edits, documentation, glue code, log parsing, summarization of structured output. Default for desloppify-driven mechanical work. Default for first-pass scout / triage when the observation is well-structured.
+- **Mid tier — Claude Sonnet 4.6 (`claude-sonnet-4-6`)**: debugging, multi-file changes, code review, integration work, plan authoring against a clear spec, test review, persona-QA narrative writing.
+- **Frontier — Claude Opus 4.7 (`claude-opus-4-7`, default on this stack)**: hard architectural problems, complex debugging, novel design challenges, security-critical code review, adversarial audit, the strategic / Chat-Gary surface.
+
+Aider achieves comparable benchmark scores at 3× fewer tokens than some alternatives — consider token-efficient tools for routine workflows. The single biggest cost win in this stack is **routing cheap things to Haiku rather than reaching for Opus by default**.
 
 ## Token Budget Discipline
 
