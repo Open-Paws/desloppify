@@ -10,10 +10,7 @@ Open Paws fork of [peteromallet/desloppify](https://github.com/peteromallet/desl
 
 **Platform integration:** Core development workflow for all Open Paws repos. Not connected to the platform directly.
 
-**Minimum passing scores:**
-- Gary: ≥ 98
-- Platform repos: ≥ 90
-- All other repos (including this one): ≥ 85
+**Minimum passing scores per repo category:** see [`handbook/ci-cd.md` → Repo Taxonomy](https://github.com/Open-Paws/context/blob/main/handbook/ci-cd.md#repo-taxonomy) (canonical). Current thresholds: user-facing apps ≥ 90, autonomous agents (gary) ≥ 80, tooling/plugin libraries (including this repo) ≥ 70, mixed content + code ≥ 70.
 
 **Upstream tracking:** Fork tracks `peteromallet/desloppify` as `upstream` remote. Fork-specific code lives in new files. Upstream merges: `git fetch upstream && git merge upstream/main`.
 
@@ -29,7 +26,12 @@ gh api repos/Open-Paws/open-paws-strategy/contents/settled-decisions.md --jq '.c
 
 ```bash
 # Requires Python 3.11+
-pip install -e ".[full]"          # editable install with all extras
+# Canonical install — same as every other Open Paws repo (per ~/.claude/rules/desloppify.md):
+pip install "git+https://github.com/Open-Paws/desloppify.git#egg=desloppify[full]"
+
+# Or, for fork development inside this repo (editable):
+# pip install -e ".[full]"
+
 desloppify scan --path .          # run all mechanical detectors
 desloppify status                 # view scores
 desloppify next                   # get top-priority fix item
@@ -185,7 +187,7 @@ Apply to every PR:
 
 ### Quality Gates
 
-**Desloppify (self-scan)** — Target score: ≥ 85.
+**Desloppify (self-scan)** — Target score: ≥ 70 (tooling/plugin library tier per canonical handbook).
 
 ```bash
 desloppify scan --path .

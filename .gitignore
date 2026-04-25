@@ -45,3 +45,7 @@ tasks/
 cotton-desloppify/
 review/results/
 review/__pycache__/
+
+# Claude Code agent state — never commit
+.claude/agent-memory/
+.claude/worktrees/
