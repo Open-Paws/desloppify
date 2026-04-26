@@ -51,7 +51,7 @@ Orchestrate triage with per-stage subagents:
 | `DROID.md` | Droid agent overlay | Using desloppify with Droid |
 | `GEMINI.md` | Gemini CLI agent overlay | Using desloppify with Gemini CLI |
 | `HERMES.md` | Hermes agent overlay | Using desloppify with Hermes |
-| `OPENCODE.md` | OpenCode/graze agent overlay | Using desloppify with graze-cli |
+| `OPENCODE.md` | OpenCode agent overlay | Using desloppify with OpenCode |
 | `QUEUE_LIFECYCLE.md` | Work queue lifecycle documentation | Understanding plan/next flow |
 | `SKILL.md` | Universal skill file for any agent | When installing desloppify skill |
 | `WINDSURF.md` | Windsurf agent overlay | Using desloppify with Windsurf |
