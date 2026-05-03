@@ -29,7 +29,7 @@ from desloppify.languages._framework.base.types_shared import (
 
 if TYPE_CHECKING:
     from desloppify.engine.policy.zones import FileZoneMap, ZoneRule
-    from desloppify.intelligence.review.veracity import VeracityPlugin
+    from desloppify.intelligence.veracity import VeracityPlugin
 
 # ---------------------------------------------------------------------------
 # Type aliases for complex Callable signatures used in LangConfig fields

@@ -7,7 +7,7 @@ import importlib.util
 import re
 from typing import Any
 
-from desloppify.intelligence.review.veracity import VeracityIssue, VeracityPlugin
+from desloppify.intelligence.veracity import VeracityIssue, VeracityPlugin
 
 
 class PythonVeracityPlugin(VeracityPlugin):

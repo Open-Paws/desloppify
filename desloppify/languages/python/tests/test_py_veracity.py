@@ -35,7 +35,7 @@ os.path.this_is_not_a_real_method("foo")
     issues = plugin.verify_suggestion(suggestion)
     assert len(issues) == 1
     assert issues[0]["method"] == "this_is_not_a_real_method"
-    assert issues[0]["module"] == "os"
+    assert issues[0]["module"] == "os.path"
     assert "does not exist" in issues[0]["message"]
 
 
