@@ -7,6 +7,7 @@ from typing import Any
 
 from desloppify.engine._state.filtering import make_issue
 from desloppify.engine._state.schema import Issue, StateModel
+from desloppify.languages._framework.registry import state as lang_registry
 from desloppify.intelligence.review.dimensions import normalize_dimension_name
 from desloppify.intelligence.review.importing.contracts_types import (
     ReviewIssuePayload,
@@ -59,6 +60,9 @@ def validate_and_build_issues(
     issues_list: list[ReviewIssuePayload],
     holistic_prompts: dict[str, Any],
     lang_name: str,
+    *,
+    verify_veracity: bool = False,
+    project_root: Any = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     """Validate raw holistic issues and build state-ready issue dicts.
 
@@ -70,6 +74,13 @@ def validate_and_build_issues(
     allowed_dimensions = {
         dim for dim in holistic_prompts if isinstance(dim, str) and dim.strip()
     }
+
+    # Setup veracity plugin if requested
+    veracity_plugin = None
+    if verify_veracity:
+        lang_cfg = lang_registry.get(lang_name)
+        if lang_cfg:
+            veracity_plugin = getattr(lang_cfg, "veracity_plugin", None)
 
     for idx, raw_issue in enumerate(issues_list):
         issue, issue_errors = validate_review_issue_payload(
@@ -121,6 +132,24 @@ def validate_and_build_issues(
             continue
 
         dimension = issue["dimension"]
+        suggestion = issue.get("suggestion", "")
+
+        # Veracity check (De-hallucination)
+        if veracity_plugin and suggestion:
+            veracity_errors = veracity_plugin.verify_suggestion(
+                suggestion,
+                project_root=str(project_root) if project_root else None,
+            )
+            if veracity_errors:
+                error_messages = [err["message"] for err in veracity_errors]
+                skipped.append(
+                    {
+                        "index": idx,
+                        "missing": [f"Veracity check failed: {', '.join(error_messages)}"],
+                        "identifier": issue.get("identifier", "<none>"),
+                    }
+                )
+                continue
 
         is_confirmed_concern = issue.get("concern_verdict") == "confirmed"
         detector = "concerns" if is_confirmed_concern else "review"

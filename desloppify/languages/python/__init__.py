@@ -47,6 +47,7 @@ from desloppify.languages.python.detectors.deps import build_dep_graph
 from desloppify.languages.python.detectors.private_imports import (
     detect_private_imports as detect_python_private_imports,
 )
+from desloppify.languages.python.veracity import PythonVeracityPlugin
 from desloppify.languages.python.phases import (
     PY_COMPLEXITY_SIGNALS,
     PY_ENTRY_PATTERNS,
@@ -138,6 +139,7 @@ class PythonConfig(LangConfig):
             migration_pattern_pairs=PY_MIGRATION_PATTERN_PAIRS,
             migration_mixed_extensions=PY_MIGRATION_MIXED_EXTENSIONS,
             extract_functions=py_extract_functions,
+            veracity_plugin=PythonVeracityPlugin(),
             zone_rules=PY_ZONE_RULES,
         )
 

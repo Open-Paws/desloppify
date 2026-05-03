@@ -39,6 +39,7 @@ class ReviewOptions:
     manual_override: bool = False
     attested_external: bool = False
     attest: str | None = None
+    verify_veracity: bool = False
 
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> ReviewOptions:
@@ -58,6 +59,7 @@ class ReviewOptions:
             manual_override=bool(getattr(args, "manual_override", False)),
             attested_external=bool(getattr(args, "attested_external", False)),
             attest=getattr(args, "attest", None),
+            verify_veracity=bool(getattr(args, "verify_veracity", False)),
         )
 
 
@@ -189,6 +191,7 @@ def _run_review_mode(
                 manual_override=opts.manual_override,
                 attested_external=opts.attested_external,
                 manual_attest=opts.attest,
+                verify_veracity=opts.verify_veracity,
             ),
         )
         return
@@ -205,6 +208,7 @@ def _run_review_mode(
                 manual_override=opts.manual_override,
                 attested_external=opts.attested_external,
                 manual_attest=opts.attest,
+                verify_veracity=opts.verify_veracity,
             ),
             dry_run=opts.dry_run,
         )

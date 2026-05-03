@@ -37,6 +37,11 @@ def _add_core_options(p_review: argparse.ArgumentParser) -> None:
         ),
     )
     g_core.add_argument(
+        "--verify-veracity",
+        action="store_true",
+        help="Verify API veracity (de-hallucination) for suggested fixes during import",
+    )
+    g_core.add_argument(
         "--dimensions",
         type=str,
         default=None,

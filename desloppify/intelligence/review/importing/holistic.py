@@ -58,6 +58,7 @@ def import_holistic_issues(
     lang_name: str,
     *,
     project_root: Path | str | None = None,
+    verify_veracity: bool = False,
     utc_now_fn=utc_now,
 ) -> dict[str, Any]:
     """Import holistic (codebase-wide) issues into state."""
@@ -109,6 +110,8 @@ def import_holistic_issues(
         issues_list,
         holistic_prompts,
         lang_name,
+        verify_veracity=verify_veracity,
+        project_root=project_root,
     )
     imported_dimensions = _collect_imported_dimensions(
         issues_list=issues_list,
