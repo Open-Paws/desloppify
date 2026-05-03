@@ -70,6 +70,7 @@ class ImportParseOptions:
     attested_external: bool = False
     manual_override: bool = False
     manual_attest: str | None = None
+    verify_veracity: bool = False
 
 
 def _coerce_import_parse_options(
@@ -85,6 +86,7 @@ def _coerce_import_parse_options(
         attested_external=bool(base.attested_external),
         manual_override=bool(base.manual_override),
         manual_attest=coerce_optional_str(base.manual_attest),
+        verify_veracity=bool(base.verify_veracity),
     )
 
 
