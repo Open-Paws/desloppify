@@ -35,7 +35,7 @@ os.path.this_is_not_a_real_method("foo")
     issues = plugin.verify_suggestion(suggestion)
     assert len(issues) == 1
     assert issues[0]["method"] == "this_is_not_a_real_method"
-    assert issues[0]["module"] == "os"
+    assert issues[0]["module"] == "os.path"
     assert "does not exist" in issues[0]["message"]
 
 
@@ -72,3 +72,45 @@ pathlib.non_existent_at_root()
     issues = plugin.verify_suggestion(suggestion_simple)
     assert len(issues) == 1
     assert issues[0]["method"] == "non_existent_at_root"
+
+
+def test_import_as_hallucination(plugin):
+    """Hallucinated methods with 'import as' should be detected."""
+    suggestion = """
+```python
+import os as my_os
+my_os.path.invalid_method()
+```
+"""
+    issues = plugin.verify_suggestion(suggestion)
+    assert len(issues) == 1
+    assert issues[0]["module"] == "os.path"
+    assert issues[0]["method"] == "invalid_method"
+
+
+def test_from_import_hallucination(plugin):
+    """Hallucinated methods with 'from import' should be detected."""
+    suggestion = """
+```python
+from os import path
+path.invalid_method_on_path()
+```
+"""
+    issues = plugin.verify_suggestion(suggestion)
+    assert len(issues) == 1
+    assert issues[0]["module"] == "os.path"
+    assert issues[0]["method"] == "invalid_method_on_path"
+
+
+def test_from_import_as_hallucination(plugin):
+    """Hallucinated methods with 'from import as' should be detected."""
+    suggestion = """
+```python
+from os import path as my_path
+my_path.invalid_method_on_path()
+```
+"""
+    issues = plugin.verify_suggestion(suggestion)
+    assert len(issues) == 1
+    assert issues[0]["module"] == "os.path"
+    assert issues[0]["method"] == "invalid_method_on_path"

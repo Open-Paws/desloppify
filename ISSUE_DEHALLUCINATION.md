@@ -21,7 +21,7 @@ Prevent AI agents from proposing "slop" fixes that utilize hallucinated library 
 5.  **Configuration:** Allow this check to be toggled via a new flag `--verify-veracity`.
 
 ## Definition of Done
-- [ ] A new veracity verification layer exists in the review import pipeline.
-- [ ] A test case confirms that an import with `os.path.non_existent_method()` is rejected.
-- [ ] A test case confirms that valid APIs (e.g., `os.path.exists()`) are accepted.
-- [ ] The feature is documented in `skill_docs.py`.
+- [x] A new veracity verification layer exists in the review import pipeline.
+- [x] A test case confirms that an import with `os.path.non_existent_method()` is rejected.
+- [x] A test case confirms that valid APIs (e.g. `os.path.exists()`) are accepted.
+- [x] The feature is documented in `skill_docs.py`.
