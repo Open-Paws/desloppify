@@ -80,24 +80,33 @@ def test_all_factories_produce_callable_run():
 # ── shared_subjective_duplicates_tail ─────────────────────────
 
 
-def test_shared_tail_default_has_three_phases():
-    """Default tail: subjective review, boilerplate duplication, duplicates."""
+_ADVOCACY_LABELS = ["Advocacy language", "Advocacy security", "Advocacy tools"]
+
+
+def test_shared_tail_default_has_six_phases():
+    """Default tail: 3 advocacy phases, subjective review, boilerplate duplication, duplicates."""
     phases = shared_subjective_duplicates_tail()
-    assert len(phases) == 3
-    assert phases[0].label == "Subjective review"
-    assert phases[1].label == "Boilerplate duplication"
-    assert phases[2].label == "Duplicates"
+    assert len(phases) == 6
+    labels = [p.label for p in phases]
+    assert labels[:3] == _ADVOCACY_LABELS
+    assert labels[3] == "Subjective review"
+    assert labels[4] == "Boilerplate duplication"
+    assert labels[5] == "Duplicates"
 
 
 def test_shared_tail_with_pre_duplicates_inserts_in_middle():
     """Extra phases go between subjective review and boilerplate duplication."""
     custom = DetectorPhase("Custom detector", lambda p, lang: ([], {}))
     phases = shared_subjective_duplicates_tail(pre_duplicates=[custom])
-    assert len(phases) == 4
-    assert phases[0].label == "Subjective review"
-    assert phases[1].label == "Custom detector"
-    assert phases[2].label == "Boilerplate duplication"
-    assert phases[3].label == "Duplicates"
+    assert len(phases) == 7
+    labels = [p.label for p in phases]
+    assert labels == [
+        *_ADVOCACY_LABELS,
+        "Subjective review",
+        "Custom detector",
+        "Boilerplate duplication",
+        "Duplicates",
+    ]
 
 
 def test_shared_tail_with_multiple_pre_duplicates():
@@ -105,9 +114,10 @@ def test_shared_tail_with_multiple_pre_duplicates():
     custom_a = DetectorPhase("Alpha", lambda p, lang: ([], {}))
     custom_b = DetectorPhase("Beta", lambda p, lang: ([], {}))
     phases = shared_subjective_duplicates_tail(pre_duplicates=[custom_a, custom_b])
-    assert len(phases) == 5
+    assert len(phases) == 8
     labels = [p.label for p in phases]
     assert labels == [
+        *_ADVOCACY_LABELS,
         "Subjective review",
         "Alpha",
         "Beta",
@@ -119,15 +129,17 @@ def test_shared_tail_with_multiple_pre_duplicates():
 def test_shared_tail_empty_pre_duplicates_same_as_default():
     """Empty list for pre_duplicates behaves like None."""
     phases = shared_subjective_duplicates_tail(pre_duplicates=[])
-    assert len(phases) == 3
+    assert len(phases) == 6
 
 
 def test_shared_tail_slow_flags():
-    """Last two phases (boilerplate duplication + duplicates) are slow."""
+    """Only the last two phases (boilerplate duplication + duplicates) are slow."""
     phases = shared_subjective_duplicates_tail()
-    assert phases[0].slow is False  # subjective review
-    assert phases[1].slow is True   # boilerplate duplication
-    assert phases[2].slow is True   # duplicates
+    # Advocacy + subjective review are fast
+    for fast_phase in phases[:-2]:
+        assert fast_phase.slow is False
+    assert phases[-2].slow is True  # boilerplate duplication
+    assert phases[-1].slow is True  # duplicates
 
 
 # ── Treesitter phase factories ────────────────────────────────

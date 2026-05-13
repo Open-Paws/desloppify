@@ -25,6 +25,9 @@ SHARED_PHASE_LABELS = frozenset(
         "Responsibility cohesion",
         "Unused imports",
         "Signature analysis",
+        "Advocacy language",
+        "Advocacy security",
+        "Advocacy tools",
     }
 )
 
