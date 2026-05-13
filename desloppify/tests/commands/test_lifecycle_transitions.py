@@ -244,6 +244,7 @@ class TestPhaseOrderInvariant:
         state["subjective_assessments"]["naming_quality"]["needs_review_refresh"] = True
         plan = empty_plan()
         plan["queue_order"] = [
+            WORKFLOW_COMMUNICATE_SCORE_ID,
             "triage::observe",
             "subjective::naming_quality",
         ]
@@ -254,12 +255,17 @@ class TestPhaseOrderInvariant:
         ids = _queue_ids(state, plan)
         assert ids == ["subjective::naming_quality"]
 
-        # After subjective follow-up completion, triage appears.
+        # After subjective follow-up completion, workflow appears.
         ids = _queue_ids(state, plan)
         state["subjective_assessments"]["naming_quality"]["needs_review_refresh"] = False
         state["subjective_assessments"]["naming_quality"]["score"] = 100.0
         state["dimension_scores"][DIM_DISPLAY["naming_quality"]]["score"] = 100.0
         state["dimension_scores"][DIM_DISPLAY["naming_quality"]]["strict"] = 100.0
+        ids = _queue_ids(state, plan)
+        assert ids == [WORKFLOW_COMMUNICATE_SCORE_ID]
+
+        # After workflow completion, triage becomes visible.
+        purge_ids(plan, [WORKFLOW_COMMUNICATE_SCORE_ID])
         ids = _queue_ids(state, plan)
         assert ids == ["triage::observe"]
 

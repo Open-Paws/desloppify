@@ -1,0 +1,19 @@
+{
+  "number": 490,
+  "type": "issue",
+  "title": "Zone map empty in v0.9.12 — test_coverage, security, structural detectors all see 0 files",
+  "author": "thinkbig1979",
+  "stage1": {
+    "verdict": "NOT_ACTIONABLE",
+    "summary": "The reporter claims zone map is empty in v0.9.12, causing all zone-dependent detectors to report 0 files. However, the code path is straightforward: _build_zone_map calls lang.file_finder(path) -> iter_typescript_sources(path), then constructs FileZoneMap from the results. If files are found, zones are populated. The scan output shows non-zone-dependent detectors working fine (Next.js smells found 2 issues, subjective review found 4 issues across 20 dimensions), which means the scan is running against the correct directory. The most likely explanations are: (1) a project-specific exclusion pattern filtering out all files, (2) the TypeScript file finder returning empty for this specific project layout, or (3) an issue in an earlier version that was fixed. The report lacks the actual project structure, exclusion config, or .desloppify/config.json contents needed to diagnose. The reporter says 'v0.9.12' but the zone map code hasn't changed meaningfully between recent versions. Without a reproducible minimal project or the exclusion config, this cannot be investigated further.",
+    "confidence": "medium",
+    "scope_estimate": "medium",
+    "potential_duplicates": []
+  },
+  "stage3": {
+    "decision": "CLOSE_NOT_ACTIONABLE",
+    "reasoning": "Both stages agreed: insufficient reproduction info. Asked for project structure and config.",
+    "commit": null,
+    "changes_applied": null
+  }
+}

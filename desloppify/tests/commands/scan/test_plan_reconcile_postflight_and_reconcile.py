@@ -42,6 +42,34 @@ class TestClearPlanStartScoresIfQueueEmpty:
         assert plan["plan_start_scores"] == {}
         assert state["_plan_start_scores_for_reveal"]["strict"] == 80.0
 
+    def test_preserves_communicate_score_sentinel_when_cycle_drains(self, monkeypatch):
+        plan = empty_plan()
+        plan["plan_start_scores"] = {
+            "strict": 80.0,
+            "overall": 85.0,
+            "objective": 82.0,
+            "verified": 78.0,
+        }
+        plan["previous_plan_start_scores"] = {"strict": 70.0}
+        plan["create_plan_resolved_this_cycle"] = True
+        state = _make_state()
+
+        monkeypatch.setattr(
+            "desloppify.app.commands.helpers.queue_progress.plan_aware_queue_breakdown",
+            lambda s, p: SimpleNamespace(
+                objective_actionable=0,
+                queue_total=0,
+                lifecycle_phase="execution",
+            ),
+        )
+
+        result = reconcile_mod._clear_plan_start_scores_if_queue_empty(state, plan)
+
+        assert result is True
+        assert plan["plan_start_scores"] == {}
+        assert plan["previous_plan_start_scores"] == {"strict": 70.0}
+        assert "create_plan_resolved_this_cycle" not in plan
+
     def test_does_not_clear_when_queue_has_items(self, monkeypatch):
         plan = empty_plan()
         plan["plan_start_scores"] = {

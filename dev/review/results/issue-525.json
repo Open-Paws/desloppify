@@ -1,0 +1,26 @@
+{
+  "number": 525,
+  "type": "issue",
+  "title": "Better Instructions for Multiple Programs in One Folder",
+  "author": "jmartell72",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "Real usability issue: users with monorepo-style setups (frontend + backend in one directory) hit path confusion when running desloppify from the parent workspace. The reporter verified that split scans (scan --path frontend, scan --path backend) work correctly. The fix is documentation: clarify in README/SKILL.md that desloppify should be pointed at individual project roots, not parent workspaces containing multiple repos.",
+    "confidence": "high",
+    "scope_estimate": "small"
+  },
+  "stage3": {
+    "decision": "CLOSE_FIXED",
+    "reasoning": "The requested multi-project guidance is already present in README and SKILL.md. Both now tell users with frontend/backend or monorepo-style sibling projects to scan each coherent project root separately with `--path` and avoid scanning the parent workspace because it mixes state and path context.",
+    "fixed_by": "a084a7cb",
+    "changes_applied": [
+      "README includes a `Monorepos and multi-project directories` section with separate frontend/backend scan examples.",
+      "SKILL.md includes the same guidance for installed agent workflows.",
+      "The packaged `desloppify/data/global/SKILL.md` copy includes the synced guidance."
+    ],
+    "tests": [
+      "git blame -L 54,66 -- README.md",
+      "git blame -L 23,35 -- docs/SKILL.md"
+    ]
+  }
+}

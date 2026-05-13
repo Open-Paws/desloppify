@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import desloppify.app.commands.review.packet.build as packet_build_mod
 
@@ -54,6 +55,40 @@ def test_prepared_packet_contract_includes_state_scope(tmp_path: Path) -> None:
     contract = packet_build_mod.prepared_packet_contract(context, config={})
 
     assert contract["state_path"] == str((tmp_path / "alt-state.json").resolve())
+
+
+def test_build_review_packet_payload_attaches_prepared_packet_contract(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    context = packet_build_mod.ReviewPacketContext(
+        path=tmp_path,
+        state_path=None,
+        dimensions=["logic_clarity"],
+        retrospective=False,
+        retrospective_max_issues=30,
+        retrospective_max_batch_items=20,
+    )
+    monkeypatch.setattr(packet_build_mod.narrative_mod, "compute_narrative", lambda *_a, **_k: {})
+
+    payload = packet_build_mod.build_review_packet_payload(
+        state=SimpleNamespace(),
+        lang=SimpleNamespace(name="python"),
+        config={},
+        context=context,
+        next_command="desloppify review --run-batches --runner codex",
+        setup_lang_fn=lambda lang, _path, _config: (lang, [tmp_path / "app.py"]),
+        prepare_holistic_review_fn=lambda *_a, **_k: {
+            "total_files": 1,
+            "investigation_batches": [{"name": "logic_clarity"}],
+        },
+    )
+
+    assert payload["prepared_packet_contract"] == packet_build_mod.prepared_packet_contract(
+        context,
+        config={},
+    )
+    assert payload["prepared_packet_contract"]["dimensions"] == ["logic_clarity"]
 
 
 def test_attach_plan_deferral_context_uses_plan_for_selected_state(

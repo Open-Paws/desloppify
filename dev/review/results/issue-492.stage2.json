@@ -1,0 +1,15 @@
+{
+  "number": 492,
+  "type": "issue",
+  "role": "challenger",
+  "verdict": "ACCEPT_WITH_CONDITIONS",
+  "counter_case": "The importer_count heuristic is intentionally simple — it counts direct import edges in the dependency graph. Adding special handling for __init__.py re-exports introduces complexity: you'd need to parse __init__.py files, identify re-export patterns (from pkg._mod import X as X), and add synthetic import edges. This is a slippery slope — what about lazy imports, conditional imports, or dynamic re-exports? The current behavior (0 importers for private modules) is technically correct: _bar.py literally has 0 importers in the dependency graph if only __init__.py references it and __init__.py re-exports aren't tracked as edges. The user can resolve individual false positives via triage (wontfix). The question is whether the false positive rate for this pattern justifies the implementation cost.",
+  "summary": "The issue identifies a genuine false positive pattern. Private modules re-exported through __init__.py are a standard Python convention (PEP 8, numpy/pandas/etc. all use this). The importer_count showing 0 for these modules is misleading. However, the fix touches the dependency graph or coverage mapping layer — both are shared infrastructure with moderate blast radius. Stage 1 correctly accepted this but it should be conditioned on a focused implementation approach.",
+  "conditions": [
+    "Scope the fix to the coverage mapping layer only — count __init__.py re-exports (from pkg._mod import X as X pattern) as import edges specifically for the untested_module importer_count heuristic",
+    "Do not modify the core dependency graph — this should be a coverage-specific adjustment",
+    "Add tests with the private-module-with-public-init pattern"
+  ],
+  "confidence": "medium",
+  "implementation_notes": "The cleanest approach: in the coverage mapping code that computes importer_count, check if a module with 0 importers has a sibling __init__.py that re-exports from it. If so, count the __init__.py as an importer. This avoids touching the core graph infrastructure."
+}

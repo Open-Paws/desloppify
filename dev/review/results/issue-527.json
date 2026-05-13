@@ -1,0 +1,24 @@
+{
+  "number": 527,
+  "type": "issue",
+  "title": "Codex Triage Runner Bug",
+  "author": "jmartell72",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "Confirmed bug: in orchestrator_codex_pipeline.py:173-189, the StageRunContext construction omits state=pipeline_context.state. The StageRunContext dataclass has state with a default of None (context.py:55), but downstream code at orchestrator_codex_pipeline_execution.py:154 and :498 passes context.state to build_stage_prompt and run_sense_check, which will receive None instead of the actual state. The reporter correctly identified the missing field and the exact fix (adding state=pipeline_context.state to the constructor call).",
+    "confidence": "high",
+    "scope_estimate": "small"
+  },
+  "stage3": {
+    "decision": "CLOSE_FIXED",
+    "reasoning": "The reported missing `state=pipeline_context.state` argument in the Codex triage pipeline has already been fixed. `StageRunContext` is now constructed with the active state, so downstream prompt building and sense-check execution no longer receive `None` for state.",
+    "fixed_by": "94936fcd",
+    "changes_applied": [
+      "Added `state=pipeline_context.state` to the `StageRunContext` constructor in `orchestrator_codex_pipeline.py`."
+    ],
+    "tests": [
+      "git blame -L 173,190 -- desloppify/app/commands/plan/triage/runner/orchestrator_codex_pipeline.py",
+      "git show --stat --oneline 94936fcdf"
+    ]
+  }
+}

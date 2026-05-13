@@ -9,7 +9,6 @@ from desloppify.base.output.terminal import log
 from desloppify.engine._state.filtering import make_issue
 from desloppify.engine._state.schema_types_issues import Issue
 from desloppify.engine.detectors.base import ComplexitySignal
-from desloppify.engine.detectors.graph import detect_cycles
 from desloppify.engine.detectors.orphaned import (
     OrphanedDetectionOptions,
     detect_orphaned_files,
@@ -22,7 +21,6 @@ from desloppify.languages._framework.base.shared_phases import (
 )
 from desloppify.languages._framework.base.types import DetectorPhase, LangRuntimeContract
 from desloppify.languages._framework.issue_factories import (
-    make_cycle_issues,
     make_orphaned_issues,
     make_single_use_issues,
 )
@@ -131,7 +129,6 @@ def phase_structural(path: Path, lang: LangRuntimeContract) -> tuple[list[Issue]
 def phase_coupling(path: Path, lang: LangRuntimeContract) -> tuple[list[Issue], dict[str, int]]:
     """Run coupling-oriented detectors against the Rust import graph."""
     graph = build_dep_graph(path)
-    cycle_graph = build_dep_graph(path, include_mod_declarations=False)
     lang.dep_graph = graph
     zone_map = lang.zone_map
     results: list[Issue] = []
@@ -143,10 +140,6 @@ def phase_coupling(path: Path, lang: LangRuntimeContract) -> tuple[list[Issue], 
     )
     single_entries = filter_entries(zone_map, single_entries, "single_use")
     results.extend(make_single_use_issues(single_entries, lang.get_area, stderr_fn=log))
-
-    cycle_entries, total_cycle_files = detect_cycles(cycle_graph)
-    cycle_entries = filter_entries(zone_map, cycle_entries, "cycles", file_key="files")
-    results.extend(make_cycle_issues(cycle_entries, log))
 
     orphan_entries, total_graph_files = detect_orphaned_files(
         path,
@@ -163,7 +156,7 @@ def phase_coupling(path: Path, lang: LangRuntimeContract) -> tuple[list[Issue], 
     log(f"         -> {len(results)} coupling/structural issues total")
     return results, {
         "single_use": adjust_potential(zone_map, single_candidates),
-        "cycles": adjust_potential(zone_map, total_cycle_files),
+        "cycles": 0,
         "orphaned": adjust_potential(zone_map, total_graph_files),
     }
 

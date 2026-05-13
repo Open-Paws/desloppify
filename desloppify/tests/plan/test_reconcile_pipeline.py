@@ -204,7 +204,9 @@ def test_reconcile_plan_second_call_is_noop() -> None:
     assert result2.workflow_injected_ids == []
 
 
-def test_reconcile_plan_holds_workflow_until_current_scan_subjective_review_completes() -> None:
+def test_reconcile_plan_holds_workflow_until_current_scan_subjective_review_completes() -> (
+    None
+):
     """Postflight review must run before score checkpointing and create-plan."""
     state = {
         "issues": {"unused::a": _issue("unused::a")},
@@ -472,6 +474,32 @@ def test_queue_snapshot_executes_review_items_promoted_into_active_cluster() -> 
             "issue_ids": ["review::a"],
             "execution_status": "active",
         }
+    }
+
+    snapshot = build_queue_snapshot(state, plan=plan)
+
+    assert snapshot.phase == LIFECYCLE_PHASE_EXECUTE
+    assert [item["id"] for item in snapshot.execution_items] == ["review::a"]
+
+
+def test_queue_snapshot_executes_review_items_explicitly_in_queue_order() -> None:
+    """Review items explicitly persisted in queue_order are executable.
+
+    Review import can add findings directly to queue_order before any manual
+    cluster triage has run. The execution queue must honor that durable plan
+    ordering; otherwise `desloppify next` reports "nothing to do" while status
+    and plan both show open planned review work.
+    """
+    state = {
+        "issues": {
+            "review::a": _issue("review::a", detector="review"),
+        }
+    }
+    plan = empty_plan()
+    plan["queue_order"] = ["review::a"]
+    plan["refresh_state"] = {
+        "lifecycle_phase": "plan",
+        "postflight_scan_completed_at_scan_count": 1,
     }
 
     snapshot = build_queue_snapshot(state, plan=plan)
@@ -769,7 +797,7 @@ def test_workflow_injected_ids_aggregates_both_gates() -> None:
 
     result = ReconcileResult(
         communicate_score=QueueSyncResult(
-            auto_resolved=[WORKFLOW_COMMUNICATE_SCORE_ID],
+            injected=[WORKFLOW_COMMUNICATE_SCORE_ID],
         ),
         create_plan=QueueSyncResult(
             injected=[WORKFLOW_CREATE_PLAN_ID],
@@ -777,8 +805,9 @@ def test_workflow_injected_ids_aggregates_both_gates() -> None:
     )
 
     ids = result.workflow_injected_ids
+    assert WORKFLOW_COMMUNICATE_SCORE_ID in ids
     assert WORKFLOW_CREATE_PLAN_ID in ids
-    assert len(ids) == 1
+    assert len(ids) == 2
 
 
 def test_workflow_injected_ids_empty_when_no_gates_fire() -> None:

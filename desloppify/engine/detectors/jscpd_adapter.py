@@ -12,7 +12,9 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import shutil
+import signal
 import subprocess  # nosec B404
 import tempfile
 from pathlib import Path
@@ -183,6 +185,44 @@ def _resolve_jscpd_command() -> list[str] | None:
     return None
 
 
+def _terminate_process_tree(proc: subprocess.Popen[str]) -> None:
+    """Best-effort termination for jscpd and descendants on timeout."""
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        return
+    except (AttributeError, ProcessLookupError, PermissionError, OSError):
+        pass
+    try:
+        proc.kill()
+    except OSError:
+        return
+
+
+def _run_jscpd_command(cmd: list[str], *, timeout: int) -> subprocess.CompletedProcess[str]:
+    proc = subprocess.Popen(  # nosec B603
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        _terminate_process_tree(proc)
+        stdout, stderr = proc.communicate()
+        raise subprocess.TimeoutExpired(cmd, timeout, output=stdout, stderr=stderr) from exc
+    result = subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
+    if proc.returncode:
+        raise subprocess.CalledProcessError(
+            proc.returncode,
+            cmd,
+            output=stdout,
+            stderr=stderr,
+        )
+    return result
+
+
 def detect_with_jscpd(path: Path) -> list[dict] | None:
     """Run jscpd on *path* and return duplication entries, or None on failure."""
     cmd_prefix = _resolve_jscpd_command()
@@ -196,7 +236,7 @@ def detect_with_jscpd(path: Path) -> list[dict] | None:
 
     with tempfile.TemporaryDirectory() as tmpdir:
         try:
-            subprocess.run(
+            _run_jscpd_command(
                 [
                     *cmd_prefix,
                     str(path),
@@ -212,11 +252,8 @@ def detect_with_jscpd(path: Path) -> list[dict] | None:
                     _jscpd_ignore_arg(path),
                     "--silent",
                 ],
-                capture_output=True,
-                text=True,
                 timeout=120,
-                check=True,
-            )  # nosec B603
+            )
         except FileNotFoundError:
             warn_best_effort(
                 "Boilerplate duplication detection skipped: jscpd/npx not found. "
@@ -261,4 +298,9 @@ def detect_with_jscpd(path: Path) -> list[dict] | None:
         return _parse_jscpd_report(report, path)
 
 
-__all__ = ["_parse_jscpd_report", "_resolve_jscpd_command", "detect_with_jscpd"]
+__all__ = [
+    "_parse_jscpd_report",
+    "_resolve_jscpd_command",
+    "_run_jscpd_command",
+    "detect_with_jscpd",
+]

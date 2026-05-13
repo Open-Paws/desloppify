@@ -1,0 +1,20 @@
+{
+  "number": 491,
+  "type": "issue",
+  "title": "Bug Report: Anti-gaming safeguard resets legitimate scores that match target",
+  "author": "anthony-spruyt",
+  "stage1": {
+    "verdict": "REJECT",
+    "summary": "The anti-gaming safeguard is working as designed. The code in state_integration_subjective.py resets dimensions to 0.0 when 2+ dimensions exactly match the target score (within 0.05 tolerance). The reporter's scenario — 2 dimensions scoring exactly 95.0 when target is 95.0 — triggers this intentionally. The safeguard does not check provenance/attestation because that would defeat its purpose: the whole point is that even 'blind' reviewers can be gamed by providing context that steers toward the target. The reporter's suggested fixes (skip reset for attested/durable scores) would create a bypass that undermines the integrity system. The correct response is: if the score is genuinely correct, change the target slightly (e.g., to 96.0) so the coincidence doesn't trigger the safeguard, or accept the ~4 point strict score cost as the price of integrity.",
+    "reject_reason": "The safeguard is intentional by design. Scores clustering on the target — regardless of how they were obtained — is exactly the pattern the safeguard exists to catch. Exempting attested scores would create a gaming vector. The user's workaround (adjust the target) is the correct approach.",
+    "confidence": "high",
+    "scope_estimate": "small",
+    "potential_duplicates": []
+  },
+  "stage3": {
+    "decision": "REJECT",
+    "reasoning": "Both stages unanimously agreed: safeguard working as designed, exemptions would create bypass vectors. Workaround (adjust target) is the correct approach.",
+    "commit": null,
+    "changes_applied": null
+  }
+}

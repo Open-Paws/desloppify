@@ -116,12 +116,21 @@ def make_detect_fn(
 ) -> Callable:
     """Create detect function that runs a tool with an optional injected runner."""
 
-    def detect(path: Path, **kwargs: Any) -> list[dict[str, Any]]:
+    def detect(path: Path | Any, **kwargs: Any) -> list[dict[str, Any]]:
         del kwargs
-        result = run_tool_result(cmd, path, parser, run_subprocess=run_subprocess)
+        scan_path = _coerce_detect_path(path)
+        result = run_tool_result(cmd, scan_path, parser, run_subprocess=run_subprocess)
         return list(result.entries)
 
     return detect
+
+
+def _coerce_detect_path(path_or_args: Path | Any) -> Path:
+    """Accept both generic detector Path calls and cmd_detect Namespace calls."""
+    if isinstance(path_or_args, Path):
+        return path_or_args
+    raw_path = getattr(path_or_args, "path", path_or_args)
+    return Path(raw_path)
 
 
 def make_generic_fixer(

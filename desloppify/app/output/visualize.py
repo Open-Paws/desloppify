@@ -2,6 +2,7 @@
 
 import json
 from dataclasses import dataclass
+from importlib import resources
 from pathlib import Path
 
 from desloppify.app.output.visualize_data import (
@@ -158,4 +159,8 @@ def generate_tree_text(
 
 def _get_html_template() -> str:
     """Read the HTML treemap template from the external file."""
-    return (Path(__file__).parent / "_viz_template.html").read_text()
+    return (
+        resources.files("desloppify.app.output")
+        .joinpath("_viz_template.html")
+        .read_text()
+    )

@@ -15,6 +15,7 @@ from desloppify.app.commands.helpers.runtime_options import (
 )
 from desloppify.base.exception_sets import CommandError
 from desloppify.base.output.terminal import colorize
+from desloppify.base.registry import DETECTORS
 from desloppify.languages.framework import LangRunOverrides, make_lang_run
 
 
@@ -37,6 +38,31 @@ def _resolve_detector_key(
     return None
 
 
+def _unknown_detector_message(
+    *,
+    detector_input: str,
+    lang_name: str,
+    detect_commands: dict[str, object],
+    scan_path: str,
+) -> str:
+    """Build a useful error for direct-detect/catalog detector mismatches."""
+    available = ", ".join(sorted(detect_commands))
+    normalized = detector_input.strip().lower().replace("-", "_")
+    if normalized in DETECTORS:
+        return (
+            f"Unknown direct detector for {lang_name}: {detector_input}\n"
+            f"  `{normalized}` is a scan/show detector, but this language does not "
+            "expose it as a direct `detect` command.\n"
+            f"  Run: desloppify scan --path {scan_path}\n"
+            f"  Then inspect: desloppify show {normalized}\n"
+            f"  Available direct detectors: {available}"
+        )
+    return (
+        f"Unknown detector for {lang_name}: {detector_input}\n"
+        f"  Available: {available}"
+    )
+
+
 def cmd_detect(args: argparse.Namespace) -> None:
     """Run a single detector directly (bypass state tracking)."""
     detector_input = args.detector
@@ -53,10 +79,13 @@ def cmd_detect(args: argparse.Namespace) -> None:
     # Validate detector name
     detector = _resolve_detector_key(detector_input, lang_cfg.detect_commands)
     if detector is None:
-        available = ", ".join(sorted(lang_cfg.detect_commands))
         raise CommandError(
-            f"Unknown detector for {lang_cfg.name}: {detector_input}\n"
-            f"  Available: {available}"
+            _unknown_detector_message(
+                detector_input=detector_input,
+                lang_name=lang_cfg.name,
+                detect_commands=lang_cfg.detect_commands,
+                scan_path=getattr(args, "path", ".") or ".",
+            )
         )
 
     # Set default thresholds for detectors that expect them

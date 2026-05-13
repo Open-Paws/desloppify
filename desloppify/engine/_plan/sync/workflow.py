@@ -472,7 +472,7 @@ def sync_communicate_score_needed(
     When triggered and *current_scores* is provided, ``plan_start_scores``
     is rebaselined to the current score so the score display unfreezes at
     the new value.  The previous baseline is preserved in
-    ``previous_plan_start_scores`` so old -> new score context survives and
+    ``previous_plan_start_scores`` so old → new score context survives and
     mid-cycle scans know not to re-trigger.
     """
     ensure_plan_defaults(plan)

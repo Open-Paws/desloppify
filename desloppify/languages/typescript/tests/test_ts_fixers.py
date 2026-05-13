@@ -91,6 +91,26 @@ class TestCommonFindBalancedEnd:
         lines = ["foo('not a (' + bar)\n"]
         assert find_balanced_end(lines, 0, track="parens") == 0
 
+    def test_comment_marker_inside_string_is_ignored(self):
+        """Comment delimiters inside string literals do not hide later brackets."""
+        lines = ["foo('/*', bar)\n"]
+        assert find_balanced_end(lines, 0, track="parens") == 0
+
+    def test_multiline_string_comment_marker_is_ignored(self):
+        """Multiline calls can contain comment delimiters in string arguments."""
+        lines = ["console.log(\n", "  '/*',\n", "  value\n", ")\n"]
+        assert find_balanced_end(lines, 0, track="parens") == 3
+
+    def test_line_comment_brackets_are_ignored(self):
+        """Brackets inside line comments are ignored."""
+        lines = ["console.log( // ))\n", "  value\n", ")\n"]
+        assert find_balanced_end(lines, 0, track="parens") == 2
+
+    def test_block_comment_braces_are_ignored(self):
+        """Braces inside block comments are ignored."""
+        lines = ["if (x) {\n", "  /* }} */\n", "  return 1;\n", "}\n"]
+        assert find_balanced_end(lines, 0, track="braces") == 3
+
     def test_returns_none_when_unbalanced(self):
         """Returns None if braces never balance."""
         lines = ["foo(\n", "  bar\n"]
@@ -118,6 +138,20 @@ class TestCommonExtractBody:
         body = extract_body_between_braces(text)
         assert "if (x)" in body
         assert "return 2;" in body
+
+    def test_comments_do_not_end_body(self):
+        """Braces inside comments do not terminate body extraction."""
+        text = "const f = () => { /* } */ return 42; }"
+        body = extract_body_between_braces(text, search_after="=>")
+        assert body is not None
+        assert "return 42;" in body
+
+    def test_comment_marker_inside_string_does_not_hide_body_end(self):
+        """Comment delimiters inside strings do not hide later body braces."""
+        text = 'const f = () => { return "/*"; }'
+        body = extract_body_between_braces(text, search_after="=>")
+        assert body is not None
+        assert 'return "/*";' in body
 
     def test_no_braces_returns_none(self):
         """Returns None if no braces are present."""
@@ -495,6 +529,29 @@ class TestFixDebugLogs:
         assert "console.log" not in content
         assert "return 1;" in content
 
+    def test_remove_multiline_log_with_comment_marker_string(self, tmp_path):
+        """Comment delimiters in log strings do not stop multiline log removal."""
+        ts_file = tmp_path / "app.ts"
+        ts_file.write_text(
+            textwrap.dedent("""\
+            function foo() {
+              console.log(
+                '[DEBUG] /* marker',
+                someVar
+              );
+              return 1;
+            }
+        """)
+        )
+        entries = [
+            {"file": str(ts_file), "line": 2, "tag": "DEBUG", "content": "console.log("}
+        ]
+        result = fix_debug_logs(entries, dry_run=False)
+        assert len(result.entries) == 1
+        content = ts_file.read_text()
+        assert "console.log" not in content
+        assert "return 1;" in content
+
     def test_removes_orphaned_debug_comment(self, tmp_path):
         """A preceding // DEBUG comment is removed along with the log."""
         ts_file = tmp_path / "app.ts"
@@ -632,6 +689,77 @@ class TestFixDebugLogs:
         assert "lines_removed" in r
         assert "log_count" in r
 
+    def test_preserves_if_else_chain_after_debug_log_removal(self, tmp_path):
+        ts_file = tmp_path / "app.ts"
+        ts_file.write_text(
+            textwrap.dedent("""\
+            function process(data) {
+              if (data.debug) {
+                console.log('[DEBUG] processing data', data);
+              }
+              else {
+                processData(data);
+              }
+            }
+            """)
+        )
+        entries = [
+            {
+                "file": str(ts_file),
+                "line": 3,
+                "tag": "DEBUG",
+                "content": "console.log('[DEBUG] processing data', data);",
+            }
+        ]
+
+        fix_debug_logs(entries, dry_run=False)
+
+        content = ts_file.read_text()
+        assert "console.log" not in content
+        assert "if (data.debug)" in content
+        assert "else {" in content
+        assert "processData(data);" in content
+
+    def test_preserves_else_if_chain_after_debug_log_removal(self, tmp_path):
+        ts_file = tmp_path / "app.ts"
+        ts_file.write_text(
+            textwrap.dedent("""\
+            function process(data) {
+              if (data.debug) {
+                console.log('[DEBUG] processing data', data);
+              }
+              else if (data.trace) {
+                console.log('[TRACE] data', data);
+              }
+              else {
+                processData(data);
+              }
+            }
+            """)
+        )
+        entries = [
+            {
+                "file": str(ts_file),
+                "line": 3,
+                "tag": "DEBUG",
+                "content": "console.log('[DEBUG] processing data', data);",
+            },
+            {
+                "file": str(ts_file),
+                "line": 6,
+                "tag": "TRACE",
+                "content": "console.log('[TRACE] data', data);",
+            },
+        ]
+
+        fix_debug_logs(entries, dry_run=False)
+
+        content = ts_file.read_text()
+        assert "console.log" not in content
+        assert "if (data.debug)" in content
+        assert "else if (data.trace)" in content
+        assert "else {" in content
+
 
 # =====================================================================
 # params.py — _is_param_context, fix_unused_params
@@ -718,5 +846,3 @@ class TestFixUnusedParams:
         ]
         _ = fix_unused_params(entries, dry_run=True)
         assert ts_file.read_text() == original
-
-

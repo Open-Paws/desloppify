@@ -19,7 +19,7 @@ Stage 1 has assessed every open PR and issue. Each item has a file at `review/re
 
 5. Check for existing `.stage2.json` files. Skip items that already have one (prior run). To re-run, delete the `.stage2.json` file first.
 
-6. Launch ALL sub-agents in parallel using the **Agent tool** with `subagent_type: "general-purpose"`:
+6. Launch sub-agents **in batches of 4-5** using the **Agent tool** with `subagent_type: "general-purpose"` (wait for each batch to finish before starting the next):
    - For ACCEPT/ACCEPT_WITH_CONDITIONS items: use the challenger prompt
    - For REJECT items: use the advocate prompt
    - Fill `{TYPE}`, `{NUMBER}`, and `{STAGE_1_ASSESSMENT}` (the full stage1 object)
@@ -66,6 +66,6 @@ Sub-agents each see one item. You see all of them. Now handle the things they ca
 
 14. Do NOT post comments — Stage 3 handles all GitHub communication.
 
-## Note on parallel execution
+## Batching and parallel execution
 
-Same rate-limiting concern as Stage 1 — all sub-agents hit `gh pr diff` / `gh issue view` simultaneously. Batch into groups of 10 if needed.
+**Always batch sub-agents into groups of 4-5.** Launch one batch, wait for all agents in it to complete, then launch the next batch. Same rate-limiting concern as Stage 1 — launching all at once will burn through usage quota and trigger throttling. Reduce batch size further if you see empty/partial results.

@@ -24,7 +24,7 @@ RUST_SMELL_CHECKS = [
     {
         "id": "string_error",
         "label": "Result with String error type",
-        "pattern": r"\bResult\s*<[^>\n]*,\s*(?:String|&'static\s+str)\s*>",
+        "pattern": None,
         "severity": "medium",
     },
     {

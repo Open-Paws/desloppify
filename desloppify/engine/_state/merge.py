@@ -145,6 +145,7 @@ class MergeScanOptions:
     codebase_metrics: dict[str, Any] | None = None
     include_slow: bool = True
     ignore: list[str] | None = None
+    ignore_metadata: dict[str, Any] | None = None
     subjective_integrity_target: float | None = None
     project_root: str | None = None
     zone_map: Any | None = None
@@ -185,6 +186,11 @@ def merge_scan(
         if resolved_options.ignore is not None
         else state.get("config", {}).get("ignore", [])
     )
+    ignore_metadata = (
+        resolved_options.ignore_metadata
+        if resolved_options.ignore_metadata is not None
+        else state.get("config", {}).get("ignore_metadata", {})
+    )
     current_ids, new_count, reopened_count, current_by_detector, ignored_count, upsert_changed = (
         upsert_issues(
             existing,
@@ -192,6 +198,7 @@ def merge_scan(
             ignore_patterns,
             now,
             lang=resolved_options.lang,
+            ignore_metadata=ignore_metadata,
         )
     )
 
@@ -203,6 +210,9 @@ def merge_scan(
         if resolved_options.potentials is not None
         else None
     )
+    confirmed_detectors = set(current_by_detector)
+    if ran_detectors is not None:
+        confirmed_detectors.update(ran_detectors)
     suspect_detectors = find_suspect_detectors(
         existing,
         current_by_detector,
@@ -219,6 +229,7 @@ def merge_scan(
         exclude=resolved_options.exclude,
         project_root=resolved_options.project_root,
         zone_map=resolved_options.zone_map,
+        confirmed_detectors=confirmed_detectors,
     )
 
     # Mark subjective assessments stale when mechanical issues changed.

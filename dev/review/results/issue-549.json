@@ -1,0 +1,29 @@
+{
+  "number": 549,
+  "type": "issue",
+  "title": "`rustdoc_warning` detector reports an issue on `src/lib.rs` which does not exist",
+  "author": "Vuk97",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "The exact binary-only crate path is already partly protected in current code because `run_rustdoc_result` uses `cargo metadata` and only runs `cargo rustdoc --lib` for packages with library target kinds, so a bin-only package should return an empty rustdoc result. However the reported failure is still a real robustness issue: `parse_rustdoc_messages` accepts any primary span filename from cargo JSON, and `_make_rust_tool_phase` turns those entries directly into `rustdoc_warning` issues without checking whether the target path exists. If cargo or stale/tool output reports `src/lib.rs`, desloppify will create an unresolvable file-attributed finding. The fix is small and clearly scoped.",
+    "confidence": "medium",
+    "scope_estimate": "small",
+    "potential_duplicates": [],
+    "real_problem": true,
+    "suggested_fix": "Add a final existence filter for rustdoc tool entries before creating issues, resolving paths relative to the workspace root and allowing absolute paths only when they exist. Keep the existing cargo-metadata library-target filtering, and add regression coverage for a binary-only crate whose metadata contains only a bin target, asserting no rustdoc command beyond `cargo metadata` is run and no `src/lib.rs` issue is emitted."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Added the final rustdoc file-existence guard requested in Stage 1. Rustdoc diagnostics are still parsed from cargo JSON, but run_rustdoc_result now keeps only entries whose primary span resolves to an existing file under the workspace root, while preserving the existing cargo-metadata filtering that skips binary-only packages.",
+    "commit": "c88eb9ed",
+    "changes_applied": [
+      "Filtered rustdoc entries to existing relative or absolute file paths before creating tool results.",
+      "Added regression coverage for stale `src/lib.rs` rustdoc output.",
+      "Added regression coverage that binary-only packages run cargo metadata only and do not invoke cargo rustdoc."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/languages/rust/tests/test_smells.py desloppify/languages/rust/tests/test_tools.py desloppify/tests/commands/test_cli.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/languages/rust/tests/test_init.py -q"
+    ]
+  }
+}

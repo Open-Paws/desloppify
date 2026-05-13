@@ -1,0 +1,31 @@
+{
+  "number": 557,
+  "type": "issue",
+  "title": "Issue 23: `desloppify show structural` finds nothing despite `structural` being a documented detector that produced issues",
+  "author": "Vuk97",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "This is a real show/query visibility bug. Structural issues are emitted and persisted with detector `structural` by `merge_structural_signals`, but ordinary one- or two-signal findings are created with `confidence: medium`. The registry declares `structural` with `standalone_threshold=\"high\"`, and `show` loads matches through `build_work_queue`/`build_issue_items`, which applies that standalone threshold even for `show structural --status all --no-budget`. A minimal in-memory check confirmed a medium structural issue returns zero matches for both open and all, while changing only confidence to high makes it visible. That explains why File health can count structural failures while `show structural`, `show file_health`, and file-scoped show cannot surface the actionable rows.",
+    "conditions": [],
+    "reject_reason": "",
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": [],
+    "real_problem": true,
+    "suggested_fix": "Separate exploratory show queries from execution-queue eligibility. `desloppify show <detector|file|dimension>` should load matching issues from persisted state without applying detector standalone thresholds; thresholds can remain for `next`/execution queue prioritization. Also make the mechanical dimension empty-state message respect the requested status filter instead of hardcoding \"No open issues\"."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented the core show/query visibility fix. Exploratory `show` matching now forces persisted issue IDs that match the requested detector/file/dimension scope through the item builder, bypassing detector standalone confidence thresholds while preserving execution-queue threshold behavior elsewhere. A medium-confidence `structural` issue now appears for `show structural`.",
+    "commit": "94f559ef",
+    "changes_applied": [
+      "Changed show match loading to bypass standalone detector thresholds for persisted matching issue IDs.",
+      "Added regression coverage for medium-confidence `structural` findings in `show structural`."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/show/test_cmd_show.py desloppify/tests/commands/test_cmd_detect.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/test_cmd_detect.py desloppify/tests/commands/show/test_cmd_show.py desloppify/tests/commands/test_cmd_next.py desloppify/tests/commands/test_queue_count_consistency.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/ -q"
+    ]
+  }
+}

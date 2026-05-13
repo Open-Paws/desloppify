@@ -1,0 +1,36 @@
+{
+  "number": 593,
+  "type": "issue",
+  "title": "scan/show/next disagree after refactor; stale file findings and false 0-importer coverage",
+  "author": "Jerome2123",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "This is a real state-consistency issue with at least two confirmed underlying causes. `merge_scan` upserts current findings but `verify_disappeared` deliberately leaves disappeared open findings open when the source file still exists, so `show <file>` can keep reporting stale line/detail data after a fresh scan even though the detector no longer emitted those findings. The TypeScript 0-importer reports are also plausible and independently confirmed by the TS dependency graph path handling: `build_dep_graph` finds a tsconfig root under the scan tree but passes that root into `resolve_module`, whose relative-import branch joins it with project-root-relative file paths, producing doubled paths in monorepo/subdirectory layouts and silently dropping edges. The `next` symptom is less independently conclusive because `next` is the execution queue shaped by the living plan, not a raw open-finding listing, but the stale `show`/security summary and TS importer-count problems are actionable and worth fixing.",
+    "conditions": [],
+    "confidence": "high",
+    "scope_estimate": "large",
+    "potential_duplicates": [
+      592,
+      570,
+      604,
+      502,
+      536,
+      598
+    ],
+    "real_problem": true,
+    "suggested_fix": "Treat fresh scan output as authoritative for current detector/file facts without resurrecting stale open details: either auto-mark disappeared open detector findings as scan-absent/stale when the file still exists, or split persisted historical disposition from the current detector inventory so `show` and detector summaries render only current-scan findings unless explicitly asked for history. For TypeScript importer counts, fix the dep graph resolver to use the project/source root for project-relative source file paths and the tsconfig root only for alias resolution, then add a regression covering a monorepo path like `apps/web/src/...` with tsconfig under `apps/web`. Also clarify or adjust `next` output so an empty execution queue cannot be mistaken for no open findings when `show` still has current open items."
+  },
+  "stage3": {
+    "decision": "CLOSE_FIXED",
+    "reasoning": "Closed as fixed by the prior root-cause fixes for this report. The stale `scan`/`show` disagreement is covered by the confirmed-detector scan reconciliation change in `573c1973`, which auto-resolves absent open findings when their detector ran cleanly. The false TypeScript 0-importer coverage is covered by `a9289015`, which split TypeScript source-root resolution from tsconfig-root alias resolution so subdirectory tsconfig paths no longer double relative import paths. The remaining `next` confusion is documentation/UX around the living execution queue rather than evidence that current open findings are missing.",
+    "fixed_by": [
+      "573c1973",
+      "a9289015"
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/state/test_state.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/languages/typescript/tests/test_ts_deps.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/ -q"
+    ]
+  }
+}

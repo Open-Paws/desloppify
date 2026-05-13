@@ -17,5 +17,22 @@
     "potential_duplicates": [],
     "real_problem": true,
     "suggested_fix": "Add a --by-language flag to scan and status commands. Implementation: detect languages present in the scan path, run per-language scoring passes, render separate score blocks in CLI output. Scorecard image generation per language is a nice-to-have follow-up. Start with CLI text output only."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented the accepted CLI-first version of per-language score breakdowns. `scan --by-language` detects registered languages with source files under the scan path and runs independent scans with `--lang <name>`, preserving separate `state-<lang>.json` files. `status --by-language` reads those independent language states and renders per-language rows plus an explicitly defined aggregate: an equal-weight average over languages that have completed scans. JSON output is supported for the by-language status view.",
+    "commit": "2d48db76",
+    "changes_applied": [
+      "Added shared by-language helpers for detected-language discovery, per-language state paths, score rows, and equal-weight aggregation.",
+      "Added `desloppify scan --by-language` to run each detected language independently.",
+      "Added `desloppify status --by-language` and `--json --by-language` for per-language score reporting.",
+      "Kept language state files independent by reusing existing `--lang` state-path resolution for each scan.",
+      "Added focused tests for by-language scan dispatch and by-language status aggregation."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/scan/test_cmd_scan.py desloppify/tests/commands/test_cmd_status_behavior.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/test_cli.py desloppify/tests/commands/test_direct_coverage_modules.py -q"
+    ],
+    "notes": "Scorecard image generation per language remains a follow-up; this implements the requested CLI text/JSON score breakdown first."
   }
 }

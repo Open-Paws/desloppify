@@ -26,6 +26,38 @@ pub fn value(&self) -> usize {
     assert block.body.strip() == "{\n    self.value\n}"
 
 
+def test_iter_public_functions_handles_strings_containing_braces() -> None:
+    content = """
+pub fn example() {
+    let s = "}";
+    panic!("error");
+}
+"""
+
+    blocks = rust_shared_mod._iter_public_functions(content)
+
+    assert len(blocks) == 1
+    block = blocks[0]
+    assert block.name == "example"
+    assert "panic!" in block.body, f"Body was truncated: {block.body!r}"
+
+
+def test_iter_public_functions_handles_raw_strings_containing_braces() -> None:
+    content = r'''
+pub fn regex() {
+    let pattern = r"\{[^}]*\}";
+    panic!("still here");
+}
+'''
+
+    blocks = rust_shared_mod._iter_public_functions(content)
+
+    assert len(blocks) == 1
+    block = blocks[0]
+    assert block.name == "regex"
+    assert "panic!" in block.body, f"Body was truncated: {block.body!r}"
+
+
 def test_iter_drop_methods_extracts_drop_impl_body() -> None:
     content = """
 pub struct Demo;

@@ -62,6 +62,45 @@ pub fn add(a: i32, b: i32) -> i32 {
     assert [function.name for function in functions] == ["add"]
 
 
+def test_extract_rust_functions_ignores_block_comment_braces(tmp_path):
+    filepath = _write(
+        tmp_path,
+        "src/lib.rs",
+        """
+pub fn comment_braces() {
+    /* unbalanced } }} braces */
+    let value = 1;
+}
+""",
+    )
+
+    functions = extract_rust_functions(filepath)
+
+    assert [function.name for function in functions] == ["comment_braces"]
+    assert "let value = 1;" in functions[0].body
+
+
+def test_extract_rust_functions_ignores_nested_block_comment_braces(tmp_path):
+    filepath = _write(
+        tmp_path,
+        "src/lib.rs",
+        """
+pub fn nested_comment() {
+    /* outer {
+       /* inner } */
+       still outer }
+     */
+    let value = 1;
+}
+""",
+    )
+
+    functions = extract_rust_functions(filepath)
+
+    assert [function.name for function in functions] == ["nested_comment"]
+    assert "let value = 1;" in functions[0].body
+
+
 def test_normalize_rust_body_strips_comments_and_logging():
     body = """
 pub fn run() {

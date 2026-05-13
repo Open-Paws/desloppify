@@ -1,0 +1,26 @@
+{
+  "number": 528,
+  "type": "issue",
+  "title": "Feature: Add Next.js App Router framework awareness to orphan detector",
+  "author": "elfensky",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "Real feature gap: the orphan detector (engine/detectors/orphaned.py) has no framework convention awareness. Next.js App Router files (page.jsx, layout.jsx, route.js, etc.) are loaded by the framework via filesystem conventions, not explicit imports, so they always appear as zero-importer orphans. The zone classification system (engine/policy/zones.py) also has no Next.js-specific rules. This is a valid false positive source for Next.js projects. The scope is medium — needs a framework convention registry that the orphan detector consults.",
+    "confidence": "high",
+    "scope_estimate": "medium"
+  },
+  "stage3": {
+    "decision": "CLOSE_FIXED",
+    "reasoning": "The requested Next.js App Router framework awareness is already implemented in the orphan detector. The detector now recognizes Next.js projects via `next.config.*` files and treats App Router convention files plus root middleware/instrumentation files as framework entry points instead of orphans.",
+    "fixed_by": "e266a2a9",
+    "changes_applied": [
+      "Added Next.js project detection to `desloppify/engine/detectors/orphaned.py`.",
+      "Added App Router convention entry recognition for files such as `page.tsx`, `layout.tsx`, `route.ts`, `default.tsx`, `middleware.ts`, and instrumentation files.",
+      "Added unit and integration tests in `desloppify/tests/detectors/test_orphaned.py`."
+    ],
+    "tests": [
+      "git blame -L 1,140 -- desloppify/engine/detectors/orphaned.py",
+      "git blame -L 523,680 -- desloppify/tests/detectors/test_orphaned.py"
+    ]
+  }
+}

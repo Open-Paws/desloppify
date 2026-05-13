@@ -18,6 +18,7 @@ from ..services import TriageServices
 from ..validation.organize_policy import validate_organize_against_reflect_ledger
 from ..validation.reflect_accounting import (
     analyze_reflect_issue_accounting,
+    display_reflect_issue_tokens,
     validate_reflect_accounting,
 )
 from .codex_runner import TriageStageRunResult, run_triage_stage
@@ -288,9 +289,14 @@ def build_reflect_repair_prompt(
     stages_data: Mapping[str, Any] | None = None,
 ) -> str:
     """Build a targeted retry prompt for a reflect report that failed accounting."""
-    missing_short = ", ".join(issue_id.rsplit("::", 1)[-1] for issue_id in missing_ids) or "none"
-    duplicate_short = (
-        ", ".join(issue_id.rsplit("::", 1)[-1] for issue_id in duplicate_ids) or "none"
+    valid_ids = set(
+        getattr(triage_input, "review_issues", getattr(triage_input, "open_issues", {})).keys()
+    )
+    missing_tokens = (
+        ", ".join(display_reflect_issue_tokens(missing_ids, valid_ids=valid_ids)) or "none"
+    )
+    duplicate_tokens = (
+        ", ".join(display_reflect_issue_tokens(duplicate_ids, valid_ids=valid_ids)) or "none"
     )
     base_prompt = build_stage_prompt_fn(
         "reflect",
@@ -305,16 +311,16 @@ def build_reflect_repair_prompt(
         [
             base_prompt,
             "## Repair Pass",
-            "Your previous reflect report failed the exact-hash accounting check.",
-            f"Missing hashes: {missing_short}",
-            f"Duplicated hashes: {duplicate_short}",
+            "Your previous reflect report failed the exact-token accounting check.",
+            f"Missing tokens: {missing_tokens}",
+            f"Duplicated tokens: {duplicate_tokens}",
             "Rewrite the FULL reflect report so it passes validation.",
             "Requirements for this repair:",
             "- Start with a `## Coverage Ledger` section.",
-            '- Use one ledger line per issue hash: `- abcd1234 -> cluster "name"` or `- abcd1234 -> skip "reason"`.',
-            "- Mention every required hash exactly once in that ledger.",
-            "- Do not mention hashes anywhere else in the report.",
-            "- Preserve the same strategy unless fixing the missing/duplicate hashes forces a small adjustment.",
+            '- Use one ledger line per issue token: `- <token> -> cluster "name"` or `- <token> -> skip "reason"`.',
+            "- Mention every required token exactly once in that ledger.",
+            "- Do not mention those tokens anywhere else in the report.",
+            "- Preserve the same strategy unless fixing the missing/duplicate tokens forces a small adjustment.",
             "- Output only the corrected reflect report.",
             "## Previous Reflect Report",
             original_report,
@@ -347,7 +353,7 @@ def repair_reflect_report_if_needed(
     if not missing_ids and not duplicate_ids:
         return report, None
 
-    print(colorize("  Reflect: repairing missing/duplicate hash accounting...", "yellow"))
+    print(colorize("  Reflect: repairing missing/duplicate token accounting...", "yellow"))
     append_run_log(
         "stage-reflect-repair-start "
         f"missing={len(missing_ids)} duplicates={len(duplicate_ids)}"

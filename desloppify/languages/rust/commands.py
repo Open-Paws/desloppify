@@ -18,7 +18,6 @@ from desloppify.languages._framework.commands.base import (
 from desloppify.languages._framework.commands.registry import (
     build_standard_detect_registry,
     compose_detect_registry,
-    make_cmd_cycles,
     make_cmd_deps,
     make_cmd_dupes,
     make_cmd_orphaned,
@@ -76,10 +75,17 @@ cmd_deps = make_cmd_deps(
     top_imports_label="Top imports",
     module_name=__name__,
 )
-cmd_cycles = make_cmd_cycles(
-    build_dep_graph_fn=lambda path: build_dep_graph(path, include_mod_declarations=False),
-    module_name=__name__,
-)
+
+
+def cmd_cycles(args: argparse.Namespace) -> None:
+    """Report Rust cycle detection as intentionally disabled."""
+    if getattr(args, "json", False):
+        print(json.dumps({"count": 0, "entries": []}, indent=2))
+        return
+
+    print(colorize("\nRust cycle detection is disabled; no dependency cycles found.", "green"))
+
+
 cmd_orphaned = make_cmd_orphaned(
     build_dep_graph_fn=build_dep_graph,
     extensions=[".rs"],

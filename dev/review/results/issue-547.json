@@ -1,0 +1,35 @@
+{
+  "number": 547,
+  "type": "issue",
+  "title": "non-idiomatic API-coherence lints fire on internal binary crate symbols",
+  "author": "Vuk97",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "The issue title and body are mismatched, but the body describes a real queue/plan consistency bug. `cmd_plan_promote` resolves cluster patterns through `resolve_ids_from_patterns`, which can return plan-only cluster member IDs even when those IDs are no longer open in state, then `move_items` adds them to `plan[\"queue_order\"]` and `promoted_ids` and reports success. The execution queue later builds items only from open state issues, so fixed/resolved IDs in `queue_order` are invisible and `next` cannot return the promoted work. A scan does not fully repair this case: `reconcile_plan_after_scan` supersedes missing IDs, but if the issue still exists in state with a resolved status, it leaves the stale `queue_order`/`promoted_ids` entries intact. This matches the reported stale-tracked/no-action loop and is worth fixing.",
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": [
+      536,
+      593,
+      559
+    ],
+    "real_problem": true,
+    "suggested_fix": "Make promotion and/or reconciliation reject or clean non-actionable IDs. `plan promote` should filter cluster members through open/actionable state before mutating `queue_order`, and if all matches are resolved or missing it should print an explicit no-op message with the relevant repair/scan guidance. `reconcile_plan_after_scan` should also prune or supersede queue/promoted references for existing state items whose status is resolved (`fixed`, `auto_resolved`, `wontfix`) so repeated scans cannot leave resolved IDs stranded as stale tracked work. Add regression tests for promoting a cluster whose members are fixed in state, promoting a cluster whose members are missing from state, and scan reconciliation removing those stale queue/promoted references."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented the queue/plan consistency bug described in the issue body. `plan promote` now filters resolved or missing cluster members before mutating `queue_order`/`promoted_ids`, and post-scan reconciliation now supersedes non-actionable action references that still exist in state but are already fixed, auto-resolved, or wontfixed. This prevents invisible resolved IDs from being tracked as active work that `next` cannot return.",
+    "commit": "27913dd3",
+    "changes_applied": [
+      "Filtered `plan promote` results to actionable state statuses before moving/promoting items.",
+      "Added a no-op message when a promote pattern resolves only to non-actionable IDs.",
+      "Added post-scan reconciliation for non-actionable queue/promoted/cluster references that still exist in state.",
+      "Added regression coverage for resolved cluster-member promotion and scan reconciliation cleanup."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/plan/test_reconcile.py desloppify/tests/commands/plan/test_plan_overrides_direct.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/test_queue_count_consistency.py desloppify/tests/commands/test_queue_progress.py -q"
+    ],
+    "notes": "The issue title refers to Rust API coherence, but the accepted Stage 1 body and fix are for plan promotion/reconciliation consistency."
+  }
+}

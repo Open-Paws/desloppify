@@ -1,0 +1,19 @@
+{
+  "number": 492,
+  "type": "issue",
+  "title": "Consider counting __init__.py re-exports as importers for untested_module heuristic",
+  "author": "willfrey",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "Reasonable feature request identifying a real gap. The untested_module heuristic in _issue_gaps.py uses importer_count to determine severity (0 importers -> untested_module tier 3, 10+ importers -> untested_critical tier 2). Private modules re-exported via __init__.py (a standard Python pattern) show 0 importers because the dependency graph doesn't track __init__.py re-exports as import edges. The fix would be in the coverage mapping layer — either _build_prod_by_module or the graph construction — to recognize `from pkg._mod import X as X` in __init__.py as an import edge. This is a genuine false positive pattern that would affect any project using the private-module-with-public-init convention. The author is appropriately modest about scope and explicitly invites closure if disagreed.",
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": []
+  },
+  "stage3": {
+    "decision": "DEFER",
+    "reasoning": "Valid enhancement but touches shared coverage mapping infrastructure with moderate blast radius. Deferred to a follow-up release to get the implementation right.",
+    "commit": null,
+    "changes_applied": null
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "number": 565,
+  "type": "issue",
+  "title": "Suppress patterns are file-path-prefixed, so any refactor that renames or splits a file resurrects the same false positive under the new path",
+  "author": "Vuk97",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "The underlying problem is real: suppressions are persisted as config ignore patterns and matched against the generated issue id/file path only, so an exact suppression for `security::src/order.rs::...` will not match the same detector finding after the code moves to `src/order_tests.rs`. `cmd_suppress` stores only the raw pattern, `matched_ignore_pattern` performs prefix/glob/file-path matching, and scan merge reapplies suppressions only through that matcher. There is no content fingerprint or moved-code correlation. This is worth fixing because it creates real refactor friction for false positives, although the existing glob support means one mitigation already exists if users know to use it.",
+    "confidence": "high",
+    "scope_estimate": "large",
+    "potential_duplicates": [
+      558
+    ],
+    "real_problem": true,
+    "suggested_fix": "Add durable suppression identity for moved findings rather than relying only on exact path-prefixed ids. A pragmatic implementation would store suppression metadata with a normalized detector/kind plus a content or line-context fingerprint at suppression time, then during scan match new findings against both configured patterns and those fingerprints, with migration/backward compatibility for existing config/state. Also improve `suppress` help or scan warnings to make wildcard suppressions discoverable, since `security::src/order*.rs::security::hardcoded_secret_name` is already supported by the current matcher."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented a durable suppression identity layer rather than relying only on path-prefixed issue IDs. Exact suppressions now record stable fingerprints derived from detector, issue name, summary, and non-location detail fields. Scan merge matches current findings against both the configured patterns and the stored or state-derived fingerprints, allowing the same false positive to remain suppressed after a file rename or test split while preserving existing ignore pattern semantics.",
+    "commit": "2b4a90fd",
+    "changes_applied": [
+      "Added path-independent suppression fingerprints that ignore file path and line-only detail fields.",
+      "Extended ignore metadata to store suppression fingerprints without changing existing ignore pattern behavior.",
+      "Taught scan merge to match current issues against fingerprint metadata and to derive missing metadata from previously suppressed state entries.",
+      "Updated suppress help to make wildcard suppressions discoverable for intentional broad matches.",
+      "Added regression tests for metadata-backed and legacy-state-backed moved suppressions."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/state/test_suppression_scoring.py desloppify/tests/state/test_state_suppression_and_integrity.py desloppify/tests/core/test_config.py -q"
+    ]
+  }
+}

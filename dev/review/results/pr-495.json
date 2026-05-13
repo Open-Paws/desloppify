@@ -1,0 +1,19 @@
+{
+  "number": 495,
+  "type": "pr",
+  "title": "fix: force UTF-8 in review runner logs and payload parsing",
+  "author": "pietrondo",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "Adds explicit encoding=\"utf-8\", errors=\"replace\" to all file reads and subprocess invocations in the review runner pipeline. The problem is real: on Windows, Python defaults to the platform encoding (e.g. cp1252), and Codex runners emit UTF-8. This causes charmap decode errors when reading logs and batch payloads. The fix is surgical — 6 call sites changed, all in the review runner subsystem. No new abstractions, no over-engineering. The errors=\"replace\" strategy is correct for log/diagnostic reads where lossy decoding is acceptable.",
+    "confidence": "high",
+    "scope_estimate": "small",
+    "potential_duplicates": []
+  },
+  "stage3": {
+    "decision": "IMPLEMENT_WITH_CHANGES",
+    "reasoning": "Cherry-picked the file-read encoding fixes (runner_failures.py, runner_parallel/__init__.py) which are the core value of this PR. Dropped the subprocess encoding changes in attempts.py — those calls go through the deps injection seam used by test mocks, and the runner process already emits UTF-8.",
+    "commit": "8411efed",
+    "changes_applied": ["Dropped encoding/errors kwargs from subprocess calls in attempts.py to preserve test mock compatibility"]
+  }
+}

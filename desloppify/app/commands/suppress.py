@@ -22,14 +22,32 @@ from desloppify.base.exception_sets import CommandError
 from desloppify.base.output.terminal import colorize
 from desloppify.base.tooling import check_config_staleness
 from desloppify.engine._work_queue.core import ATTEST_EXAMPLE
+from desloppify.engine._state.filtering import (
+    issue_suppression_fingerprint,
+    matched_ignore_pattern,
+)
+from desloppify.engine._state.schema import utc_now
 import desloppify.intelligence.narrative.core as narrative_mod
+
+_JUDGMENT_ATTESTATION_REQUIRED = ("not gaming",)
+_JUDGMENT_ATTESTATION_ALTERNATIVES = (("i have actually", "reviewed"),)
 
 
 def cmd_suppress(args: argparse.Namespace) -> None:
     """Suppress issues matching a pattern."""
     attestation = getattr(args, "attest", None)
-    if not validate_attestation(attestation):
-        show_attestation_requirement("Suppress", attestation, ATTEST_EXAMPLE)
+    if not validate_attestation(
+        attestation,
+        required_phrases=_JUDGMENT_ATTESTATION_REQUIRED,
+        any_of_phrases=_JUDGMENT_ATTESTATION_ALTERNATIVES,
+    ):
+        show_attestation_requirement(
+            "Suppress",
+            attestation,
+            ATTEST_EXAMPLE,
+            required_phrases=_JUDGMENT_ATTESTATION_REQUIRED,
+            any_of_phrases=_JUDGMENT_ATTESTATION_ALTERNATIVES,
+        )
         raise CommandError("Suppress requires a valid attestation.")
 
     runtime = command_runtime(args)
@@ -39,6 +57,20 @@ def cmd_suppress(args: argparse.Namespace) -> None:
 
     config = runtime.config
     config_mod.add_ignore_pattern(config, args.pattern)
+    fingerprints = [
+        issue_suppression_fingerprint(issue)
+        for issue_id, issue in state.get("work_items", {}).items()
+        if isinstance(issue, dict)
+        and matched_ignore_pattern(issue_id, issue.get("file", ""), [args.pattern])
+    ]
+    if "::" in args.pattern and "*" not in args.pattern and fingerprints:
+        config_mod.set_ignore_metadata(
+            config,
+            args.pattern,
+            note="Path-independent suppression fingerprints captured by suppress.",
+            added_at=utc_now(),
+            fingerprints=fingerprints,
+        )
     config["needs_rescan"] = True
     save_config_or_exit(config)
 

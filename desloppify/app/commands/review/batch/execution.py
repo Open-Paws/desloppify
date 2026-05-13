@@ -53,7 +53,7 @@ class BatchRunDeps:
         [PrepareRunArtifactsRequest],
         tuple[Path, Path, dict[int, Path], dict[int, Path], dict[int, Path]],
     ]
-    run_codex_batch_fn: Callable[..., int]
+    run_batch_fn: Callable[..., int]
     execute_batches_fn: Callable[..., list[int]]
     collect_batch_results_fn: Callable[
         [CollectBatchResultsRequest], tuple[list[dict[str, Any]], list[int]]

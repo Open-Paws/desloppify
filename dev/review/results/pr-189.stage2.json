@@ -1,0 +1,11 @@
+{
+  "number": 189,
+  "type": "pr",
+  "role": "advocate",
+  "verdict": "REJECT",
+  "counter_case": "This is a substantial, genuine contribution to the Go plugin — not AI slop. The dependency graph implementation correctly handles Go's same-package linking (files in the same directory/package are implicitly linked), the smell detectors are Go-idiomatic (checking for naked returns, init() abuse, interface pollution — real Go concerns), and the security detector covers Go-specific patterns. The contributor clearly knows Go. Rebasing and splitting would preserve all this valuable work while making it reviewable.",
+  "summary": "Agreeing with Stage 1 REJECT, but emphasizing this is high-quality work that should be salvaged. The PR imports from desloppify.core (renamed to base/) and desloppify.hook_registry (moved to engine/hook_registry.py) — these paths no longer exist on current main, confirmed by grep. The PR is also marked WIP by the author. The mixing of unrelated changes (format_detail string->dict in treesitter/phases.py, pyproject.toml mypy config) with Go plugin work makes review impossible as a single unit. However, the Go-specific contributions (dep graph, smells, gods, unused, security) represent genuine expertise and should be encouraged via a clear rebasing guide.",
+  "reject_reason": "Cannot merge: imports from deleted module paths (desloppify.core, desloppify.hook_registry), WIP state, and cross-cutting changes mixed with Go-specific work. The contribution is valuable but needs rebase and split.",
+  "confidence": "high",
+  "implementation_notes": "If the contributor rebases: (1) core -> base, (2) hook_registry -> engine.hook_registry, (3) split into focused PRs. The dep graph, smells, gods/unused/security, and format_detail changes should each be separate PRs. The format_detail string->dict change in treesitter/phases.py is actually a good improvement but affects all languages and needs its own review."
+}

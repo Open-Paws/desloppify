@@ -199,13 +199,23 @@ def add_exclude_pattern(config: dict, pattern: str) -> None:
         excludes.append(pattern)
 
 
-def set_ignore_metadata(config: dict, pattern: str, *, note: str, added_at: str) -> None:
+def set_ignore_metadata(
+    config: dict,
+    pattern: str,
+    *,
+    note: str,
+    added_at: str,
+    fingerprints: list[str] | None = None,
+) -> None:
     """Record note + timestamp for an ignore pattern."""
     meta = config.setdefault("ignore_metadata", {})
     if not isinstance(meta, dict):
         meta = {}
         config["ignore_metadata"] = meta
-    meta[pattern] = {"note": note, "added_at": added_at}
+    entry = {"note": note, "added_at": added_at}
+    if fingerprints:
+        entry["fingerprints"] = sorted(set(fingerprints))
+    meta[pattern] = entry
 
 
 def _validate_badge_path(raw: str) -> str:

@@ -1,0 +1,25 @@
+{
+  "number": 524,
+  "type": "issue",
+  "title": "SKILL.md should document subagent parallelism limits",
+  "author": "Vuk97",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "Documentation gap confirmed by real user experience. Launching 20 parallel subagents from the review pipeline causes 100% rate limit failures. The fix is straightforward: add parallelism guidance to SKILL.md. Closely related to #518 — this issue focuses on the SKILL.md documentation specifically while #518 is the broader usability concern.",
+    "confidence": "high",
+    "scope_estimate": "small",
+    "potential_duplicates": [518]
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented the requested SKILL.md documentation. The review workflow now explicitly warns against launching all subagents at once, recommends small waves of 3-5 concurrent agents, and tells agents to reduce wave size and retry failed batches when rate limiting appears.",
+    "commit": "e2c4f093",
+    "changes_applied": [
+      "Added subagent parallelism-limit guidance to `docs/SKILL.md`.",
+      "Synced the bundled `desloppify/data/global/SKILL.md` copy used by setup/install flows."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/test_bundled_sync.py -q"
+    ]
+  }
+}

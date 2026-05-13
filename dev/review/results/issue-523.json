@@ -1,0 +1,26 @@
+{
+  "number": 523,
+  "type": "issue",
+  "title": "`rust_async_locking` false positives on `std::sync::RwLock`",
+  "author": "Vuk97",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "Plausible bug in the Rust async locking detector. The reporter states lock guards are dropped (via block scope or variable lifetime) before any .await point, but the detector still flags them. The detector likely does simple pattern matching (finds lock acquisition and .await in the same function) without tracking guard lifetimes or block scopes. This is a real limitation of heuristic-based detection for Rust's ownership semantics. The reporter has a concrete codebase where all flagged items are false positives according to the Rust compiler.",
+    "confidence": "medium",
+    "scope_estimate": "medium"
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented a conservative fix for the accepted false positive. The named-guard path already recognizes explicit `drop()` and block-scope release before `.await`; the broader blocking-lock fallback was still flagging std sync lock calls in async functions even when an await occurred after the guard had been released. That fallback now only applies to async bodies with no await, so released `std::sync::RwLock` guards before await are not reported.",
+    "commit": "04b1cfac",
+    "changes_applied": [
+      "Narrowed the `blocking_lock` fallback in `rust_async_locking` so it does not fire in async functions containing await points.",
+      "Added regressions for `std::sync::RwLock` guards released by explicit `drop()` before await.",
+      "Added regressions for `std::sync::RwLock` guards released by block scope before await."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/languages/rust/tests/test_custom.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/ -q"
+    ]
+  }
+}

@@ -8,6 +8,22 @@ from desloppify.state_scoring import score_snapshot
 from ._constants import _history_strict
 
 
+def stable_strict_streak(history: list[dict], *, tolerance: float = 0.5) -> int:
+    """Return consecutive strict-score entries within tolerance of the current score."""
+    if not history:
+        return 0
+    current = _history_strict(history[-1])
+    if current is None:
+        return 0
+    streak = 0
+    for entry in reversed(history):
+        value = _history_strict(entry)
+        if value is None or abs(value - current) > tolerance:
+            break
+        streak += 1
+    return streak
+
+
 def detect_phase(history: list[dict], strict_score: float | None) -> str:
     """Detect project phase from scan history trajectory."""
     if not history:
@@ -26,13 +42,9 @@ def detect_phase(history: list[dict], strict_score: float | None) -> str:
     if prev is not None and curr is not None and curr < prev - 0.5:
         return "regression"
 
-    # Check stagnation: strict unchanged ±0.5 for 3+ scans
-    if len(history) >= 3:
-        recent = [_history_strict(h) for h in history[-3:]]
-        if all(r is not None for r in recent):
-            spread = max(recent) - min(recent)
-            if spread <= 0.5:
-                return "stagnation"
+    # Check stagnation: current strict score stable within ±0.5 for 3+ scans.
+    if stable_strict_streak(history) >= 3:
+        return "stagnation"
 
     # Early momentum: scans 2-5 with score rising — check BEFORE score thresholds
     # so early projects get motivational framing even if score is already high

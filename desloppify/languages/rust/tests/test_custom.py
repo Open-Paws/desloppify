@@ -596,6 +596,60 @@ async fn release_before_wait(state: &Mutex<String>) {
     assert entries == []
 
 
+def test_detect_async_locking_ignores_std_guard_drop_before_await(tmp_path):
+    _write(
+        tmp_path,
+        "Cargo.toml",
+        '[package]\nname = "demo-app"\nversion = "0.1.0"\nedition = "2021"\n',
+    )
+    _write(
+        tmp_path,
+        "src/lib.rs",
+        """
+use std::sync::RwLock;
+
+async fn release_before_wait(state: &RwLock<String>) {
+    let guard = state.read().unwrap();
+    drop(guard);
+    consume().await;
+}
+""",
+    )
+
+    with runtime_scope(RuntimeContext(project_root=tmp_path)):
+        entries, _ = detect_async_locking(tmp_path)
+
+    assert entries == []
+
+
+def test_detect_async_locking_ignores_std_guard_block_scope_before_await(tmp_path):
+    _write(
+        tmp_path,
+        "Cargo.toml",
+        '[package]\nname = "demo-app"\nversion = "0.1.0"\nedition = "2021"\n',
+    )
+    _write(
+        tmp_path,
+        "src/lib.rs",
+        """
+use std::sync::RwLock;
+
+async fn block_scope_before_wait(state: &RwLock<String>) {
+    {
+        let guard = state.read().unwrap();
+        consume_guard(&guard);
+    }
+    consume().await;
+}
+""",
+    )
+
+    with runtime_scope(RuntimeContext(project_root=tmp_path)):
+        entries, _ = detect_async_locking(tmp_path)
+
+    assert entries == []
+
+
 def test_detect_async_locking_flags_blocking_std_lock_without_extra_await(tmp_path):
     _write(
         tmp_path,

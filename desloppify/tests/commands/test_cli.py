@@ -159,6 +159,8 @@ class TestCreateParser:
         assert exc.value.code == 0
         out = capsys.readouterr().out.strip()
         assert out.startswith("desloppify")
+        assert "\nPython " in out
+        assert " at " in out
 
     def test_top_level_short_version_flag(self, parser, capsys):
         with pytest.raises(SystemExit) as exc:
@@ -166,6 +168,8 @@ class TestCreateParser:
         assert exc.value.code == 0
         out = capsys.readouterr().out.strip()
         assert out.startswith("desloppify")
+        assert "\nPython " in out
+        assert " at " in out
 
     def test_status_command(self, parser):
         args = parser.parse_args(["status"])

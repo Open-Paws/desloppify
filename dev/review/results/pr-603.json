@@ -1,0 +1,33 @@
+{
+  "number": 603,
+  "type": "pr",
+  "title": "feat: add support for rovodev",
+  "author": "awprice",
+  "stage1": {
+    "verdict": "ACCEPT_WITH_CONDITIONS",
+    "summary": "This PR adds Rovo Dev as a first-class review and triage runner, plus skill installation/docs and focused tests. The integration shape matches the existing Codex/OpenCode runner architecture, and the feature is valuable, but the native runner command is built as `acli rovodev --yolo <prompt>` in `desloppify/app/commands/review/runner_rovodev.py::rovodev_batch_command`. The current Atlassian Rovo Dev CLI command surface requires the `run` subcommand for both interactive and single-instruction mode: `acli rovodev run [instruction]`, with flags such as `--yolo` also under `run`. Because both review batches and triage stages delegate through this command builder, the advertised `desloppify review --run-batches --runner rovodev` and `desloppify plan triage --run-stages --runner rovodev` paths would fail before invoking the agent on current Rovo Dev CLI installs.",
+    "conditions": [
+      "Change `rovodev_batch_command` to build `acli rovodev run ... <prompt>` rather than `acli rovodev ... <prompt>`, keeping flags such as `--yolo`, `--output-schema`, and `DESLOPPIFY_ROVODEV_EXTRA_ARGS` after `run` and before the positional instruction.",
+      "Update the Rovo Dev command-construction tests to assert the `run` subcommand is present so this cannot regress."
+    ],
+    "confidence": "high",
+    "scope_estimate": "large",
+    "potential_duplicates": [],
+    "real_problem": true,
+    "suggested_fix": "Keep the overall PR design, but fix the Rovo Dev CLI entrypoint in the shared command builder so all review and triage call paths execute `acli rovodev run`."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT_WITH_CHANGES",
+    "reasoning": "Implemented the accepted Rovo Dev runner support while satisfying the Stage 1 command-syntax condition. I verified the current Atlassian command surface requires the `run` subcommand, then corrected the shared command builder so review and triage paths invoke `acli rovodev run ... <prompt>` with `--yolo`, `--output-schema`, and extra args placed after `run` and before the positional instruction.",
+    "commit": "806ced72",
+    "changes_applied": [
+      "Added Rovo Dev as a review batch runner and triage stage runner.",
+      "Added Rovo Dev setup/update-skill targets and bundled ROVODEV documentation.",
+      "Added runner dispatch, provenance, parser, guardrail, and planning-command integration for `rovodev`.",
+      "Corrected the CLI entrypoint to `acli rovodev run` and updated command-construction tests to assert the `run` subcommand and flag ordering."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/review/test_runner_rovodev_direct.py desloppify/tests/commands/plan/test_triage_rovodev_runner_direct.py desloppify/tests/commands/plan/test_triage_split_modules_direct.py desloppify/tests/commands/test_direct_coverage_queue_batch_modules.py desloppify/tests/commands/test_setup.py desloppify/tests/commands/test_transitive_modules_update_skill.py desloppify/tests/engine/test_sync_split_modules_direct.py desloppify/tests/review/test_work_queue_synthetic_workflow_direct.py -q"
+    ]
+  }
+}

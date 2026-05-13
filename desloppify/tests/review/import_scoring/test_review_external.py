@@ -71,6 +71,9 @@ def test_external_start_creates_session_and_template(tmp_path, monkeypatch):
     prompt_text = launch_prompt.read_text()
     assert f"session.id` exactly `{session['session_id']}`" in prompt_text
     assert f"session.token` exactly `{session['token']}`" in prompt_text
+    assert "## Execution Constraints" in prompt_text
+    assert "Do not extract code into new files or functions" in prompt_text
+    assert "Net line count must decrease or stay flat" in prompt_text
 
 
 def test_external_submit_rejects_missing_session_metadata(tmp_path, monkeypatch):

@@ -1,0 +1,30 @@
+{
+  "number": 597,
+  "type": "issue",
+  "title": "OSError Errno 36 crash - Namespace repr   leaking into subprocess argv)",
+  "author": "JohnRSim",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "Confirmed real bug. `cmd_detect` dispatches detector commands as `lang.detect_commands[detector](args)` in `desloppify/app/commands/detect.py`, and most command factories follow that `argparse.Namespace` contract. Generic tool-backed plugins, however, register `make_detect_fn(...)` directly in `desloppify/languages/_framework/generic_support/core.py`; that function expects a `Path` first argument and passes it to `run_tool_result`. For PHP, `phpstan_error` is registered through this generic path, so `desloppify detect phpstan_error` passes the full Namespace as `path`, and `run_tool_result` uses `cwd=str(path)`, matching the reported `Namespace(...)` path leak and ENAMETOOLONG failure when config repr grows. The issue is worth fixing and scope is clear.",
+    "conditions": [],
+    "reject_reason": "",
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": [],
+    "real_problem": true,
+    "suggested_fix": "Fix the generic detect command registration contract rather than changing `cmd_detect` globally: adapt `make_detect_fn` or the generic `detect_commands` registration so generated detect commands accept `argparse.Namespace`, derive `Path(args.path)`, run the tool, and render output consistently. Add a regression test using a generic tool command and an args object with a large runtime/config payload to ensure `run_tool_result` receives the real scan path as cwd, not the Namespace repr."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented the generic detect-command contract fix. Generic tool-backed detect functions now accept both direct `Path` calls and `cmd_detect` argparse namespace calls, deriving `Path(args.path)` before invoking `run_tool_result`, so subprocess `cwd` receives the real scan path instead of the namespace repr.",
+    "commit": "9cf78b25",
+    "changes_applied": [
+      "Adapted `make_detect_fn` to coerce either a `Path` or argparse-like args object to the scan path.",
+      "Added a regression test with a large namespace payload proving the generic tool runner receives `cwd=str(tmp_path)` and not `Namespace(...)`."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/lang/common/test_generic_plugin.py desloppify/tests/commands/test_cmd_detect.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/ -q"
+    ]
+  }
+}

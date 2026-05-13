@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 
+_STAGES = ("strategize", "observe", "reflect", "organize", "enrich", "sense-check")
+
+
 def _validation_requirements(stage: str) -> str:
     """What must be true for the stage to pass validation."""
     if stage == "strategize":
@@ -68,4 +71,16 @@ def _validation_requirements(stage: str) -> str:
     return ""
 
 
-__all__ = ["_validation_requirements"]
+def render_validation_requirements(stage: str | None = None) -> str:
+    """Render validation requirements for one stage, or every triage stage."""
+    stages = (stage,) if stage else _STAGES
+    blocks = []
+    for stage_name in stages:
+        requirements = _validation_requirements(stage_name)
+        if not requirements:
+            continue
+        blocks.append(f"# {stage_name}\n\n{requirements}")
+    return "\n\n".join(blocks)
+
+
+__all__ = ["_validation_requirements", "render_validation_requirements"]

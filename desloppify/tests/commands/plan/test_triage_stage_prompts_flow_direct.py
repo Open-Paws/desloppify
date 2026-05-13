@@ -54,6 +54,15 @@ def test_stage_prompt_instruction_blocks_and_validation_requirements() -> None:
         assert text.startswith("## Validation Requirements")
 
 
+def test_sense_check_prompt_includes_shared_execution_constraints() -> None:
+    prompt = prompts_instructions_mod._sense_check_instructions()
+
+    assert "Also flag steps that:" in prompt
+    assert "Do not extract code into new files or functions" in prompt
+    assert "Do not rename for convention alone" in prompt
+    assert "Net line count must decrease or stay flat" in prompt
+
+
 def test_observe_and_sense_prompt_builders_include_expected_context(tmp_path) -> None:
     observe = prompts_observe_mod.build_observe_batch_prompt(
         batch_index=1,

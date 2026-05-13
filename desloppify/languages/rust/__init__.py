@@ -61,7 +61,7 @@ RUST_ENTRY_PATTERNS = [
 
 RUST_ZONE_RULES = [
     ZoneRule(Zone.PRODUCTION, ["/src/bin/"]),
-    ZoneRule(Zone.TEST, ["/tests/"]),
+    ZoneRule(Zone.TEST, ["/tests/", "_tests.rs", "test_"]),
     ZoneRule(Zone.SCRIPT, ["/examples/", "/benches/", "/fuzz/", "build.rs"]),
     ZoneRule(Zone.CONFIG, ["Cargo.toml", "Cargo.lock", "/.cargo/"]),
 ] + COMMON_ZONE_RULES
@@ -71,6 +71,11 @@ class RustConfig(LangConfig):
     """Rust language configuration."""
 
     def __init__(self):
+        tree_sitter_phases = [
+            phase for phase in all_treesitter_phases("rust")
+            if phase.label != "Unused imports"
+        ]
+
         super().__init__(
             name="rust",
             extensions=[".rs"],
@@ -86,7 +91,7 @@ class RustConfig(LangConfig):
                 tool_phase_clippy(),
                 tool_phase_check(),
                 tool_phase_rustdoc(),
-                *all_treesitter_phases("rust"),
+                *tree_sitter_phases,
                 DetectorPhase("Signature analysis", phase_signature),
                 detector_phase_test_coverage(),
                 DetectorPhase("Code smells", phase_smells),

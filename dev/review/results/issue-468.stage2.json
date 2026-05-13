@@ -1,0 +1,10 @@
+{
+  "number": 468,
+  "type": "issue",
+  "role": "challenger",
+  "verdict": "ACCEPT",
+  "counter_case": "This is a well-known macOS/Homebrew Python issue, not a desloppify bug. Users should run Install Certificates.command or use a properly configured Python installation. Fixing SSL certificate handling in every Python tool that uses urllib is whack-a-mole.",
+  "summary": "While the underlying issue is macOS/Python configuration, not a desloppify bug, the fix is trivial (use certifi's CA bundle if available) and prevents a confusing error for new users. Cannot build a strong case against a 10-line improvement with zero risk.",
+  "confidence": "high",
+  "implementation_notes": "Try certifi first, fall back to default SSL context. Print actionable error message on SSL failure."
+}

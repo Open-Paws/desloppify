@@ -13,5 +13,19 @@
     "potential_duplicates": [],
     "real_problem": true,
     "suggested_fix": "Verify that EXECUTION_CONSTRAINTS from execution_constraints.py are injected into all relevant prompt templates (review batch prompts, triage sense-check prompts, stage instruction blocks). Add integration tests confirming constraint text appears in generated prompts. Once verified, close the issue."
+  },
+  "stage3": {
+    "decision": "CLOSE_FIXED",
+    "reasoning": "The execution anti-pattern guardrails are implemented and now verified in generated prompts. `EXECUTION_CONSTRAINTS` contains the shared constraints, external review prompts include the rendered constraints block, and triage sense-check instructions include the same constraints so agents flag over-engineered cleanup steps before execution.",
+    "fixed_by": "d0d97d89",
+    "verification_commit": "6afa56a9",
+    "changes_applied": [
+      "Verified `EXECUTION_CONSTRAINTS` is injected into external review launch prompts.",
+      "Verified triage sense-check instructions include the shared execution constraints.",
+      "Added regression tests covering both prompt paths."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/plan/test_triage_stage_prompts_flow_direct.py desloppify/tests/review/import_scoring/test_review_external.py -q"
+    ]
   }
 }

@@ -62,3 +62,5 @@ Write to `review/results/{TYPE}-{NUMBER}.stage2.json` (a NEW file — do NOT mod
 - Clean code that solves the wrong problem is worse than messy code that solves the right one.
 - For issues: "interesting idea" isn't enough. Must be clearly worth the cost.
 - We can always accept later. Bad merges are hard to undo.
+- But: don't reject just because scope feels big — multiple small independent fixes is fine.
+- For confirmed bugs: challenge the *how*, not the *whether*. When uncertain, use `"confidence": "low"` + `"open_questions"`.

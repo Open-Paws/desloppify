@@ -99,3 +99,42 @@ def test_cmd_status_terminal_mode_passes_computed_context(monkeypatch) -> None:
     assert captured["scorecard_dims"] == scorecard
     assert captured["subjective_measures"] == [{"name": "design", "subjective": True}]
     assert captured["suppression"] == {"x": 1}
+
+
+def test_cmd_status_by_language_json_reports_rows_and_aggregate(
+    monkeypatch,
+    tmp_path,
+    capsys,
+) -> None:
+    states = {}
+    for lang, overall, strict in [("python", 80.0, 70.0), ("rust", 60.0, 50.0)]:
+        state = empty_state()
+        state["scan_count"] = 1
+        state["overall_score"] = overall
+        state["objective_score"] = overall
+        state["strict_score"] = strict
+        state["verified_strict_score"] = strict
+        state["stats"] = {"open": 2}
+        states[lang] = state
+
+    monkeypatch.setattr(status_cmd_mod, "detect_present_languages", lambda _root: ["python", "rust"])
+    monkeypatch.setattr(
+        status_cmd_mod,
+        "language_state_path",
+        lambda lang: tmp_path / f"state-{lang}.json",
+    )
+    for lang in states:
+        (tmp_path / f"state-{lang}.json").write_text("{}")
+    monkeypatch.setattr(
+        status_cmd_mod,
+        "load_state",
+        lambda path: states[path.stem.removeprefix("state-")],
+    )
+
+    status_cmd_mod.cmd_status(SimpleNamespace(json=True, by_language=True))
+
+    payload = json.loads(capsys.readouterr().out)
+    assert [row["language"] for row in payload["languages"]] == ["python", "rust"]
+    assert payload["aggregate"]["method"] == "equal_weight_per_scanned_language"
+    assert payload["aggregate"]["overall_score"] == 70.0
+    assert payload["aggregate"]["strict_score"] == 60.0

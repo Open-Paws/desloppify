@@ -1,0 +1,33 @@
+{
+  "number": 541,
+  "type": "issue",
+  "title": "Windows Codex review runner rebuilds prepared packet and then fails with command line too long",
+  "author": "Jerome2123",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "Confirmed real review workflow bug with two reachable parts. First, `review --prepare --dimensions abstraction_fitness` goes through `do_prepare()` and `build_review_packet_payload()`, which writes `query.json` with `config` and `next_command` but no `prepared_packet_contract`; a following `review --run-batches` reaches `_load_or_prepare_packet()`, calls `_try_load_prepared_packet()` only when no explicit dimensions were passed, and rejects that prepared packet with `missing prepared packet contract metadata`, then rebuilds from args with no dimensions. Second, the Codex runner path writes prompt files but `_run_batch_task()` reads the full prompt text back into memory and passes it to `run_codex_batch()`, whose `codex_batch_command()` appends the prompt as a command-line argument. On Windows, `_resolve_executable()` may also wrap npm `.cmd` shims in `cmd /c`, and `_wrap_cmd_c()` collapses the entire invocation into one command string, so a large holistic prompt can plausibly exceed the Windows command-line length limit exactly as reported. This is worth fixing because it breaks targeted stale-dimension reviews and makes the automated Codex review path unusable on Windows for large packets.",
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": [
+      562
+    ],
+    "real_problem": true,
+    "suggested_fix": "Add `prepared_packet_contract` to packets produced by the prepare/external packet construction path so `--run-batches` can safely reuse `query.json` when the invocation contract matches. Separately, change the Codex runner to avoid passing the full rendered prompt as a command-line argument on Windows, preferably by invoking Codex with stdin or a prompt file if supported, or by adding a small platform-aware fallback that keeps only short arguments on the command line while preserving existing output-file handling and logs. Add regression coverage for prepared single-dimension reuse and for Windows command construction not embedding a large prompt in the argv/cmd string."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented both accepted failure-mode fixes. Prepared review packets now include the reusable invocation contract, so `review --run-batches` can honor a prior targeted `review --prepare` when the path, state, dimensions, retrospective options, and redacted config match. The Codex batch runner now invokes `codex exec -` and sends the rendered prompt over stdin on Windows and for large prompts, avoiding Windows `.cmd` command-line length failures while keeping existing short argv behavior elsewhere.",
+    "commit": "676b510e",
+    "changes_applied": [
+      "Added `prepared_packet_contract` to packets built by the shared review packet builder used by prepare/external flows.",
+      "Changed Codex batch command construction to use stdin for Windows prompts and large prompts.",
+      "Extended subprocess and live Popen runner paths to pass prompt stdin only when the command uses `-`.",
+      "Added regression coverage for contract metadata and stdin prompt delivery."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/review/test_review_packet_build_direct.py desloppify/tests/commands/review/test_review_batch_execution_helpers_direct.py desloppify/tests/commands/test_runner_modules_direct.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/review desloppify/tests/review/review_commands_cases.py desloppify/tests/review/review_commands_runner_cases.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/ -q"
+    ]
+  }
+}

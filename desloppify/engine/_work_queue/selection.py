@@ -8,6 +8,7 @@ from desloppify.engine._work_queue.models import QueueBuildOptions, QueueVisibil
 from desloppify.engine._work_queue.ranking import build_issue_items
 from desloppify.engine._work_queue.snapshot import build_queue_snapshot
 from desloppify.engine._work_queue.types import WorkQueueItem
+from desloppify.engine._state.issue_semantics import is_review_work_item
 from desloppify.engine._state.schema import StateModel
 
 
@@ -65,9 +66,15 @@ def filter_snapshot_items(
     """Apply view-local filtering after snapshot partition selection."""
     filtered = items
     if not opts.include_subjective:
+        has_objective_issue = any(
+            item.get("kind") in {"issue", "cluster"}
+            and not is_review_work_item(item)
+            for item in filtered
+        )
         filtered = [
             item for item in filtered
             if item.get("kind") != "subjective_dimension"
+            and not (has_objective_issue and is_review_work_item(item))
         ]
     if opts.scope:
         filtered = [

@@ -1,0 +1,30 @@
+{
+  "number": 568,
+  "type": "issue",
+  "title": "`smells::string_error` false-positive on `Result<HashMap<String, String>>` — detector flags the String in the OK type as if it were the error type",
+  "author": "Vuk97",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "The bug is real and reproducible from the current Rust smell detector path. `detect smells` routes through `desloppify/languages/rust/commands.py::cmd_smells` into `detect_smells()`, which applies the catalog regex from `desloppify/languages/rust/detectors/smells_catalog.py`. The current `string_error` pattern requires a comma before `String`, but because the leading `[^>\\n]*` can consume commas inside nested generic types, it matches `Result<std::collections::HashMap<String, String>>` and even `Result<HashMap<String, String>, MyError>` by treating the inner HashMap value type as the error type. This creates a medium-severity false positive for valid Rust code using single-parameter result aliases such as `anyhow::Result<T>` or nested OK types containing `String`. The scope is clear: make `string_error` inspect the top-level `Result` generic arguments and add regression tests for nested OK types and real `Result<T, String>` cases.",
+    "confidence": "high",
+    "scope_estimate": "small",
+    "potential_duplicates": [],
+    "real_problem": true,
+    "suggested_fix": "Replace the raw catalog regex with source-aware matching for `string_error`, either by a small top-level generic argument parser for `Result<...>` signatures or by tree-sitter. It should only flag explicit two-argument results whose second top-level generic argument is `String` or `&'static str`, and should not flag `Result<HashMap<String, String>>` or `Result<HashMap<String, String>, MyError>`. Add focused Rust smell tests for both false-positive cases and existing true positives."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Replaced the regex-only Rust `string_error` check with source-aware top-level `Result<T, E>` generic parsing. The detector now flags explicit two-argument `Result` signatures whose error type is `String` or `&'static str`, while ignoring nested `String` occurrences in the OK type and non-String error types.",
+    "commit": "c88eb9ed",
+    "changes_applied": [
+      "Disabled the catalog regex for `string_error`.",
+      "Added a Rust smell detector path that parses top-level Result generic arguments.",
+      "Added false-positive coverage for `Result<HashMap<String, String>>` and `Result<HashMap<String, String>, MyError>`.",
+      "Kept true-positive coverage for `Result<T, String>` and added `Result<T, &'static str>` coverage."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/languages/rust/tests/test_smells.py desloppify/languages/rust/tests/test_tools.py desloppify/tests/commands/test_cli.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/languages/rust/tests/test_init.py -q"
+    ]
+  }
+}

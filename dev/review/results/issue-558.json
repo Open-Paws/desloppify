@@ -1,0 +1,35 @@
+{
+  "number": 558,
+  "type": "issue",
+  "title": "Test-block split via `#[path]` attribute moves test fixtures into new files, and existing per-file `suppress` patterns don't transfer",
+  "author": "Vuk97",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "The issue is real: suppression matching is strictly based on the new issue ID/file path, so a stored pattern like `security::src/order.rs::security::hardcoded_secret_name` cannot match a regenerated issue under `src/order_tests.rs`. Rust `#[path]` attributes are already parsed for dependency graph purposes, but that relationship is not used by suppression matching or zone classification. Also, Rust zone rules classify `src/order_tests.rs` as production, not test, so security and test_coverage can reprocess extracted test fixtures under the new sibling path. This is a meaningful workflow snag during legitimate Rust test extraction and has a clear implementation path.",
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": [
+      570,
+      593,
+      542
+    ],
+    "real_problem": true,
+    "suggested_fix": "Add Rust-specific awareness of `#[cfg(test)] #[path = \"...\"] mod tests;` when building scan metadata: treat the path-included sibling as test context for relevant detectors and/or create a suppression alias from the included test file back to the declaring parent module. The least risky fix is to preserve exact issue IDs but expand ignore matching during scan/upsert with a Rust path-alias map, so suppressions scoped to the parent test module can apply to the included child without changing persisted state format. If only documenting, the warning must use a actually valid glob form such as a trailing wildcard pattern, because wildcard ignore patterns are matched against the full issue ID."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented the accepted suppression-transfer path. Exact suppressions now can carry a path-independent detector/name/summary/detail fingerprint, and scan merge checks those fingerprints when a later finding appears under a different file path. For existing suppressions that predate the metadata, merge also derives fingerprints from suppressed work items still present in state, so a Rust test split or file move does not resurrect the same false positive just because the path changed. Rust `src/*_tests.rs`/`src/test_*.rs` zone classification was already present in the current tree, so the missing piece for this report was suppression transfer across the split.",
+    "commit": "2b4a90fd",
+    "changes_applied": [
+      "Added path-independent suppression fingerprints for detector findings.",
+      "Stored fingerprints in ignore metadata when `desloppify suppress` records an exact issue-id pattern.",
+      "Backfilled effective suppression metadata from existing suppressed state entries during scan merge.",
+      "Documented the wildcard form in suppress help for users who want intentionally broad moved-file suppressions.",
+      "Added regression coverage for a Rust-style `src/order.rs` to `src/order_tests.rs` move."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/state/test_suppression_scoring.py desloppify/tests/state/test_state_suppression_and_integrity.py desloppify/tests/core/test_config.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/languages/rust/tests/test_init.py -q"
+    ]
+  }
+}

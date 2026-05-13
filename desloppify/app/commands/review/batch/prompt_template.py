@@ -9,6 +9,7 @@ from desloppify.intelligence.review.feedback_contract import (
     DIMENSION_NOTE_ISSUES_KEY,
     HIGH_SCORE_ISSUES_NOTE_THRESHOLD,
 )
+from desloppify.intelligence.review.personas import render_persona_block, resolve_persona
 
 from ..prompt_sections import (
     PromptBatchContext,
@@ -141,6 +142,7 @@ def render_batch_prompt(
     context = build_batch_context(batch, batch_index)
     dim_prompts = context.dimension_prompts or batch_dimension_prompts(batch)
     dimension_contexts = batch.get("dimension_contexts") if isinstance(batch, dict) else None
+    persona = resolve_persona(context.persona)
     return join_non_empty_sections(
         _render_metadata_block(
             repo_root=repo_root,
@@ -148,6 +150,7 @@ def render_batch_prompt(
             batch_index=batch_index,
             context=context,
         ),
+        render_persona_block(persona),
         render_dimension_prompts_block(context.dimensions, dim_prompts),
         policy_block,
         render_scoring_frame(),

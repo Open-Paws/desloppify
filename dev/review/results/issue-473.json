@@ -13,5 +13,18 @@
     "potential_duplicates": [],
     "real_problem": false,
     "suggested_fix": "Rename the placeholder in docs/SKILL.md from `<session_token_from_template>` to something that won't trigger credential-detection heuristics, e.g. `<session_verification_from_template>` or `<session_hmac_from_template>`. The field name in the actual JSON schema (`session.token`) may also need renaming in the external review flow if the Snyk scan checks runtime code too, but that's a larger change."
+  },
+  "stage3": {
+    "decision": "CLOSE_FIXED",
+    "reasoning": "The Snyk W007-triggering placeholder was already renamed. The docs now use `<session_hmac_from_template>` instead of the older token-shaped placeholder while keeping the actual JSON field name unchanged for compatibility.",
+    "fixed_by": "304b83ee",
+    "changes_applied": [
+      "Renamed the documentation placeholder in `docs/SKILL.md`.",
+      "Synced the bundled `desloppify/data/global/SKILL.md` copy."
+    ],
+    "tests": [
+      "rg -n \"session_token|session_hmac\" docs/SKILL.md desloppify/data/global/SKILL.md",
+      "git log --oneline -- docs/SKILL.md | head -12"
+    ]
   }
 }

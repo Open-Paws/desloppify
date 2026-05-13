@@ -1,0 +1,9 @@
+{
+  "number": 490,
+  "type": "issue",
+  "role": "challenger",
+  "verdict": "NOT_ACTIONABLE",
+  "counter_case": "The zone map emptiness could indicate a real regression in file discovery for certain project layouts, but without reproduction info this cannot be verified.",
+  "summary": "Confirming Stage 1 NOT_ACTIONABLE verdict. The report lacks essential diagnostic information (project structure, config, minimal reproduction) needed to investigate. No code change is possible without understanding the reporter's specific setup.",
+  "confidence": "medium"
+}

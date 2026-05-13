@@ -78,6 +78,25 @@ class TestNamingBasedMapping:
         result = naming_based_mapping(test_files, production_files, "typescript")
         assert result == {"src/utils.tsx"}
 
+    def test_typescript_test_ts_finds_tsx_source(self):
+        """Closes #507: .test.ts must find .tsx production files."""
+        test_files = {"src/components/OverlayEditor.test.ts"}
+        production_files = {"src/components/OverlayEditor.tsx"}
+        result = naming_based_mapping(test_files, production_files, "typescript")
+        assert result == {"src/components/OverlayEditor.tsx"}
+
+    def test_typescript_test_tsx_finds_ts_source(self):
+        test_files = {"src/utils/parser.test.tsx"}
+        production_files = {"src/utils/parser.ts"}
+        result = naming_based_mapping(test_files, production_files, "typescript")
+        assert result == {"src/utils/parser.ts"}
+
+    def test_typescript_spec_ts_finds_jsx_source(self):
+        test_files = {"src/Button.spec.ts"}
+        production_files = {"src/Button.jsx"}
+        result = naming_based_mapping(test_files, production_files, "typescript")
+        assert result == {"src/Button.jsx"}
+
     def test_no_match(self):
         test_files = {"src/test_foo.py"}
         production_files = {"src/bar.py"}

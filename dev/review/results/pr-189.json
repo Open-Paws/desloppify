@@ -1,0 +1,22 @@
+{
+  "number": 189,
+  "type": "pr",
+  "title": "Feature additional golang support",
+  "author": "RyanJarv",
+  "stage1": {
+    "verdict": "REJECT",
+    "summary": "Large WIP PR adding substantial Go plugin enhancements: real dependency graph (replacing stub), smell detector with 15+ Go-specific smells, unused symbol detection via staticcheck, god struct detection, security detector, and additional detect commands. The scope is huge (~2500 lines across 10+ new/modified files). While the direction is good and the contribution is genuine (not AI slop — the smells are Go-idiomatic and the dependency graph handles real Go patterns like same-package linking), the PR has critical problems: (1) it imports from desloppify.core (old pre-rename path) and desloppify.hook_registry (moved to engine/hook_registry.py), so it won't work on the current codebase; (2) it's marked WIP by the author; (3) it modifies pyproject.toml mypy config and format_detail in show/formatting.py (unrelated to Go); (4) the treesitter phases.py change (detail string->dict) is a cross-cutting concern bundled into a Go PR. The Go-specific work (deps, smells, gods, unused, security, phases) is valuable but needs rebasing and splitting.",
+    "reject_reason": "WIP state, stale base (imports from renamed/moved modules), mixes unrelated changes (show/formatting.py, treesitter/phases.py, pyproject.toml) with Go plugin work. Needs rebase and split into focused PRs.",
+    "confidence": "high",
+    "scope_estimate": "large",
+    "potential_duplicates": [],
+    "real_problem": true,
+    "suggested_fix": "The Go plugin enhancements are genuinely valuable. The right approach: (1) rebase onto current main, fixing core->base and hook_registry imports; (2) split into separate PRs — one for the dep graph, one for smells, one for gods/unused/security, one for the format_detail fix; (3) the format_detail string->dict change in treesitter/phases.py and show/formatting.py should be its own PR since it affects all languages."
+  },
+  "stage3": {
+    "decision": "REJECT",
+    "reasoning": "Both stages unanimously agreed: valuable Go work but WIP, stale imports from renamed modules, mixed cross-cutting concerns. Encouraged contributor to rebase and split.",
+    "commit": null,
+    "changes_applied": null
+  }
+}

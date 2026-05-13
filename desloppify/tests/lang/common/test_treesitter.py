@@ -648,9 +648,9 @@ class TestSpecValidation:
 
         try:
             parser, language = _get_parser(spec.grammar)
-        except Exception as exc:
-            if "not found" in str(exc).lower() or "LanguageNotFoundError" in type(exc).__name__:
-                pytest.skip(f"Language '{spec.grammar}' not available in installed language pack")
+        except (LookupError, Exception) as exc:
+            if "not available" in str(exc) or "not found" in str(exc).lower():
+                pytest.skip(f"grammar {spec.grammar!r} not available in this environment")
             raise
         # Verify function query compiles.
         if spec.function_query:

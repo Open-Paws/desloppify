@@ -235,6 +235,10 @@ def build_review_packet_payload(
         prepare_holistic_review_fn=prepare_holistic_review_fn,
     )
     packet["config"] = redacted_review_config(config)
+    packet["prepared_packet_contract"] = prepared_packet_contract(
+        context,
+        config=config,
+    )
     packet["next_command"] = next_command
     require_non_empty_packet(packet, path=context.path)
     return packet

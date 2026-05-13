@@ -22,7 +22,7 @@ You are orchestrating Stage 1 (assessment) of a review pipeline for the desloppi
 
 5. Read `review/schema.json` — this defines the output format and field definitions.
 
-6. For each open PR and issue that doesn't already have a result file, launch a sub-agent using the **Agent tool** with `subagent_type: "general-purpose"`. Launch them all in parallel (multiple Agent tool calls in one message). For each sub-agent:
+6. For each open PR and issue that doesn't already have a result file, launch a sub-agent using the **Agent tool** with `subagent_type: "general-purpose"`. **Launch in batches of 4-5** (multiple Agent tool calls per batch, wait for each batch to finish before starting the next). For each sub-agent:
    - Fill `{TYPE}` with "pr" or "issue"
    - Fill `{NUMBER}` with the item number
    - Fill `{FULL_LIST}` with the complete list from step 1 (titles and descriptions only — for spotting potential duplicates)
@@ -35,9 +35,9 @@ You are orchestrating Stage 1 (assessment) of a review pipeline for the desloppi
 
 9. Do NOT post comments on PRs/issues — Stage 3 handles all GitHub communication.
 
-## Note on parallel execution
+## Batching and parallel execution
 
-All sub-agents hit the GitHub API simultaneously. If you have many items (20+), consider batching into groups of 10 to avoid rate limiting. Watch for agents that return empty/partial diffs — that's a sign of throttling.
+**Always batch sub-agents into groups of 4-5.** Launch one batch, wait for all agents in it to complete, then launch the next batch. This prevents API rate limiting and context exhaustion — launching all agents at once will burn through your usage quota even on Max plans. Watch for agents that return empty/partial diffs — that's a sign of throttling; reduce batch size if it happens.
 
 ## Batching strategy
 

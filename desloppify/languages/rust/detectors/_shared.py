@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from desloppify.base.discovery.file_paths import rel, resolve_path
+from desloppify.languages.rust import tools as rust_tools
 from desloppify.languages.rust.support import (
     describe_rust_file,
     find_rust_files,
@@ -423,8 +424,24 @@ def _find_block_start(content: str, index: int) -> int | None:
     paren_depth = 0
     bracket_depth = 0
     angle_depth = 0
-    for cursor in range(index, len(content)):
+    cursor = index
+    while cursor < len(content):
         char = content[cursor]
+        if content.startswith("//", cursor):
+            cursor = rust_tools._line_end(content, cursor)
+            continue
+        if content.startswith("/*", cursor):
+            cursor = rust_tools._block_comment_end(content, cursor)
+            continue
+        if char == '"':
+            cursor = rust_tools._quoted_string_end(content, cursor, '"')
+            continue
+        if char == "'" and rust_tools._looks_like_char_literal_start(content, cursor):
+            cursor = rust_tools._quoted_string_end(content, cursor, "'")
+            continue
+        if char == "r" and rust_tools._looks_like_raw_string_start(content, cursor):
+            cursor = rust_tools._raw_string_end(content, cursor)
+            continue
         if char == "(":
             paren_depth += 1
         elif char == ")":
@@ -441,33 +458,16 @@ def _find_block_start(content: str, index: int) -> int | None:
             return None
         elif char == "{" and paren_depth == bracket_depth == angle_depth == 0:
             return cursor
+        cursor += 1
     return None
 
 
 def _find_matching_brace(text: str, start_index: int) -> int | None:
-    depth = 0
-    for index in range(start_index, len(text)):
-        char = text[index]
-        if char == "{":
-            depth += 1
-        elif char == "}":
-            depth -= 1
-            if depth == 0:
-                return index
-    return None
+    return rust_tools._find_matching_delimiter(text, start_index, "{", "}")
 
 
 def _find_matching_delimiter(text: str, start_index: int, opening: str, closing: str) -> int | None:
-    depth = 0
-    for index in range(start_index, len(text)):
-        char = text[index]
-        if char == opening:
-            depth += 1
-        elif char == closing:
-            depth -= 1
-            if depth == 0:
-                return index
-    return None
+    return rust_tools._find_matching_delimiter(text, start_index, opening, closing)
 
 
 def _preceding_attributes(content: str, start: int) -> str:
@@ -742,17 +742,62 @@ def _looks_like_function_definition_token(content: str, offset: int) -> bool:
 def _holds_lock_guard_across_await(body: str, acquire_re: re.Pattern[str]) -> bool:
     for match in acquire_re.finditer(body):
         guard = match.groupdict().get("guard", "")
-        tail = body[match.end() :]
+        acquire_offset = match.end()
+
+        # Determine the brace depth at the acquisition point so we can detect
+        # implicit drops when the enclosing block scope ends.
+        acquire_depth = _brace_depth_at(body, acquire_offset)
+
+        tail = body[acquire_offset:]
         await_match = _AWAIT_RE.search(tail)
         if await_match is None:
             continue
+
         before_await = tail[: await_match.start()]
+
+        # Explicit drop() call before the await → guard is released.
         if guard and re.search(
             rf"\b(?:drop|std::mem::drop)\s*\(\s*{re.escape(guard)}\s*\)",
             before_await,
         ):
             continue
+
+        # Implicit drop via block scope: if the brace depth drops below
+        # the acquisition depth before the await, the guard has been
+        # dropped by the closing brace of its enclosing block.
+        if _scope_exits_before(before_await, acquire_depth):
+            continue
+
         return True
+    return False
+
+
+def _brace_depth_at(text: str, offset: int) -> int:
+    """Return the net brace depth at *offset* within *text*."""
+    depth = 0
+    for i in range(offset):
+        ch = text[i]
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+    return depth
+
+
+def _scope_exits_before(text: str, acquire_depth: int) -> bool:
+    """Return True if brace depth drops below *acquire_depth* anywhere in *text*.
+
+    This means the block that contained the lock acquisition has ended,
+    implicitly dropping the guard.
+    """
+    depth = acquire_depth
+    for ch in text:
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth < acquire_depth:
+                return True
     return False
 
 

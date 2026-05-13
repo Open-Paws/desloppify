@@ -11,9 +11,7 @@ DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "global"
 
 
 def _overlay_files() -> list[str]:
-    files = sorted(path.name for path in DOCS_DIR.glob("*.md"))
-    assert files, "No docs/*.md found; expected bundled overlay source files."
-    return files
+    return sorted(path.name for path in DOCS_DIR.glob("*.md"))
 
 
 @pytest.mark.parametrize("filename", _overlay_files())

@@ -1,0 +1,31 @@
+{
+  "number": 602,
+  "type": "pr",
+  "title": "fix(bash): filter unused-import detector to source / . only",
+  "author": "raveinid",
+  "stage1": {
+    "verdict": "ACCEPT_WITH_CONDITIONS",
+    "summary": "The reported bug is real: BASH_SPEC.import_query currently captures every bash command argument, and detect_unused_imports flags those raw captures before resolve_bash_source can discard non-source commands. The proposed predicate correctly removes the broad false positives for set/curl/find/cut while preserving source and dot-source detection. However, because the query still captures every argument field on a matching source/. command, `source ./helpers.sh foo bar` would now report `foo` and `bar` as unused imports. That is a smaller but still real false-positive path in the same detector.",
+    "conditions": [
+      "Restrict Bash import detection to only the first argument after `source` or `.` so extra shell parameters passed to sourced scripts are not treated as imports.",
+      "Add a regression covering `source ./helpers.sh foo bar` and `. ./extras.sh arg` where only the sourced file path is considered and the extra arguments are not reported."
+    ],
+    "confidence": "high",
+    "scope_estimate": "small",
+    "potential_duplicates": [],
+    "real_problem": true
+  },
+  "stage3": {
+    "decision": "IMPLEMENT_WITH_CHANGES",
+    "reasoning": "Implemented the accepted Bash unused-import fix while addressing the Stage 1 condition. The Bash import query now only matches `source` and `.` commands, and the sibling constraint keeps the captured path to the first argument after the command so script parameters are not treated as imports.",
+    "commit": "e8f0ec39",
+    "changes_applied": [
+      "Restricted Bash tree-sitter import captures to `source` and `.` commands.",
+      "Constrained the query to capture only the first argument after the source command.",
+      "Added regressions for shell flags, source/dot-source imports, used sources, and extra source arguments."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/review/policy/test_review_dimensions_direct.py desloppify/tests/core/test_config_schema_direct.py desloppify/tests/lang/common/test_bash_unused_imports.py desloppify/languages/typescript/tests/test_ts_fixers.py -q"
+    ]
+  }
+}

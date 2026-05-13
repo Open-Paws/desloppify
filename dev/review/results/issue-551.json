@@ -1,0 +1,29 @@
+{
+  "number": 551,
+  "type": "issue",
+  "title": "`desloppify detect` doesn't recognize the detector names that `show` surfaces",
+  "author": "Vuk97",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "The problem is real: `show` renders persisted issue `detector`/ID names such as `unused`, `test_coverage`, and `security`, while `cmd_detect` validates only the active language plugin's `detect_commands`. For Rust, `get_detect_commands()` includes `cycles`, `cargo_error`, and Rust-specific names like `rust_import_hygiene`, but does not include `unused`, `test_coverage`, or `security`, so `desloppify --lang rust detect unused|test_coverage|security` fails with the exact unknown-detector behavior reported. The global `detect --help` also advertises catalog detector names that may not be runnable for the resolved language, with no mapping or explanation.",
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": [],
+    "real_problem": true,
+    "suggested_fix": "Introduce a canonical detector capability/alias layer shared by scan issue production, show/plan IDs, and direct detect dispatch. At minimum, make `cmd_detect` explain unsupported catalog names for the selected language and show legacy/display-to-direct mappings where they exist; for scan-only phases such as `test_coverage` and `security`, either add direct detect commands or explicitly report that they are scan phases and provide the closest rerun command. Tests should cover Rust's current mismatch and the help/error output."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented the accepted minimum fix for the direct-detect/catalog mismatch. When a user passes a catalog detector such as `security` that is valid for scan/show but not exposed as a direct detector for the selected language, `desloppify detect` now explains the mismatch, suggests `desloppify scan --path ...`, points to `desloppify show <detector>`, and still lists the available direct detectors.",
+    "commit": "94f559ef",
+    "changes_applied": [
+      "Added catalog-aware unknown-detector diagnostics to `cmd_detect`.",
+      "Added regression coverage for Rust `detect security` guidance."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/test_cmd_detect.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/test_cmd_detect.py desloppify/tests/commands/show/test_cmd_show.py desloppify/tests/commands/test_cmd_next.py desloppify/tests/commands/test_queue_count_consistency.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/ -q"
+    ]
+  }
+}

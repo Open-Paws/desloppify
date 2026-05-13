@@ -281,11 +281,15 @@ def _reset_subjective_assessments_for_scan_reset(
 
 def prepare_scan_runtime(args: argparse.Namespace) -> ScanRuntime:
     """Resolve state/config/language and apply scan-time runtime settings."""
+    path = Path(args.path)
+    if not path.is_dir():
+        raise ScanStateContractError(
+            f"scan --path must point to an existing directory: {path}"
+        )
     runtime = command_runtime(args)
     state_file = runtime.state_path
     state = runtime.state if isinstance(runtime.state, dict) else {}
     ensure_state_defaults(state)
-    path = Path(args.path)
     reset_script_import_caches(str(path))
     config = runtime.config if isinstance(runtime.config, dict) else {}
     lang_config = resolve_lang(args)

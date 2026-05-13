@@ -13,5 +13,18 @@
     "potential_duplicates": [],
     "real_problem": true,
     "suggested_fix": "In `_clear_plan_start_scores_if_queue_empty` (plan_reconcile.py), stop calling `clear_score_communicated_sentinel(plan)`. The `previous_plan_start_scores` sentinel must survive until the next cycle starts via `_seed_plan_start_scores`. Path 2 (resolve-path re-injection) needs further investigation but has low practical impact. PR #448 already addresses this — review and merge that PR after the author splits out unrelated changes."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented the simpler accepted fix: queue-drain cleanup still clears the active plan_start_scores snapshot and create-plan cycle marker, but it no longer clears previous_plan_start_scores. That sentinel is what prevents workflow::communicate-score from being re-auto-resolved after the score has already been communicated for the cycle.",
+    "commit": "3a66f1be",
+    "changes_applied": [
+      "Stopped _clear_plan_start_scores_if_queue_empty from clearing the communicate-score sentinel.",
+      "Added regression coverage that queue-drain cleanup preserves previous_plan_start_scores while still clearing create_plan_resolved_this_cycle."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/scan/test_plan_reconcile_postflight_and_reconcile.py desloppify/tests/commands/scan/test_plan_reconcile.py desloppify/tests/engine/test_sync_split_modules_direct.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/scan/test_plan_reconcile_postflight_and_reconcile.py desloppify/tests/commands/scan/test_plan_reconcile.py desloppify/tests/engine/test_sync_split_modules_direct.py desloppify/tests/commands/plan/test_strategist.py desloppify/tests/commands/plan/test_triage_stage_prompts_flow_direct.py -q"
+    ]
   }
 }

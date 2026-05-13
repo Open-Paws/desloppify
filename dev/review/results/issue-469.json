@@ -18,5 +18,20 @@
     "potential_duplicates": [],
     "real_problem": true,
     "suggested_fix": "Add a 'desloppify plan triage --stage <name> --show-requirements' mode that prints all validation criteria for the stage (min char counts, required sections, issue ID citation requirements, etc.) without requiring a report. This is a rendering-only change per stage -- collect all the validation messages from the check functions and present them upfront. Each stage's rendering.py already has _print_*_report_requirement functions that partially do this."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented the accepted discoverability fix without relaxing any validation. `desloppify plan triage --stage <stage> --show-requirements` now prints that stage's validation requirements before a report is submitted, and `--show-requirements` without `--stage` prints every stage. The path intentionally runs before loading live state so users can inspect requirements even when a plan is not currently ready.",
+    "commit": "3a66f1be",
+    "changes_applied": [
+      "Added the `--show-requirements` triage CLI flag.",
+      "Added a reusable validation requirement renderer backed by the existing stage prompt requirement text.",
+      "Routed the flag before command runtime/state loading.",
+      "Added parser and workflow tests for the new mode."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/plan/test_strategist.py desloppify/tests/commands/plan/test_triage_stage_prompts_flow_direct.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/scan/test_plan_reconcile_postflight_and_reconcile.py desloppify/tests/commands/scan/test_plan_reconcile.py desloppify/tests/engine/test_sync_split_modules_direct.py desloppify/tests/commands/plan/test_strategist.py desloppify/tests/commands/plan/test_triage_stage_prompts_flow_direct.py -q"
+    ]
   }
 }

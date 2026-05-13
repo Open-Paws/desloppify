@@ -142,6 +142,8 @@ def format_steps(steps: list[ActionStep]) -> str:
 
 def normalize_step(step: ActionStep) -> ActionStep:
     """Return a shallow ActionStep copy for callers that normalize step payloads."""
+    if isinstance(step, str):
+        return {"title": step}
     return dict(step)
 
 

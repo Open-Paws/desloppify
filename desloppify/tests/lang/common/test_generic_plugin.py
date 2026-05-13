@@ -22,6 +22,7 @@ from desloppify.languages._framework.generic_support.core import (
     parse_json,
     parse_rubocop,
 )
+from desloppify.languages._framework.generic_parts.tool_factories import make_detect_fn
 from desloppify.languages._framework.generic_parts.parsers import ToolParserError, parse_phpstan
 from desloppify.languages._framework.generic_parts.tool_runner import (
     resolve_command_argv,
@@ -541,6 +542,22 @@ class TestGenericLang:
         )
         assert cfg.integration_depth == "minimal"
 
+    def test_generic_detect_command_accepts_argparse_namespace(self, tmp_path: Path):
+        seen: dict[str, object] = {}
+
+        def fake_run(cmd, **kwargs):
+            seen["cmd"] = cmd
+            seen["cwd"] = kwargs.get("cwd")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        detect = make_detect_fn("echo ok", parse_gnu, run_subprocess=fake_run)
+        large_payload = "x" * 10_000
+        result = detect(SimpleNamespace(path=str(tmp_path), config_repr=large_payload))
+
+        assert result == []
+        assert seen["cwd"] == str(tmp_path)
+        assert "Namespace" not in str(seen["cwd"])
+
     def test_rejects_missing_tool_fields(self):
         with pytest.raises(ValueError, match="tools\\[0\\]\\.cmd"):
             generic_lang(
@@ -668,6 +685,24 @@ class TestLangsCommand:
         )
         labels = _get_tool_labels(cfg)
         assert "(auto-fix)" not in labels
+
+
+class TestJavaPmdCommand:
+    def test_java_pmd_command_defaults_to_single_main_thread(self):
+        from desloppify.languages.java import PMD_COMMAND
+
+        assert "--threads 0" in PMD_COMMAND
+
+    def test_java_pmd_thread_arg_accepts_pmd_core_relative_values(self):
+        from desloppify.languages.java import _pmd_threads_arg
+
+        assert _pmd_threads_arg("2") == "--threads 2"
+        assert _pmd_threads_arg("0.5C") == "--threads 0.5C"
+
+    def test_java_pmd_thread_arg_falls_back_for_invalid_values(self):
+        from desloppify.languages.java import _pmd_threads_arg
+
+        assert _pmd_threads_arg("$(rm -rf /)") == "--threads 0"
 
 
 # ── Dynamic registration tests ──────────────────────────

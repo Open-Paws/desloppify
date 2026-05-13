@@ -12,12 +12,6 @@ from desloppify.base.discovery.file_paths import rel
 from desloppify.base.output.terminal import colorize
 
 
-def _count_cluster_remaining(plan: dict, cluster: dict) -> int:
-    """Count cluster issue IDs still present in the plan queue."""
-    queue_set = set(plan.get("queue_order", []))
-    return sum(1 for fid in cluster.get("issue_ids", []) if fid in queue_set)
-
-
 def print_agent_plan(
     steps: list[str],
     *,
@@ -63,7 +57,8 @@ def _print_plan_agent_block(plan: dict, *, header: str = "  AGENT PLAN:") -> Non
     print(colorize(f"  Living plan active: {headline}", "dim"))
     if active:
         cluster = plan.get("clusters", {}).get(active, {})
-        remaining = _count_cluster_remaining(plan, cluster)
+        queue_set = set(plan.get("queue_order", []))
+        remaining = sum(1 for fid in cluster.get("issue_ids", []) if fid in queue_set)
         print(colorize(f"  Focused on: {active} ({remaining} items remaining).", "dim"))
     print(colorize("  Next command: `desloppify next`", "dim"))
     print(colorize("  View plan: `desloppify plan`", "dim"))
@@ -116,7 +111,6 @@ def print_ranked_actions(
 
 
 __all__ = [
-    "_count_cluster_remaining",
     "print_agent_plan",
     "print_ranked_actions",
     "print_replacement_groups",

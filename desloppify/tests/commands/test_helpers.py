@@ -277,7 +277,10 @@ def test_recover_state_from_saved_plan_rehydrates_queue_and_step_refs():
         "review::a.py::1234",
         "concerns::b.ts::5678",
     }
-    assert recovered["issues"]["review::a.py::1234"]["summary"] == "review::a.py::1234"
+    assert (
+        recovered["issues"]["review::a.py::1234"]["summary"]
+        == "Recovered review item for a.py: 1234"
+    )
     assert recovered["issues"]["concerns::b.ts::5678"]["detector"] == "concerns"
 
 

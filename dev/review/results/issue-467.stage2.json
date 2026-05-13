@@ -1,0 +1,10 @@
+{
+  "number": 467,
+  "type": "issue",
+  "role": "challenger",
+  "verdict": "ACCEPT",
+  "counter_case": "The --force-rescan flow is inherently complex (it must preserve some state while resetting other state), and the interaction between plan_start_scores preservation and score display mode is subtle. Any fix risks breaking the original reason plan_start_scores was preserved (preventing cluster wipe). The practical impact is limited to force-rescan users seeing stale scores, which corrects itself on the next normal scan.",
+  "summary": "The bug analysis is thorough and the interaction between preserved plan_start_scores and skipped score re-seeding is a real state inconsistency. Stage 1 is correct that this needs fixing. The fix must be careful not to trigger full cluster regeneration.",
+  "confidence": "medium",
+  "implementation_notes": "The fix should re-seed plan_start_scores after force-rescan reset without triggering cluster regeneration. This may require a 'reseed_only' flag on _sync_plan_start_scores_and_log."
+}

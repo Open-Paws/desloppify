@@ -139,6 +139,23 @@ class TestCmdScanExecution:
         assert captured["query"] == {"command": "scan", "ok": True}
         assert captured["llm_summary_called"] is True
 
+    def test_cmd_scan_by_language_runs_each_detected_language(self, monkeypatch):
+        calls: list[str] = []
+
+        monkeypatch.setattr(scan_cmd_mod, "detect_present_languages", lambda _path: ["python", "rust"])
+
+        def _single_scan(args):
+            calls.append(args.lang)
+
+        monkeypatch.setattr(scan_cmd_mod, "_cmd_scan_by_language", scan_cmd_mod._cmd_scan_by_language)
+        monkeypatch.setattr(scan_cmd_mod, "cmd_scan", _single_scan)
+
+        scan_cmd_mod._cmd_scan_by_language(
+            SimpleNamespace(path=".", by_language=True, lang=None, state="custom.json")
+        )
+
+        assert calls == ["python", "rust"]
+
     def test_cmd_scan_prints_coverage_preflight_warning(self, monkeypatch, capsys):
         monkeypatch.setattr(scan_preflight_mod, "scan_queue_preflight", lambda _: None)
         args = SimpleNamespace(path=".")
@@ -599,4 +616,3 @@ class TestWarnExplicitLangWithNoFiles:
 # ---------------------------------------------------------------------------
 # show_post_scan_analysis
 # ---------------------------------------------------------------------------
-

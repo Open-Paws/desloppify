@@ -366,7 +366,7 @@ class TestCmdSuppress:
         assert exc_info.value.exit_code == 1
         err = capsys.readouterr().err
         assert "Suppress requires --attest" in err
-        assert "Required keywords: 'I have actually' and 'not gaming'." in err
+        assert "Required keywords: 'not gaming' and 'i have actually' or 'reviewed'." in err
         assert f'--attest "{ATTEST_EXAMPLE}"' in err
 
     def test_suppress_save_state_error_exits(self, monkeypatch, capsys):
@@ -401,6 +401,33 @@ class TestCmdSuppress:
             cmd_suppress(FakeArgs())
         assert exc_info.value.exit_code == 1
         assert "could not save state" in exc_info.value.message
+
+    def test_suppress_accepts_reviewed_style_attestation(self, monkeypatch):
+        from desloppify.app.commands.helpers.command_runtime import CommandRuntime
+
+        fake_runtime = CommandRuntime(
+            config={},
+            state={"issues": {}, "last_scan": "2026-05-13T00:00:00+00:00"},
+            state_path=Path("/tmp/fake.json"),
+        )
+        monkeypatch.setattr(state_mod, "remove_ignored_issues", lambda state, pattern: 0)
+        monkeypatch.setattr(suppress_mod, "save_config_or_exit", lambda _config: None)
+        monkeypatch.setattr(suppress_mod, "save_state_or_exit", lambda _state, _state_file: None)
+        monkeypatch.setattr(suppress_mod, "show_score_with_plan_context", lambda *_a, **_k: None)
+        monkeypatch.setattr(suppress_mod, "check_config_staleness", lambda _config: None)
+        monkeypatch.setattr(suppress_mod, "resolve_lang", lambda args: None)
+        monkeypatch.setattr(suppress_mod.narrative_mod, "compute_narrative", lambda *_a, **_k: {})
+        monkeypatch.setattr(suppress_mod, "write_query", lambda _payload: None)
+
+        class FakeArgs:
+            pattern = "unused::*"
+            attest = "I reviewed this suppress decision and I am not gaming the score."
+            _config = {}
+            lang = None
+            path = "."
+            runtime = fake_runtime
+
+        cmd_suppress(FakeArgs())
 
 
 class TestResolveHelperModules:

@@ -9,7 +9,6 @@ from typing import Any
 
 from desloppify import state as state_mod
 from desloppify.base.output.user_message import print_user_message
-from desloppify.app.commands.helpers.rendering import _count_cluster_remaining
 from desloppify.base import registry as registry_mod
 from desloppify.app import skill_docs as skill_docs_mod
 from desloppify.base.exception_sets import PLAN_LOAD_EXCEPTIONS
@@ -350,8 +349,9 @@ def _print_living_plan_notice(plan_snapshot: dict[str, object]) -> None:
     print(f"LIVING PLAN ACTIVE: {ordered} ordered, {skipped} skipped.")
     if isinstance(active, str) and active:
         cluster = plan_snapshot.get("clusters", {}).get(active)
-        safe_cluster = cluster if isinstance(cluster, dict) else {}
-        remaining = _count_cluster_remaining(plan_snapshot, safe_cluster)
+        issue_ids = cluster.get("issue_ids", []) if isinstance(cluster, dict) else []
+        queue_set = set(plan_snapshot.get("queue_order", []))
+        remaining = sum(1 for fid in issue_ids if fid in queue_set) if isinstance(issue_ids, list) else 0
         print(f"Focused on: {active} ({remaining} items remaining).")
     print("The plan is the single source of truth for work order.")
     print("Use `desloppify next` which respects the plan.")
@@ -376,9 +376,8 @@ def auto_update_skill() -> None:
     # or no install at all.  Distinguish the two cases.
     if not skill_docs_mod.find_installed_skill() and not skill_docs_mod.find_any_global_install():
         print(
-            "No desloppify skill document found. Run `desloppify setup` for "
-            "globally supported interfaces, or `desloppify update-skill <interface>` "
-            "for a per-project install."
+            "No skill document found. Install globally for better workflow guidance: "
+            "desloppify setup"
         )
 
 

@@ -29,6 +29,10 @@ Stage 1 assessed honestly. Stage 2 challenged from the opposite direction (devil
 4. Check confidence levels on both sides. Low-confidence verdicts carry less weight.
 5. If you're still uncertain after all this: **DEFER**, not REJECT. Uncertainty means the item deserves more investigation, not a premature no.
 
+**Bias to action:** Confirmed bugs → IMPLEMENT. Issues get the same urgency as PRs. "Too much scope" is not valid for deferral if each fix is small and testable. Reserve DEFER for genuinely risky changes or missing contributor input.
+
+**When unsure, ask — don't guess.** Collect open questions (yours + `"open_questions"` from stage1/stage2) and present them to the maintainer. A 30-second answer beats a wrong autonomous decision.
+
 **Duplicate groups (from `_cross-item.json`):** These are the Stage 2 orchestrator's best judgment, not gospel. For each group, read the diffs of all items yourself. Verify they actually address the same problem. If you disagree with the grouping or the preferred choice, override it — note why in your reasoning. If the grouping holds, IMPLEMENT the preferred item and REJECT the rest as duplicates.
 
 **Ordering constraints:** Process items in the order specified by `_cross-item.json`, falling back to PR-number order for unconstrained items.
@@ -41,7 +45,7 @@ Stage 1 assessed honestly. Stage 2 challenged from the opposite direction (devil
 - **IMPLEMENT_WITH_CHANGES** — implement, but apply specific modifications.
 - **REJECT** — not doing this. You have clear reasons.
 - **REJECT_AND_FIX** — the PR/issue identified a real bug, but the proposed fix is wrong. Reject the PR, but write the correct fix yourself. Credit the contributor for finding the bug in the commit message (`Reported-by: @author in #number`). Thank them in the comment for identifying the issue and explain how you fixed it differently.
-- **DEFER** — valid but not right now. Too risky, too large, needs contributor input, or you're uncertain.
+- **DEFER** — valid but not right now. Genuinely too risky, needs contributor input you don't have, or you're uncertain after thorough investigation. **Not** for items that are just "a lot of small fixes" — do those.
 - **CLOSE_FIXED** — already fixed by a recent commit. Comment with the commit SHA, thank the reporter, close.
 - **CLOSE_NOT_ACTIONABLE** — issue lacks enough info to act on. Comment politely asking for repro steps / version / specifics. Close (they can reopen with more detail).
 
@@ -49,28 +53,14 @@ Stage 1 assessed honestly. Stage 2 challenged from the opposite direction (devil
 
 ## Present your decisions for approval
 
-Before executing anything, present ALL your decisions to the user in a single summary. For each item:
+**Do NOT execute anything until the user confirms.** Hard rule — no exceptions.
 
-1. State your decision (IMPLEMENT / IMPLEMENT_WITH_CHANGES / REJECT / DEFER)
-2. Explain the key trade-offs in plain language — what the fix does, what risks remain, why you're deciding this way
-3. If stages disagreed, explain the disagreement and why you sided with one
-4. If you're applying conditions, list them concretely
+Present:
+1. **Decision table** — number, title, decision, one-liner rationale
+2. **Questions for the maintainer** — numbered list, each answerable in one sentence. Sources: your uncertainty, `"open_questions"` from stages, items you'd otherwise DEFER
+3. **Detailed explanations** — only for disagreements, trade-offs, or overrides
 
-**Skip the explanation for items where both stages agree and the reasoning is obvious** (e.g., both say REJECT because the fix is clearly broken). Just state the decision and a one-liner.
-
-**Give a full explanation for:**
-- Items where stages disagreed
-- Items you're implementing with changes
-- Items with meaningful trade-offs or risks
-- Anything where your decision overrides a stage
-
-After presenting the summary, **ask the user to approve** before proceeding. The user may:
-- Approve all
-- Approve some and reject/defer others
-- Ask questions about specific items
-- Request changes to your plan
-
-Do NOT execute anything until the user confirms.
+Then stop and wait for approval.
 
 ## Execute approved decisions
 

@@ -7,8 +7,8 @@
     },
     {
       "items": ["pr-481", "pr-472", "pr-475"],
-      "preferred": null,
-      "reasoning": "All three address the same json_default dataclass serialization crash already fixed in commit 61bb7cb3. PR #481 and #472 are exact duplicates. PR #475 adds encode/decode helpers for cache-miss-on-reload, but both stages agree that's harmless and fragile. All three should be REJECT — the fix already shipped."
+      "preferred": "pr-481",
+      "reasoning": "All three address the same json_default dataclass serialization crash already fixed in commit 61bb7cb3. PR #481 and #472 are exact duplicates. PR #475 adds encode/decode helpers for cache-miss-on-reload, but both stages agree that's harmless and fragile. All three should be REJECT — the fix already shipped independently. PR #481 is nominally preferred (most recent) but none will be merged."
     },
     {
       "items": ["pr-483", "pr-475"],
@@ -21,12 +21,21 @@
       "item": "pr-483",
       "must_come_after": null,
       "reason": "PR #483 touches review_cache/runtime_cache infrastructure. Should be processed before any other cache-related items, but no other approved items touch this area."
+    },
+    {
+      "item": "issue-492",
+      "must_come_after": "pr-489",
+      "reason": "Both modify the coverage mapping layer. PR #489 fixes src-layout module name resolution in mapping_analysis.py and test_coverage.py. Issue #492 would add __init__.py re-export counting in the same area. PR #489 should land first since issue #492's implementation may need to account for the src/ prefix stripping logic."
     }
   ],
   "interactions": [
     {
       "items": ["pr-478"],
       "concern": "PR #478 touches zone infrastructure and merge_issues. Independent of all other items in this batch."
+    },
+    {
+      "items": ["pr-489", "issue-492"],
+      "concern": "Both modify the test coverage mapping layer (mapping_analysis.py / _issue_gaps.py). PR #489 adds src-layout support to module name resolution. Issue #492 wants __init__.py re-exports counted as importers. Not duplicates — different problems — but implementations overlap in the coverage mapping code. PR #489 should be implemented first."
     }
   ]
 }

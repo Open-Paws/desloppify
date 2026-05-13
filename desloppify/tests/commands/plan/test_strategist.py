@@ -6,6 +6,7 @@ import argparse
 from types import SimpleNamespace
 
 import desloppify.app.commands.plan.triage.stages.strategize as strategize_mod
+from desloppify.app.commands.plan.triage.workflow import run_triage_workflow
 from desloppify.app.cli_support.parser_groups_plan_impl_sections_triage_commit_scan import (
     _add_triage_subparser,
 )
@@ -123,5 +124,28 @@ def test_cli_accepts_stage_and_stage_prompt_and_confirm() -> None:
     parsed_prompt = parser.parse_args(["triage", "--stage-prompt", "strategize"])
     assert parsed_prompt.stage_prompt == "strategize"
 
+    parsed_reqs = parser.parse_args(["triage", "--stage", "reflect", "--show-requirements"])
+    assert parsed_reqs.stage == "reflect"
+    assert parsed_reqs.show_requirements is True
+
     parsed_confirm = parser.parse_args(["triage", "--confirm", "strategize"])
     assert parsed_confirm.confirm == "strategize"
+
+
+def test_show_requirements_prints_stage_without_loading_state(capsys) -> None:
+    calls = {"runtime": 0}
+
+    services = SimpleNamespace(
+        command_runtime=lambda _args: calls.__setitem__("runtime", calls["runtime"] + 1),
+    )
+
+    run_triage_workflow(
+        argparse.Namespace(stage="reflect", show_requirements=True),
+        services=services,
+        require_issue_inventory_fn=lambda _state: True,
+    )
+
+    out = capsys.readouterr().out
+    assert "# reflect" in out
+    assert "Coverage Ledger" in out
+    assert calls["runtime"] == 0

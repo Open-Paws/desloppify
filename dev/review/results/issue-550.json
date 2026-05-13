@@ -1,0 +1,29 @@
+{
+  "number": 550,
+  "type": "issue",
+  "title": "`desloppify scan --path <file>` crashes with unhandled `NotADirectoryError`",
+  "author": "Vuk97",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "The reported crash is real. `cmd_scan` calls `prepare_scan_runtime`, which stores `Path(args.path)` without validating that it is a directory; `run_scan_generation` passes that path through `generate_plan_issues`; Rust tool phases call `run_tool_result(..., path, ...)`; and `run_tool_result` passes `cwd=str(path)` to `subprocess.run`. A file path therefore raises an uncaught `NotADirectoryError` before detector error handling can convert it into a friendly result. This is user-facing CLI input validation, worth fixing with an early scan-path check.",
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": [
+      597
+    ],
+    "real_problem": true
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented early scan-path validation so `desloppify scan --path <file>` fails with a friendly command error before detector/tool subprocesses can receive a file path as `cwd` and raise an uncaught `NotADirectoryError`.",
+    "commit": "0b48f786",
+    "changes_applied": [
+      "Added `prepare_scan_runtime` validation requiring `--path` to point to an existing directory.",
+      "Added regression coverage for file scan paths at the scan runtime boundary."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/scan/test_scan_workflow_integration_direct.py desloppify/tests/commands/scan/test_scan_orchestrator_direct.py desloppify/tests/commands/scan/test_cmd_scan.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/ -q"
+    ]
+  }
+}

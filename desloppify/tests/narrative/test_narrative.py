@@ -202,6 +202,16 @@ class TestDetectPhase:
         ]
         assert detect_phase(history, 75.3) == "stagnation"
 
+    def test_score_change_resets_stagnation_streak(self):
+        """Older stable scores do not count toward the current plateau."""
+        history = [
+            _history_entry(strict_score=94.5),
+            _history_entry(strict_score=94.5),
+            _history_entry(strict_score=95.8),
+        ]
+
+        assert detect_phase(history, 95.8) != "stagnation"
+
     def test_stagnation_requires_three_scans(self):
         """Only two scans with same score is not stagnation."""
         history = [

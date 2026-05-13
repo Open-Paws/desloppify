@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
+from typing import Any
 
 from desloppify.base.discovery.file_paths import matches_exclusion
 from desloppify.engine.policy.zones import should_skip_issue
-from desloppify.engine._state.filtering import matched_ignore_pattern
+from desloppify.engine._state.filtering import (
+    issue_suppression_fingerprint,
+    matched_ignore_pattern,
+)
 from desloppify.engine._state.issue_semantics import (
     is_import_only_issue,
     is_assessment_request,
@@ -85,14 +90,14 @@ def verify_disappeared(
     exclude: tuple[str, ...] = (),
     project_root: str | None = None,
     zone_map=None,
+    confirmed_detectors: set[str] | None = None,
 ) -> tuple[int, int, int, set[str]]:
     """Update scan corroboration for issues absent from scan.
 
     Returns (resolved_count, skipped_other_lang, resolved_out_of_scope, changed_detectors).
-    Queue-tracked work stays user-controlled: disappearing from scan does not
-    change an open issue to resolved — *unless* the source file no longer exists
-    on disk, in which case the issue is auto-resolved.  Manually resolved items
-    can be marked as scan-verified when they remain absent.
+    Queue-tracked work stays user-controlled unless the detector is known to
+    have run in the current scan or the source file no longer exists. Manually
+    resolved items can be marked as scan-verified when they remain absent.
     """
     resolved = skipped_other_lang = resolved_out_of_scope = 0
     resolved_detectors: set[str] = set()
@@ -159,13 +164,20 @@ def verify_disappeared(
                 resolved_detectors.add(detector or "unknown")
                 resolved += 1
                 continue
-            if not file_deleted:
+            if file_deleted:
+                previous["status"] = "auto_resolved"
+                previous["resolved_at"] = now
+                previous["note"] = "Auto-resolved: source file no longer exists"
+                resolved_detectors.add(previous.get("detector", "unknown"))
+                resolved += 1
                 continue
-            previous["status"] = "auto_resolved"
-            previous["resolved_at"] = now
-            previous["note"] = "Auto-resolved: source file no longer exists"
-            resolved_detectors.add(previous.get("detector", "unknown"))
-            resolved += 1
+            if detector and confirmed_detectors is not None and detector in confirmed_detectors:
+                previous["status"] = "auto_resolved"
+                previous["resolved_at"] = now
+                previous["note"] = "Auto-resolved: absent from latest detector output"
+                resolved_detectors.add(detector)
+                resolved += 1
+                continue
             continue
 
         verification_note = (
@@ -192,6 +204,7 @@ def upsert_issues(
     now: str,
     *,
     lang: str | None,
+    ignore_metadata: Mapping[str, Any] | None = None,
 ) -> tuple[set[str], int, int, dict[str, int], int, set[str]]:
     """Insert new issues and update existing ones.
 
@@ -201,13 +214,23 @@ def upsert_issues(
     new_count = reopened_count = ignored_count = 0
     by_detector: dict[str, int] = {}
     changed_detectors: set[str] = set()
+    effective_ignore_metadata = _suppression_metadata_from_state(
+        existing,
+        ignore_metadata,
+    )
 
     for issue in current_issues:
         issue_id = issue["id"]
         detector = issue.get("detector", "unknown")
         current_ids.add(issue_id)
         by_detector[detector] = by_detector.get(detector, 0) + 1
-        matched_ignore = matched_ignore_pattern(issue_id, issue["file"], ignore)
+        matched_ignore = matched_ignore_pattern(
+            issue_id,
+            issue["file"],
+            ignore,
+            issue=issue,
+            ignore_metadata=effective_ignore_metadata,
+        )
         if matched_ignore:
             ignored_count += 1
 
@@ -273,6 +296,32 @@ def upsert_issues(
             changed_detectors.add(detector)
 
     return current_ids, new_count, reopened_count, by_detector, ignored_count, changed_detectors
+
+
+def _suppression_metadata_from_state(
+    existing: Mapping[str, Any],
+    ignore_metadata: Mapping[str, Any] | None,
+) -> dict[str, dict[str, Any]]:
+    metadata: dict[str, dict[str, Any]] = {}
+    for pattern, raw in (ignore_metadata or {}).items():
+        if isinstance(raw, Mapping):
+            metadata[str(pattern)] = dict(raw)
+
+    for issue in existing.values():
+        if not isinstance(issue, Mapping) or not issue.get("suppressed"):
+            continue
+        pattern = issue.get("suppression_pattern")
+        if not pattern or "*" in str(pattern) or "::" not in str(pattern):
+            continue
+        entry = metadata.setdefault(str(pattern), {})
+        fingerprints = entry.setdefault("fingerprints", [])
+        if not isinstance(fingerprints, list):
+            fingerprints = []
+            entry["fingerprints"] = fingerprints
+        fingerprint = issue_suppression_fingerprint(issue)
+        if fingerprint not in fingerprints:
+            fingerprints.append(fingerprint)
+    return metadata
 
 
 __all__ = [

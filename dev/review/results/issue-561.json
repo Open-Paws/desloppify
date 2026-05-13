@@ -1,0 +1,33 @@
+{
+  "number": 561,
+  "type": "issue",
+  "title": "`plan skip --attest` and `suppress --attest` require DIFFERENT keyword phrases - confusing UX between two near-identical commands",
+  "author": "Vuk97",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "The issue is real: `plan skip --permanent/--false-positive` validates attestations with `('reviewed', 'not gaming')` in `desloppify/app/commands/plan/override/skip.py`, while `suppress` uses the shared default `('i have actually', 'not gaming')` from `desloppify/app/commands/helpers/attestation.py`. The two commands both silence accepted/false-positive debt, but their help text and validators teach different templates. Current error output does identify missing keywords, so the sharpest remaining bug is the inconsistent attestation contract, not complete opacity. This is worth fixing as CLI UX friction in a high-frequency workflow.",
+    "conditions": [],
+    "reject_reason": "",
+    "confidence": "high",
+    "scope_estimate": "small",
+    "potential_duplicates": [
+      553
+    ],
+    "real_problem": true,
+    "suggested_fix": "Unify the attestation validator for skip/suppress-style judgment commands so both accept a reviewed-style attestation and an I-have-actually-style attestation, while still requiring `not gaming`. Keep resolve/fixed attestations strict if desired. Update `suppress --help`, `plan skip --help`, and regression tests around `show_attestation_requirement`/`validate_attestation` so the allowed phrase set and error messages are consistent."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented a shared any-of attestation phrase path for judgment/silencing commands. `suppress` and permanent/false-positive `plan skip` now both accept either a reviewed-style phrase or an `I have actually` phrase, while still requiring `not gaming`. Resolve/fixed attestations remain on the stricter default requirement.",
+    "commit": "2a8439bf",
+    "changes_applied": [
+      "Extended shared attestation helpers to support any-of phrase groups.",
+      "Updated suppress and plan skip validation to share the same reviewed/I-have-actually alternatives plus `not gaming`.",
+      "Added regression coverage for reviewed-style suppress attestations and `I have actually` plan skip attestations."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/resolve/test_cmd_resolve.py desloppify/tests/commands/plan/test_plan_overrides_direct.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/ -q"
+    ]
+  }
+}

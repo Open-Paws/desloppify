@@ -1,0 +1,32 @@
+{
+  "number": 573,
+  "type": "pr",
+  "title": "Skip comments in regex brace matching",
+  "author": "tristanmanchester",
+  "stage1": {
+    "verdict": "ACCEPT_WITH_CONDITIONS",
+    "summary": "The underlying bug is real: the regex fallback extractors call brace matchers from C# extractors, C++ extractors, Dart via the shared C# helper, and Rust extractors, and current main counts braces inside comments, truncating or dropping extracted function bodies. The proposed approach is appropriately localized and covered by regressions for normal block and line comments. One correctness gap remains for Rust: Rust block comments can nest, but the new Rust skipper exits at the first */ and can still count braces inside the outer comment.",
+    "conditions": [
+      "Update the Rust fallback brace matcher to handle nested /* ... */ block comments with a comment-depth counter, and add a regression where a brace appears after an inner */ but before the outer */."
+    ],
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": [
+      586
+    ],
+    "real_problem": true
+  },
+  "stage3": {
+    "decision": "IMPLEMENT_WITH_CHANGES",
+    "reasoning": "Implemented the accepted fallback brace-matching fix while satisfying the Stage 1 condition. C#, C++, Dart, and Rust fallback extraction now ignore braces inside line and block comments; Rust additionally tracks nested block-comment depth so braces between an inner */ and the outer */ are ignored correctly.",
+    "commit": "cfaf2561",
+    "changes_applied": [
+      "Updated shared C#/Dart and C++ fallback brace matchers to skip line and block comments outside strings.",
+      "Updated Rust fallback brace matching to skip line comments and nested block comments.",
+      "Added regression tests for comment braces in C#, C++, Dart, and Rust, including nested Rust block comments."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/languages/csharp/tests/test_csharp_parse_helpers.py desloppify/languages/cxx/tests/test_extractors.py desloppify/languages/dart/tests/test_extractors.py desloppify/languages/rust/tests/test_extractors.py desloppify/languages/typescript/tests/test_ts_fixers.py -q"
+    ]
+  }
+}

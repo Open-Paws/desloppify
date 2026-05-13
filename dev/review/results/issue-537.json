@@ -1,0 +1,33 @@
+{
+  "number": 537,
+  "type": "issue",
+  "title": "Best way to get Desloppify working in CI",
+  "author": "alexechoi",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "This is an actionable docs/product gap: the CLI already exposes a CI-oriented scan profile (`desloppify scan --profile ci`), `status --json`, and a scan preflight bypass for CI, but README/docs do not explain a recommended GitHub Actions or PR workflow for Desloppify. I checked README.md, docs/*.md, .github/workflows/ci.yml, dev/ci_plan.md, the scan parser, scan preflight, scan phase selection, and status JSON output. The repo has its own CI workflow, but no reusable action, no user-facing CI guide, and no guidance on full-codebase baseline versus PR/diff usage. A small documentation addition would answer the issue without needing a new detector or state migration.",
+    "conditions": [],
+    "reject_reason": "",
+    "confidence": "high",
+    "scope_estimate": "small",
+    "potential_duplicates": [
+      550,
+      563
+    ],
+    "real_problem": true,
+    "suggested_fix": "Add a user-facing CI section to README.md or docs explaining the recommended baseline flow: run `desloppify scan --path . --profile ci --no-badge`, optionally inspect `desloppify status --json`, treat Desloppify as a full-codebase health gate rather than a diff-only linter, and include a minimal GitHub Actions example. Mention that `--profile ci` skips slow and subjective phases and bypasses the mid-cycle scan queue gate, and call out that true incremental/diff-only scanning is not currently the supported model."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Added the requested user-facing CI guidance to README.md. The new section documents the recommended full-codebase CI scan flow, the `--profile ci --no-badge` command, `status --json`, the fact that CI profile skips slow/subjective phases and bypasses the scan queue gate, and a minimal GitHub Actions workflow. It also calls out that diff-only scanning is not currently the supported model.",
+    "commit": "8b012751",
+    "changes_applied": [
+      "Added a README CI section with the recommended scan and status commands.",
+      "Added a minimal GitHub Actions workflow example.",
+      "Documented full-codebase gating, monorepo path guidance, and current lack of true diff-only scanning."
+    ],
+    "tests": [
+      "rg -n \"profile ci|status --json|GitHub Actions|diff-only\" README.md"
+    ]
+  }
+}

@@ -171,14 +171,17 @@ def resolve_module(
     project_root: Path,
     graph: dict[str, dict[str, Any]],
     source_resolved: str,
+    *,
+    source_root: Path | None = None,
 ) -> None:
     """Resolve an import specifier and add edges to the graph."""
     target: Path | None = None
     if module_path.startswith("."):
+        relative_root = source_root or project_root
         source_dir = (
             Path(filepath).parent
             if Path(filepath).is_absolute()
-            else (project_root / filepath).parent
+            else (relative_root / filepath).parent
         )
         target = (source_dir / module_path).resolve()
     else:

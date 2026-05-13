@@ -232,6 +232,37 @@ def _supersede_dead_references(
             result.changes += 1
 
 
+def _action_referenced_plan_issue_ids(plan: PlanModel) -> set[str]:
+    referenced_ids: set[str] = set()
+    referenced_ids.update(plan.get("queue_order", []))
+    referenced_ids.update(plan.get("promoted_ids", []))
+    for cluster in plan.get("clusters", {}).values():
+        referenced_ids.update(cluster.get("issue_ids", []))
+    return {
+        fid for fid in referenced_ids
+        if isinstance(fid, str)
+        and fid
+        and not any(fid.startswith(prefix) for prefix in SYNTHETIC_PREFIXES)
+    }
+
+
+def _supersede_nonactionable_action_references(
+    plan: PlanModel,
+    state: StateModel,
+    *,
+    now: str,
+    result: ReconcileResult,
+) -> None:
+    issues = state.get("work_items") or state.get("issues", {})
+    for fid in sorted(_action_referenced_plan_issue_ids(plan)):
+        issue = issues.get(fid)
+        if issue is None or issue.get("status") in _ALIVE_STATUSES:
+            continue
+        if _supersede_id(plan, state, fid, now):
+            result.superseded.append(fid)
+            result.changes += 1
+
+
 def _complete_empty_manual_clusters(
     plan: PlanModel,
     *,
@@ -371,6 +402,12 @@ def reconcile_plan_after_scan(
         plan,
         state,
         referenced_ids=referenced_ids,
+        now=now,
+        result=result,
+    )
+    _supersede_nonactionable_action_references(
+        plan,
+        state,
         now=now,
         result=result,
     )

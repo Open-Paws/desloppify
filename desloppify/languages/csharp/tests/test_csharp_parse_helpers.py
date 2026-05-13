@@ -34,6 +34,16 @@ class TestFindMatchingBrace:
         content = '{ var s = "{ }"; }'
         assert find_matching_brace(content, 0) == 17
 
+    def test_skips_block_comments(self):
+        """Braces inside block comments are not counted."""
+        content = "{ /* } }} {{{ */ return 1; }"
+        assert find_matching_brace(content, 0) == len(content) - 1
+
+    def test_skips_line_comments(self):
+        """Braces inside line comments are not counted."""
+        content = "{ // } }}\n return 1; }"
+        assert find_matching_brace(content, 0) == len(content) - 1
+
     def test_skips_single_quote_strings(self):
         content = "{ var c = '{'; }"
         assert find_matching_brace(content, 0) == 15

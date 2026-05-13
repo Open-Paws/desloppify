@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 
 from desloppify.app.commands.helpers.lang import load_lang_config
-from desloppify.app.skill_docs import GLOBAL_TARGETS
 from .parser_groups_admin_review import _add_review_parser  # noqa: F401 (re-export)
 
 logger = logging.getLogger(__name__)
@@ -187,30 +186,6 @@ def _add_langs_parser(sub) -> None:
     sub.add_parser("langs", help="List all available language plugins with depth and tools")
 
 
-def _add_persona_qa_parser(sub) -> None:
-    p = sub.add_parser(
-        "persona-qa",
-        help="Persona-based browser QA testing",
-        epilog="""\
-examples:
-  desloppify persona-qa --url http://localhost:3000
-  desloppify persona-qa --prepare --url http://localhost:3000 --persona new-visitor
-  desloppify persona-qa --import findings.json
-  desloppify persona-qa --status
-  desloppify persona-qa --clear
-  desloppify persona-qa --generate-defaults
-  desloppify persona-qa --check-browser""",
-    )
-    p.add_argument("--url", type=str, default=None, help="Base URL to test against")
-    p.add_argument("--persona", type=str, default=None, help="Run only a specific persona (by name or filename)")
-    p.add_argument("--prepare", action="store_true", help="Print structured agent instructions (default when --url given)")
-    p.add_argument("--import", dest="import_file", type=str, default=None, help="Import findings JSON into state")
-    p.add_argument("--status", action="store_true", help="Show per-persona pass/fail summary")
-    p.add_argument("--clear", action="store_true", help="Remove all persona QA findings from state")
-    p.add_argument("--generate-defaults", action="store_true", help="Generate default animal advocacy persona profiles in .desloppify/personas/")
-    p.add_argument("--check-browser", action="store_true", help="Check if browser automation tools are available and show install instructions")
-
-
 def _add_update_skill_parser(sub) -> None:
     p = sub.add_parser(
         "update-skill",
@@ -220,7 +195,7 @@ def _add_update_skill_parser(sub) -> None:
         "interface",
         nargs="?",
         default=None,
-        help="Agent interface (amp, claude, codex, cursor, copilot, windsurf, gemini, hermes, droid, opencode). "
+        help="Agent interface (amp, claude, codex, cursor, copilot, windsurf, gemini, hermes, droid, opencode, qwen, rovodev). "
         "Auto-detected on updates if omitted.",
     )
 
@@ -233,6 +208,6 @@ def _add_setup_parser(sub) -> None:
     p.add_argument(
         "--interface",
         default=None,
-        choices=sorted(GLOBAL_TARGETS),
+        choices=["amp", "claude", "codex", "gemini", "opencode", "qwen", "rovodev"],
         help="Install for a specific interface only",
     )

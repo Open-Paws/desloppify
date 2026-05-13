@@ -58,6 +58,8 @@ def test_codex_batch_command_on_windows_collapses_cmd_c(monkeypatch, tmp_path: P
     assert f'"{repo}"' in inner or f'"{str(repo)}"' in inner
     assert "exec" in inner
     assert "--ephemeral" in inner
+    assert "review prompt" not in inner
+    assert inner.endswith(" -")
 
 
 def test_resolve_executable_skips_cmd_c_for_exe_on_windows(monkeypatch) -> None:
@@ -105,8 +107,58 @@ def test_codex_batch_command_exe_on_windows_no_cmd_c(monkeypatch, tmp_path: Path
     # Should NOT go through cmd /c
     assert cmd[0] == "C:\\Users\\me\\codex.exe"
     assert "cmd" not in cmd
-    # Prompt should be a standalone argument, not collapsed into a string
-    assert "You are hello" in cmd
+    # Windows prompts are sent through stdin to avoid command-line length limits.
+    assert "You are hello" not in cmd
+    assert cmd[-1] == "-"
+
+
+def test_codex_batch_command_uses_stdin_for_large_prompts(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("sys.platform", "darwin")
+    monkeypatch.setattr("shutil.which", lambda _name: "/usr/local/bin/codex")
+
+    cmd = codex_batch_mod.codex_batch_command(
+        prompt="x" * 20_000,
+        repo_root=tmp_path,
+        output_file=tmp_path / "out.json",
+    )
+
+    assert cmd[-1] == "-"
+    assert "x" * 100 not in cmd
+
+
+def test_run_codex_batch_sends_stdin_when_command_uses_dash(monkeypatch, tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["input"] = kwargs.get("input")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(codex_batch_mod, "handle_successful_attempt", lambda **_kwargs: 0)
+
+    code = codex_batch_mod.run_codex_batch(
+        prompt="large review prompt",
+        repo_root=tmp_path,
+        output_file=tmp_path / "out.json",
+        log_file=tmp_path / "batch.log",
+        deps=SimpleNamespace(
+            timeout_seconds=10,
+            subprocess_run=fake_run,
+            timeout_error=TimeoutError,
+            safe_write_text_fn=lambda path, text: path.write_text(text, encoding="utf-8"),
+            use_popen_runner=False,
+            max_retries=0,
+            retry_backoff_seconds=0,
+            live_log_interval_seconds=0.1,
+            stall_after_output_seconds=5,
+            sleep_fn=lambda _seconds: None,
+        ),
+        codex_batch_command_fn=lambda **_kwargs: ["codex", "exec", "-"],
+    )
+
+    assert code == 0
+    assert captured["cmd"] == ["codex", "exec", "-"]
+    assert captured["input"] == "large review prompt"
 
 
 def test_codex_batch_command_uses_sanitized_reasoning_effort(monkeypatch, tmp_path: Path) -> None:
@@ -132,6 +184,29 @@ def test_codex_batch_command_uses_sanitized_reasoning_effort(monkeypatch, tmp_pa
         output_file=tmp_path / "out.json",
     )
     assert f'model_reasoning_effort="low"' in command
+
+
+def test_codex_batch_command_uses_sandbox_env_override(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("sys.platform", "darwin")
+    monkeypatch.setattr("shutil.which", lambda _name: "/usr/local/bin/codex")
+    monkeypatch.setenv("DESLOPPIFY_CODEX_SANDBOX", "danger-full-access")
+
+    command = codex_batch_mod.codex_batch_command(
+        prompt="review prompt",
+        repo_root=tmp_path,
+        output_file=tmp_path / "out.json",
+    )
+
+    assert "-s" in command
+    assert command[command.index("-s") + 1] == "danger-full-access"
+
+    monkeypatch.setenv("DESLOPPIFY_CODEX_SANDBOX", "invalid")
+    command = codex_batch_mod.codex_batch_command(
+        prompt="review prompt",
+        repo_root=tmp_path,
+        output_file=tmp_path / "out.json",
+    )
+    assert command[command.index("-s") + 1] == "workspace-write"
 
 
 def test_run_codex_batch_retries_timeout_or_stall_until_success(monkeypatch, tmp_path: Path) -> None:

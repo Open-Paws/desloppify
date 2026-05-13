@@ -671,6 +671,26 @@ class TestAliasScanPath:
         orphan_files = {o["file"] for o in orphans}
         assert core_key not in orphan_files
 
+    def test_subdirectory_tsconfig_relative_imports_use_project_file_root(self, tmp_path):
+        """Relative imports should not double the tsconfig subdirectory prefix."""
+        pkg = tmp_path / "packages" / "frontend" / "app"
+        _write(pkg, "tsconfig.json", json.dumps({"compilerOptions": {}}))
+        _write(pkg, "components/Card.tsx", "export const Card = () => null;\n")
+        _write(
+            pkg,
+            "page.tsx",
+            "import { Card } from './components/Card';\nexport default Card;\n",
+        )
+
+        graph = deps_detector_mod.build_dep_graph(pkg)
+        page_key = str((pkg / "page.tsx").resolve())
+        card_key = str((pkg / "components/Card.tsx").resolve())
+
+        assert page_key in graph
+        assert card_key in graph[page_key]["imports"]
+        assert page_key in graph[card_key]["importers"]
+        assert graph[card_key]["importer_count"] == 1
+
 
 # ── resolve_alias longest-prefix-first ──────────────────────────
 

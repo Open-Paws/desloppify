@@ -15,11 +15,8 @@ from desloppify.engine.plan_triage import (
     TRIAGE_STAGE_PREREQUISITES,
 )
 
-_CLUSTER_INDIVIDUAL_THRESHOLD = 10
-
-
 def check_cluster_guard(patterns: list[str], plan: dict, state: dict) -> bool:
-    """Return True if blocked by cluster guard, False if OK to proceed."""
+    """Return True when a cluster-name resolve should be blocked."""
     clusters = plan.get("clusters", {})
     issues = (state.get("work_items") or state.get("issues", {}))
     for pattern in patterns:
@@ -38,9 +35,6 @@ def check_cluster_guard(patterns: list[str], plan: dict, state: dict) -> bool:
                     )
                 )
                 print(colorize(f"  Use: desloppify plan cluster add {pattern} <issue-id>", "dim"))
-                return True
-            if len(issue_ids) <= _CLUSTER_INDIVIDUAL_THRESHOLD:
-                print_cluster_guard(pattern, issue_ids, state)
                 return True
     return False
 

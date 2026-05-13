@@ -24,6 +24,7 @@ ASSERT_PATTERNS = [
     for p in [
         r"expect\(",
         r"assert\.",
+        r"\bassert(?:[A-Z]\w*)?\(",
         r"\.should\.",
         r"\b(?:getBy|findBy|getAllBy|findAllBy)\w+\(",
         r"\bwaitFor\(",
@@ -211,6 +212,17 @@ def resolve_barrel_reexports(filepath: str, production_files: set[str]) -> set[s
     return results
 
 
+_TS_SOURCE_EXTENSIONS = (".ts", ".tsx", ".js", ".jsx")
+
+
+def _cross_extension_candidates(src_basename: str) -> list[str]:
+    """Yield the basename with each TS/JS extension swapped in."""
+    stem, ext = os.path.splitext(src_basename)
+    if ext not in _TS_SOURCE_EXTENSIONS:
+        return [src_basename]
+    return [stem + alt for alt in _TS_SOURCE_EXTENSIONS]
+
+
 def map_test_to_source(test_path: str, production_set: set[str]) -> str | None:
     """Map a TypeScript test file path to a production file by naming convention."""
     basename = os.path.basename(test_path)
@@ -222,9 +234,10 @@ def map_test_to_source(test_path: str, production_set: set[str]) -> str | None:
     for pattern in (".test.", ".spec."):
         if pattern in basename:
             src = basename.replace(pattern, ".")
-            candidates.append(os.path.join(dirname, src))
-            if parent:
-                candidates.append(os.path.join(parent, src))
+            for alt in _cross_extension_candidates(src):
+                candidates.append(os.path.join(dirname, alt))
+                if parent:
+                    candidates.append(os.path.join(parent, alt))
 
     dir_basename = os.path.basename(dirname)
     if dir_basename == "__tests__" and parent:
@@ -244,7 +257,12 @@ def map_test_to_source(test_path: str, production_set: set[str]) -> str | None:
 
 
 def strip_test_markers(basename: str) -> str | None:
-    """Strip TypeScript test naming markers to derive a source basename."""
+    """Strip TypeScript test naming markers to derive a source basename.
+
+    Returns the direct replacement (e.g. ``Foo.test.ts`` → ``Foo.ts``).
+    Cross-extension matching (``Foo.test.ts`` → ``Foo.tsx``) is handled by
+    ``map_test_to_source`` which tries all TS/JS extensions.
+    """
     for marker in (".test.", ".spec."):
         if marker in basename:
             return basename.replace(marker, ".")

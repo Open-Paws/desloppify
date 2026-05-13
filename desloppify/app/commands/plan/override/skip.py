@@ -47,7 +47,8 @@ from desloppify.engine.plan_state import (
 logger = logging.getLogger(__name__)
 
 _BULK_SKIP_THRESHOLD = 5
-_TRIAGE_SKIP_ATTESTATION_PHRASES = ("reviewed", "not gaming")
+_TRIAGE_SKIP_ATTESTATION_PHRASES = ("not gaming",)
+_TRIAGE_SKIP_ATTESTATION_ALTERNATIVES = (("reviewed", "i have actually"),)
 _TRIAGE_SKIP_ATTEST_EXAMPLE = (
     "I have reviewed this triage skip against the code and I am not gaming "
     "the score by suppressing a real defect."
@@ -65,12 +66,14 @@ def _validate_skip_requirements(
     if not validate_attestation(
         attestation,
         required_phrases=_TRIAGE_SKIP_ATTESTATION_PHRASES,
+        any_of_phrases=_TRIAGE_SKIP_ATTESTATION_ALTERNATIVES,
     ):
         show_attestation_requirement(
             "Permanent skip" if kind == "permanent" else "False positive",
             attestation,
             _TRIAGE_SKIP_ATTEST_EXAMPLE,
             required_phrases=_TRIAGE_SKIP_ATTESTATION_PHRASES,
+            any_of_phrases=_TRIAGE_SKIP_ATTESTATION_ALTERNATIVES,
         )
         return False
     if skip_kind_requires_note(kind) and not note:

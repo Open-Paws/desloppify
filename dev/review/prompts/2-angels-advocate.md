@@ -57,3 +57,5 @@ Write to `review/results/{TYPE}-{NUMBER}.stage2.json` (a NEW file — do NOT mod
 - A real bug report with a bad fix is still a real bug report — consider ACCEPT_WITH_CONDITIONS.
 - Don't reject just because the code isn't how you'd write it. Reject because it's wrong.
 - Poorly described issues can still point to real problems.
+- If the bug is real and the fix is straightforward, push for ACCEPT — process overhead ("split it up") is not a valid condition.
+- "Scope too large" on a confirmed bug is a strong signal to override. When uncertain, use `"confidence": "low"` + `"open_questions"`.

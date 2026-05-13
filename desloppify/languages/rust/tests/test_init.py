@@ -50,6 +50,12 @@ def test_config_has_core_phases():
     assert "Security" in labels
 
 
+def test_config_excludes_generic_unused_imports_phase():
+    cfg = get_lang("rust")
+    labels = [phase.label for phase in cfg.phases]
+    assert "Unused imports" not in labels
+
+
 def test_config_metadata():
     cfg = get_lang("rust")
     assert cfg.integration_depth == "full"
@@ -77,6 +83,9 @@ def test_rust_zone_rules_classify_targets():
         [
             "src/lib.rs",
             "src/bin/cli.rs",
+            "src/cli_tests.rs",
+            "src/test_cli.rs",
+            "src/bin/cli_tests.rs",
             "tests/api.rs",
             "examples/demo.rs",
             "benches/bench.rs",
@@ -89,6 +98,9 @@ def test_rust_zone_rules_classify_targets():
     )
     assert zone_map.get("src/lib.rs") == Zone.PRODUCTION
     assert zone_map.get("src/bin/cli.rs") == Zone.PRODUCTION
+    assert zone_map.get("src/cli_tests.rs") == Zone.TEST
+    assert zone_map.get("src/test_cli.rs") == Zone.TEST
+    assert zone_map.get("src/bin/cli_tests.rs") == Zone.PRODUCTION
     assert zone_map.get("tests/api.rs") == Zone.TEST
     assert zone_map.get("examples/demo.rs") == Zone.SCRIPT
     assert zone_map.get("benches/bench.rs") == Zone.SCRIPT

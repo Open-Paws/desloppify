@@ -115,9 +115,11 @@ class TestCascadeClearDispositions:
         assert "decision" not in meta["issue_dispositions"]["id1"]
         assert "target" not in meta["issue_dispositions"]["id1"]
         assert "decision_source" not in meta["issue_dispositions"]["id1"]
-        # Same for id2
+        # Observe-auto decisions are preserved because reflect does not own them.
         assert meta["issue_dispositions"]["id2"]["verdict"] == "false positive"
-        assert "decision" not in meta["issue_dispositions"]["id2"]
+        assert meta["issue_dispositions"]["id2"]["decision"] == "skip"
+        assert meta["issue_dispositions"]["id2"]["target"] == "fp"
+        assert meta["issue_dispositions"]["id2"]["decision_source"] == "observe_auto"
 
     def test_no_dispositions_is_noop(self):
         meta = {}

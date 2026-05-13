@@ -16,5 +16,12 @@
     "potential_duplicates": [],
     "real_problem": true,
     "suggested_fix": "Ensure review --prepare resolves the scan path through the same get_project_root/resolve chain that scan uses. The likely fix is in build.py's resolve_review_packet_context or in setup_lang_concrete to resolve the path before passing to file_finder. Add a test with a tmp directory containing a space."
+  },
+  "stage3": {
+    "decision": "CLOSE_NOT_ACTIONABLE",
+    "reasoning": "The Stage 1 condition was to reproduce before changing path normalization. I created a temporary project whose absolute path contains spaces, ran scan, then ran `review --prepare --path .` from that directory with the current code. The prepare flow succeeded and wrote the review packet. Since the reported failure no longer reproduces in the current tree, there is no safe code change to make for this item.",
+    "tests": [
+      "tmpdir=$(mktemp -d '/tmp/desloppify space repro.XXXXXX') && printf 'def f():\\n    return 1\\n' > \"$tmpdir/app.py\" && cd \"$tmpdir\" && PYTHONPATH=/Users/peteromalley/Documents/desloppify PYENV_VERSION=3.11.11 python -m desloppify --lang python scan --path . --no-badge >/tmp/desloppify-space-scan.out && PYTHONPATH=/Users/peteromalley/Documents/desloppify PYENV_VERSION=3.11.11 python -m desloppify --lang python review --prepare --path . >/tmp/desloppify-space-review.out"
+    ]
   }
 }

@@ -1,0 +1,33 @@
+{
+  "number": 534,
+  "type": "issue",
+  "title": "Codex review batches fail on WSL1 due to bwrap sandbox default",
+  "author": "CrusheRDevourer",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "Confirmed real bug in the Codex review batch path. `review --run-batches --runner codex` builds deps in `desloppify/app/commands/review/batch/orchestrator.py`, delegates to `run_codex_batch`, and ultimately uses `codex_batch_command()` in `desloppify/app/commands/runner/codex_batch.py`. That command unconditionally emits `codex exec --ephemeral -C <repo> -s workspace-write ...`; the review CLI exposes timeout, retry, parallelism, packet, and runner options but no sandbox override. Local `codex exec --help` confirms `-s/--sandbox` accepts `read-only`, `workspace-write`, and `danger-full-access`, so the failing `workspace-write` mode is a hard-coded default in desloppify's runner, not user configuration. The reported WSL1 failure mode is plausible because Codex's workspace-write sandbox is the path that can require Linux namespace/bwrap support, which WSL1 lacks. This is worth fixing because it blocks the documented first-class Codex review workflow on that host class.",
+    "conditions": [],
+    "reject_reason": "",
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": [
+      535
+    ],
+    "real_problem": true,
+    "suggested_fix": "Add a Codex sandbox selection path instead of hard-coding `workspace-write`. The lowest-risk implementation is to extend the review batch policy/CLI or environment configuration with a Codex sandbox mode, defaulting to the current `workspace-write`, and allow `danger-full-access` for externally sandboxed or WSL1 hosts. If adding auto-detection, keep it narrow and testable, for example detect WSL1 via platform release/proc version and only alter the default there. Wire the same setting through the shared `codex_batch_command()` path so review batches and triage use consistent behavior, and add regression tests that command construction preserves `workspace-write` by default and can emit `danger-full-access` when configured."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented a Codex sandbox selection path without changing the default. The shared Codex batch command still emits `workspace-write` by default, but now honors `DESLOPPIFY_CODEX_SANDBOX` with supported values `read-only`, `workspace-write`, and `danger-full-access`; invalid values fall back to `workspace-write`. This gives WSL1 or externally sandboxed hosts a documented escape hatch while preserving current behavior for everyone else.",
+    "commit": "5e2d6406",
+    "changes_applied": [
+      "Added `DESLOPPIFY_CODEX_SANDBOX` handling to `codex_batch_command()`.",
+      "Documented the sandbox override in the Codex overlay and synced the bundled copy.",
+      "Added command-construction tests for `danger-full-access` override and invalid-value fallback."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/test_runner_modules_direct.py desloppify/tests/commands/test_bundled_sync.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/ -q"
+    ]
+  }
+}

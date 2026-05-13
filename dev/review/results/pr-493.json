@@ -1,0 +1,24 @@
+{
+  "number": 493,
+  "type": "pr",
+  "title": "docs: README onboarding overhaul + TypeScript plugin README",
+  "author": "klausagnoletti",
+  "stage1": {
+    "verdict": "ACCEPT_WITH_CONDITIONS",
+    "summary": "Adds four useful sections to the main README (what it is/isn't, supported languages, quick start, key concepts) and creates a new TypeScript plugin README. The content is accurate and fills a real gap — new users currently have no onboarding path. The language table matches the actual plugin registry. The TypeScript README documents real phases and detector layout correctly.",
+    "conditions": [
+      "Verify the '23+' generic plugin count matches the current registry — the number may have changed since the PR was opened",
+      "The 'What it is / What it isn't' section includes a line 'The framing to nail:' with italic text that reads like a writing note rather than final copy — remove or rephrase",
+      "The TypeScript README references 'pytest -q desloppify/languages/typescript/tests/' but TypeScript tests are at desloppify/tests/ not inside the plugin directory — verify paths"
+    ],
+    "confidence": "medium",
+    "scope_estimate": "small",
+    "potential_duplicates": []
+  },
+  "stage3": {
+    "decision": "REJECT",
+    "reasoning": "Docs have wrong test paths, draft artifacts, and internal layout details that would rot. We're keeping README minimal — the tool's built-in coaching is the primary onboarding path.",
+    "commit": null,
+    "changes_applied": null
+  }
+}

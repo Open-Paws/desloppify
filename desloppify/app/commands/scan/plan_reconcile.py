@@ -12,7 +12,6 @@ from desloppify.app.commands.plan.triage.completion_flow import (
 from desloppify.base.exception_sets import PLAN_LOAD_EXCEPTIONS
 from desloppify.base.output.fallbacks import log_best_effort_failure
 from desloppify.base.output.terminal import colorize
-from desloppify.app.commands.helpers.score_update import print_score_checkpoint_message
 from desloppify.app.commands.helpers.transition_messages import emit_transition_message
 from desloppify.base.config import target_strict_score_from_config
 from desloppify.engine._plan.constants import (
@@ -120,16 +119,14 @@ def _seed_plan_start_scores(plan: dict[str, object], state: state_mod.StateModel
     # a good baseline with a post-regression one)
     if existing and isinstance(existing, dict) and not plan.get("previous_plan_start_scores"):
         plan["previous_plan_start_scores"] = dict(existing)
+    preserve_score_sentinel = "previous_plan_start_scores" in plan
     plan["plan_start_scores"] = {
         "strict": scores.strict,
         "overall": scores.overall,
         "objective": scores.objective,
         "verified": scores.verified,
     }
-    # Only clear the sentinel when it holds actual data from a previous cycle.
-    # An empty dict {} means sync_communicate_score auto-resolved in this same
-    # reconcile pass — preserve it so mid-cycle scans don't re-trigger.
-    if plan.get("previous_plan_start_scores"):
+    if not preserve_score_sentinel:
         clear_score_communicated_sentinel(plan)
     clear_create_plan_sentinel(plan)
     plan["scan_count_at_plan_start"] = int(state.get("scan_count", 0) or 0)
@@ -210,7 +207,6 @@ def _clear_plan_start_scores_if_queue_empty(
         return False
     state["_plan_start_scores_for_reveal"] = dict(plan["plan_start_scores"])
     plan["plan_start_scores"] = {}
-    clear_score_communicated_sentinel(plan)
     clear_create_plan_sentinel(plan)
     return True
 
@@ -294,7 +290,13 @@ def _display_reconcile_results(
     *,
     mid_cycle: bool,
 ) -> None:
-    print_score_checkpoint_message(plan, result.communicate_score)
+    if result.communicate_score and result.communicate_score.auto_resolved:
+        strict = (plan.get("plan_start_scores") or {}).get("strict")
+        if isinstance(strict, (int, float)):
+            message = f"  Plan: score checkpoint saved (strict: {strict:.1f})."
+        else:
+            message = "  Plan: score checkpoint saved."
+        print(colorize(message, "dim"))
     subjective = result.subjective
     if subjective and subjective.resurfaced:
         print(

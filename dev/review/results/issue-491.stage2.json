@@ -1,0 +1,10 @@
+{
+  "number": 491,
+  "type": "issue",
+  "role": "advocate",
+  "verdict": "REJECT",
+  "counter_case": "The reporter's frustration is understandable — losing 4 points on strict score because two blind reviewers independently arrived at the target score feels punitive. The anti-gaming safeguard makes a statistical assumption (scores clustering on the target suggests gaming) that can produce false positives when the target happens to equal the true score. In a sense, the system is penalizing accuracy. The reporter's point about attested blind reviews having stronger provenance than manual overrides has some merit — there is a meaningful difference between 'user typed 95.0' and 'blind subagent reviewed and scored 95.0'.",
+  "summary": "Agreeing with Stage 1 REJECT. The anti-gaming safeguard is working as designed, and the reporter's suggested fixes (exempting attested/durable scores) would create a bypass vector. The whole point of the safeguard is that it cannot be circumvented by claiming the scores are legitimate — because that is exactly what a gaming actor would claim. The provenance distinction (blind vs. manual) sounds reasonable but is trivially gameable: you can construct a blind review packet that steers the reviewer toward the target. The workaround (adjust the target slightly) is correct and the 4-point cost on a single scan is acceptable as the price of integrity. The safeguard only fires when 2+ dimensions match the target within 0.05 tolerance — this is a very specific trigger that legitimately flags suspicious patterns.",
+  "reject_reason": "The safeguard is intentional and cannot distinguish between legitimate scores and gaming without introducing bypass vectors. Exempting any class of scores (attested, blind, durable) creates a path to circumvent the integrity system. The correct workaround is adjusting the target score.",
+  "confidence": "high"
+}

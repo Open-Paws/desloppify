@@ -1,0 +1,33 @@
+{
+  "number": 529,
+  "type": "pr",
+  "title": "feat(r): add test coverage hooks for R testthat convention",
+  "author": "sims1253",
+  "stage1": {
+    "verdict": "ACCEPT_WITH_CONDITIONS",
+    "summary": "Adds test_coverage.py to the R language plugin, following the standard pattern used by other plugins (TypeScript, Rust, JavaScript). Maps testthat convention (tests/testthat/test-*.R -> R/*.R), recognizes all expect_* assertion patterns, handles library()/require() imports, and includes a string-aware R comment stripper. Clean integration via generic_lang's test_coverage_module parameter. 115 lines of tests covering all major functions. The R plugin currently has no test coverage hooks, so this fills a real gap.",
+    "conditions": [
+      "ASSERT_PATTERNS has both a catch-all r'\\bexpect_\\w+\\s*\\(' and 19 specific expect_* patterns. The catch-all already matches everything the specific patterns match. Either keep only the catch-all or document why the specific patterns are needed (e.g., for future per-pattern analysis).",
+      "strip_test_markers returns 'R/transform.R' (with the R/ prefix) unlike other plugins' strip_test_markers which return just the basename. Verify this aligns with how the engine uses the return value in naming_based_mapping."
+    ],
+    "confidence": "high",
+    "scope_estimate": "small"
+  },
+  "stage3": {
+    "decision": "CLOSE_FIXED",
+    "reasoning": "Closed as fixed in the current tree. The R test coverage hooks are already present via prior commits `72a2b343` and `c1bce81f`, and the remaining Stage 1 conditions are satisfied: `strip_test_markers()` returns the basename (`transform.R`) rather than `R/transform.R`, and the redundant `expect_*` assertion list has been simplified to the catch-all plus `verify_output` in `3d92333f`.",
+    "fixed_by": [
+      "72a2b343",
+      "c1bce81f",
+      "3d92333f"
+    ],
+    "changes_applied": [
+      "Confirmed R testthat mapping and R test coverage hooks are integrated.",
+      "Confirmed `strip_test_markers()` aligns with the engine's basename convention.",
+      "Removed redundant specific `expect_*` assertion patterns behind the catch-all matcher."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/languages/r/tests/test_r_test_coverage.py desloppify/languages/r/tests/test_r_air.py desloppify/tests/detectors/coverage/test_test_coverage.py -q"
+    ]
+  }
+}

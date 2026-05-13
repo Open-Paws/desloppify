@@ -637,6 +637,30 @@ class TestResolveEntity:
         assert entity.is_subjective is False
         assert "structural" in entity.detectors
 
+    def test_show_structural_loads_medium_confidence_matches(self):
+        state = {
+            "issues": {
+                "structural::src/lib.rs::large": {
+                    "detector": "structural",
+                    "file": "src/lib.rs",
+                    "status": "open",
+                    "confidence": "medium",
+                    "summary": "Large file has mixed responsibilities",
+                    "detail": {},
+                }
+            },
+            "scan_path": ".",
+        }
+
+        matches = show_scope_mod.load_matches(
+            state,
+            scope="structural",
+            status_filter="open",
+            chronic=False,
+        )
+
+        assert [item["id"] for item in matches] == ["structural::src/lib.rs::large"]
+
     def test_duplication_is_mechanical_dimension(self):
         entity = resolve_entity("duplication", {})
         assert entity.kind == "dimension"

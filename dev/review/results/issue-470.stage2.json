@@ -1,0 +1,10 @@
+{
+  "number": 470,
+  "type": "issue",
+  "role": "advocate",
+  "verdict": "REJECT",
+  "counter_case": "User feedback, even vague, can signal real UX problems. The 'moves code around' complaint might indicate the tool is doing unnecessary refactoring moves, which was a known issue addressed in #407.",
+  "summary": "Agreeing with Stage 1 REJECT. No actionable information: no version, no output, no reproduction steps, no response to maintainer follow-up. The sentiment may relate to pre-0.9.6 over-engineering issues already addressed in #407.",
+  "reject_reason": "No actionable information provided. Cannot investigate without version, scan output, or reproduction steps.",
+  "confidence": "high"
+}

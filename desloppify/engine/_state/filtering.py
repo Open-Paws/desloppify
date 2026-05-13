@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import fnmatch
+import hashlib
+import json
 import re
+from collections.abc import Mapping
+from typing import Any
 
 __all__ = [
     "issue_in_scan_scope",
@@ -11,6 +15,7 @@ __all__ = [
     "path_scoped_issues",
     "is_ignored",
     "matched_ignore_pattern",
+    "issue_suppression_fingerprint",
     "remove_ignored_issues",
     "add_ignore",
     "make_issue",
@@ -77,15 +82,105 @@ def open_scope_breakdown(
     )
 
 
-def is_ignored(issue_id: str, file: str, ignore_patterns: list[str]) -> bool:
+_FINGERPRINT_EXCLUDED_DETAIL_KEYS = {
+    "column",
+    "end_column",
+    "end_line",
+    "evidence_lines",
+    "file",
+    "filepath",
+    "line",
+    "path",
+    "related_files",
+    "source",
+}
+
+
+def _issue_name(issue_id: str, file: str, detector: str) -> str:
+    prefix = f"{detector}::{file}::"
+    if issue_id.startswith(prefix):
+        return issue_id[len(prefix):]
+    parts = issue_id.split("::")
+    return parts[-1] if len(parts) > 2 else ""
+
+
+def _stable_detail(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {
+            str(key): _stable_detail(child)
+            for key, child in sorted(value.items(), key=lambda item: str(item[0]))
+            if str(key) not in _FINGERPRINT_EXCLUDED_DETAIL_KEYS
+        }
+    if isinstance(value, list):
+        return [_stable_detail(child) for child in value[:20]]
+    if isinstance(value, tuple):
+        return [_stable_detail(child) for child in value[:20]]
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    return str(value)
+
+
+def issue_suppression_fingerprint(issue: Mapping[str, Any]) -> str:
+    """Return a path-independent fingerprint for a detector finding."""
+    issue_id = str(issue.get("id") or "")
+    file = str(issue.get("file") or "")
+    detector = str(issue.get("detector") or issue_id.split("::", 1)[0] or "unknown")
+    payload = {
+        "detector": detector,
+        "name": _issue_name(issue_id, file, detector),
+        "summary": str(issue.get("summary") or ""),
+        "detail": _stable_detail(issue.get("detail") or {}),
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:16]
+
+
+def _metadata_fingerprints(
+    pattern: str,
+    ignore_metadata: Mapping[str, Any] | None,
+) -> set[str]:
+    if not ignore_metadata:
+        return set()
+    raw = ignore_metadata.get(pattern)
+    if not isinstance(raw, Mapping):
+        return set()
+    fingerprints = raw.get("fingerprints", [])
+    if not isinstance(fingerprints, list):
+        return set()
+    return {str(value) for value in fingerprints if value}
+
+
+def is_ignored(
+    issue_id: str,
+    file: str,
+    ignore_patterns: list[str],
+    *,
+    issue: Mapping[str, Any] | None = None,
+    ignore_metadata: Mapping[str, Any] | None = None,
+) -> bool:
     """Check if a issue matches any ignore pattern (glob, ID prefix, or file path)."""
-    return matched_ignore_pattern(issue_id, file, ignore_patterns) is not None
+    return (
+        matched_ignore_pattern(
+            issue_id,
+            file,
+            ignore_patterns,
+            issue=issue,
+            ignore_metadata=ignore_metadata,
+        )
+        is not None
+    )
 
 
 def matched_ignore_pattern(
-    issue_id: str, file: str, ignore_patterns: list[str]
+    issue_id: str,
+    file: str,
+    ignore_patterns: list[str],
+    *,
+    issue: Mapping[str, Any] | None = None,
+    ignore_metadata: Mapping[str, Any] | None = None,
 ) -> str | None:
     """Return the ignore pattern that matched, if any."""
+    fingerprint = issue_suppression_fingerprint(issue) if issue else None
     for pattern in ignore_patterns:
         if "*" in pattern:
             target = issue_id if "::" in pattern else file
@@ -95,6 +190,8 @@ def matched_ignore_pattern(
 
         if "::" in pattern:
             if issue_id.startswith(pattern):
+                return pattern
+            if fingerprint and fingerprint in _metadata_fingerprints(pattern, ignore_metadata):
                 return pattern
             continue
 

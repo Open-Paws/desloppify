@@ -1,0 +1,10 @@
+{
+  "number": 465,
+  "type": "issue",
+  "role": "advocate",
+  "verdict": "REJECT",
+  "counter_case": "If a user has a corrupted state file with raw ints from a pre-0.9.0 version, upgrading would crash. A defensive isinstance guard would cost nothing and prevent this edge case.",
+  "summary": "Agreeing with Stage 1 REJECT. The code path in store_assessments always normalizes to proper dict format. The described crash is not reachable through current code. A belt-and-suspenders guard could be added as hardening but the reported bug itself does not exist in the current codebase.",
+  "reject_reason": "Cannot reproduce from code analysis. store_assessments normalizes all inputs to dict format before persisting.",
+  "confidence": "high"
+}

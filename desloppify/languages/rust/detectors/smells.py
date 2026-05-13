@@ -30,6 +30,8 @@ _ALLOW_ATTR_SMELL_ID = "allow_attr"
 _UNSAFE_BLOCK_RE = re.compile(r"\bunsafe\s*\{")
 _UNSAFE_IMPL_RE = re.compile(r"\bunsafe\s+impl\b")
 _UNSAFE_SMELL_ID = "undocumented_unsafe"
+_STRING_ERROR_SMELL_ID = "string_error"
+_RESULT_RE = re.compile(r"\bResult\s*<")
 
 
 def detect_smells(path: Path) -> tuple[list[dict], int]:
@@ -51,6 +53,7 @@ def detect_smells(path: Path) -> tuple[list[dict], int]:
         normalized_file = rel(absolute)
 
         _scan_pattern_smells(normalized_file, content, stripped, smell_counts)
+        _detect_string_error_results(normalized_file, content, stripped, smell_counts)
         _detect_allow_attrs(normalized_file, content, stripped, smell_counts)
         _detect_undocumented_unsafe(normalized_file, content, stripped, smell_counts)
 
@@ -92,6 +95,81 @@ def _scan_pattern_smells(
                     "content": _line_preview(raw_content, line),
                 }
             )
+
+
+def _detect_string_error_results(
+    filepath: str,
+    raw_content: str,
+    stripped_content: str,
+    smell_counts: dict[str, list[dict]],
+) -> None:
+    if _STRING_ERROR_SMELL_ID not in smell_counts:
+        return
+    for match in _RESULT_RE.finditer(stripped_content):
+        args_span = _extract_angle_content(stripped_content, match.end() - 1)
+        if args_span is None:
+            continue
+        args_text, _end = args_span
+        args = _split_top_level_generic_args(args_text)
+        if len(args) != 2:
+            continue
+        if _is_string_error_type(args[1]):
+            line = _line_number(stripped_content, match.start())
+            smell_counts[_STRING_ERROR_SMELL_ID].append(
+                {
+                    "file": filepath,
+                    "line": line,
+                    "content": _line_preview(raw_content, line),
+                }
+            )
+
+
+def _extract_angle_content(text: str, open_index: int) -> tuple[str, int] | None:
+    if open_index >= len(text) or text[open_index] != "<":
+        return None
+    depth = 0
+    for index in range(open_index, len(text)):
+        char = text[index]
+        if char == "<":
+            depth += 1
+        elif char == ">":
+            depth -= 1
+            if depth == 0:
+                return text[open_index + 1:index], index
+    return None
+
+
+def _split_top_level_generic_args(text: str) -> list[str]:
+    args: list[str] = []
+    start = 0
+    angle = paren = bracket = brace = 0
+    for index, char in enumerate(text):
+        if char == "<":
+            angle += 1
+        elif char == ">":
+            angle = max(0, angle - 1)
+        elif char == "(":
+            paren += 1
+        elif char == ")":
+            paren = max(0, paren - 1)
+        elif char == "[":
+            bracket += 1
+        elif char == "]":
+            bracket = max(0, bracket - 1)
+        elif char == "{":
+            brace += 1
+        elif char == "}":
+            brace = max(0, brace - 1)
+        elif char == "," and not any((angle, paren, bracket, brace)):
+            args.append(text[start:index].strip())
+            start = index + 1
+    args.append(text[start:].strip())
+    return [arg for arg in args if arg]
+
+
+def _is_string_error_type(type_text: str) -> bool:
+    normalized = " ".join(type_text.strip().split())
+    return normalized in {"String", "&'static str"}
 
 
 def _detect_undocumented_unsafe(

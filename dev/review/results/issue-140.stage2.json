@@ -1,0 +1,15 @@
+{
+  "number": 140,
+  "type": "issue",
+  "role": "challenger",
+  "verdict": "ACCEPT_WITH_CONDITIONS",
+  "counter_case": "Per-language scorecards add significant complexity to the scoring presentation layer and could confuse users who just want a single number. The aggregate score computation (weighted by file count? LOC? equal?) is an unsolved design question. Mixed-language repos are an edge case — most projects are overwhelmingly one language. The existing --lang flag already lets users scan per-language manually.",
+  "summary": "The feature request is reasonable but lower priority than it appears. Users can already get per-language scores by running separate scans with --lang. The main value-add is auto-detection and aggregation in a single command, which is a convenience feature, not a blocker. Stage 1's conditions are appropriate.",
+  "conditions": [
+    "Define the aggregate score computation method before implementing — this is a design decision that should be made explicitly",
+    "Start with CLI text output only, no scorecard image generation",
+    "Ensure per-language state files remain independent"
+  ],
+  "confidence": "medium",
+  "implementation_notes": "Lower priority. The --lang workaround exists. Implement only after core scoring/planning features stabilize."
+}

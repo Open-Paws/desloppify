@@ -1,0 +1,33 @@
+{
+  "number": 585,
+  "type": "pr",
+  "title": "Exclude observe-auto issues from reflect ledger parsing",
+  "author": "tristanmanchester",
+  "stage1": {
+    "verdict": "ACCEPT_WITH_CONDITIONS",
+    "summary": "The underlying problem is real: observe confirmation can mark false-positive/exaggerated review issues with decision_source=\"observe_auto\", while reflect already excludes those IDs from required accounting. Passing the full valid_ids set to parse_reflect_dispositions can let a reflect ledger line for an auto-skipped issue overwrite that source as decision_source=\"reflect\". The one-line parser change is directionally correct, but it does not actually preserve observe-auto dispositions on the normal fresh reflect path because _persist_reflect_stage calls cascade_clear_dispositions(meta, \"reflect\") before writing the parsed ledger, and cascade_clear_dispositions currently removes decision, target, and decision_source from every disposition entry, including observe_auto entries that the PR then omits from the ledger. The added test only exercises _validate_reflect_submission and misses the persistence step where the stated guarantee is lost.",
+    "conditions": [
+      "Change the reflect-stage disposition clearing path so observe_auto entries are preserved during a fresh reflect run, for example by having cascade_clear_dispositions(meta, \"reflect\") clear only reflect-sourced decisions or otherwise skip entries whose decision_source is \"observe_auto\".",
+      "Add an end-to-end regression through _cmd_stage_reflect or _persist_reflect_stage that starts with an observe_auto disposition, records a fresh reflect report containing both a normal issue and the auto-skipped issue, and asserts the auto-skipped entry still has decision=\"skip\", target, and decision_source=\"observe_auto\" after persistence."
+    ],
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": [],
+    "real_problem": true,
+    "suggested_fix": "Keep the parser scoped to accounting_ids, but also preserve observe_auto disposition entries during the reflect cascade and test the full validate-plus-persist path rather than only the parser input."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT_WITH_CHANGES",
+    "reasoning": "Implemented the accepted observe-auto reflect-ledger fix while addressing the persistence gap from Stage 1. Reflect validation and disposition parsing now operate on accounting IDs that exclude observe-auto skips, and fresh reflect persistence preserves observe-auto decision, target, and decision_source entries instead of clearing them before writing reflect decisions.",
+    "commit": "589216d0",
+    "changes_applied": [
+      "Scoped reflect disposition parsing to the same accounting IDs used for reflect coverage validation.",
+      "Changed reflect-stage cascade clearing to preserve observe_auto disposition decisions.",
+      "Added an end-to-end reflect persistence regression that starts with an observe_auto skip, includes that ID in the report, and verifies it remains observe_auto after persistence.",
+      "Updated unified disposition tests for the new reflect-clear behavior."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/plan/test_reflect_disposition_ledger.py desloppify/tests/commands/plan/test_triage_runner.py desloppify/tests/commands/plan/test_triage_split_modules_direct.py desloppify/tests/commands/plan/test_triage_stage_flow_observe_reflect_organize_direct.py desloppify/tests/plan/test_unified_disposition_map.py -q"
+    ]
+  }
+}

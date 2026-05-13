@@ -9,6 +9,7 @@ from desloppify.languages.rust.support import describe_rust_file, find_rust_file
 
 from ._shared import (
     _ASYNC_GUARD_ACQUIRE_RE,
+    _AWAIT_RE,
     _BLOCKING_LOCK_CALL_RE,
     _DROP_PANIC_RE,
     _STD_GUARD_ACQUIRE_RE,
@@ -71,7 +72,11 @@ def detect_async_locking(path: Path) -> tuple[list[dict], int]:
                 )
                 continue
 
-            if file_uses_std_sync_locks and _BLOCKING_LOCK_CALL_RE.search(body):
+            if (
+                file_uses_std_sync_locks
+                and not _AWAIT_RE.search(body)
+                and _BLOCKING_LOCK_CALL_RE.search(body)
+            ):
                 entries.append(
                     _entry(
                         absolute,

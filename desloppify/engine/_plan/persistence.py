@@ -72,19 +72,8 @@ def plan_lock(path: Path | None = None) -> Iterator[None]:
     try:
         if sys.platform == "win32":
             import msvcrt
-            import time
 
-            for _attempt in range(50):  # 50 × 0.1s = 5s max
-                try:
-                    msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
-                    break
-                except OSError:
-                    if _attempt == 49:
-                        raise TimeoutError(
-                            f"Could not acquire lock on {lock_path} after 5s. "
-                            "Close any editors or processes that may have it open."
-                        )
-                    time.sleep(0.1)
+            msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
         else:
             import fcntl
 
@@ -94,10 +83,7 @@ def plan_lock(path: Path | None = None) -> Iterator[None]:
         if sys.platform == "win32":
             import msvcrt
 
-            try:
-                msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
-            except OSError:
-                pass  # Lock may not have been acquired if we timed out
+            msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
         else:
             import fcntl
 

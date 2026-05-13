@@ -1,0 +1,9 @@
+{
+  "number": 473,
+  "type": "issue",
+  "role": "challenger",
+  "verdict": "ACCEPT",
+  "counter_case": "Renaming a placeholder string to avoid a Snyk false positive is cosmetic. The field is documentation-only and poses zero security risk. Users who understand the tool will know this is a placeholder. Changing placeholder names to satisfy scanners is a slippery slope.",
+  "summary": "The fix is trivial (rename a placeholder string) with zero risk. While it is a false positive from Snyk, eliminating scanner noise is valuable for users who run automated security scans on their dependencies. Cannot build a strong case against a zero-risk rename.",
+  "confidence": "high"
+}

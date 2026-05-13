@@ -1,0 +1,51 @@
+{
+  "dimension_prompts": {
+    "abstraction_fitness": {
+      "description": "R abstraction fitness: favor direct functions, vectorized operations, and bounded package namespaces over indirection and generic helper surfaces.",
+      "look_for": [
+        "Wrapper functions that only forward arguments to another function without policy or translation",
+        "S4/R6 class hierarchies with one concrete implementation and no extension pressure",
+        "Generic helper modules (utils.R, helpers.R) that accumulate unrelated functions across concerns",
+        "Functions that accept ... to pass through arguments without validation or transformation",
+        "Excessive use of do.call() or Recall() where a direct call would suffice"
+      ],
+      "skip": [
+        "S3/S4 dispatch required by CRAN package architecture or generic/method contracts",
+        "Wrapper functions that add validation, error handling, or logging around base R functions",
+        "Package-level re-exports that stabilize public API surfaces (e.g. @export re-exports from dependencies)",
+        "Shiny module patterns that require server/UI function pairs by framework convention"
+      ]
+    },
+    "test_strategy": {
+      "description": "R testing strategy: testthat 3+ conventions, self-sufficient tests, proper cleanup with withr, snapshot testing, and modern mocking patterns.",
+      "look_for": [
+        "Tests relying on ambient state from earlier test_that() blocks instead of self-sufficient setup",
+        "Deprecated testthat patterns: context(), expect_equivalent(), with_mock() - prefer describe(), expect_equal(ignore_attr=TRUE), local_mocked_bindings()",
+        "Tests writing to the package directory instead of tempdir/withr::local_tempfile()",
+        "Missing withr::local_*() cleanup for tests that modify options, env vars, or working directory",
+        "Snapshot tests without a clear review/accept workflow or snapshot files checked into .Rbuildignore",
+        "Tests using library() or require() inside helper files instead of devtools::load_all() workflow"
+      ],
+      "skip": [
+        "Helper files (helper-*.R) that intentionally set up shared test fixtures before all tests",
+        "Setup files (setup-*.R) that run only during R CMD check by convention",
+        "Snapshot .md files in tests/testthat/_snaps/ that are intentionally tracked"
+      ]
+    },
+    "error_consistency": {
+      "description": "R error consistency: typed errors via rlang, proper condition handling, and consistent error signaling across the package.",
+      "look_for": [
+        "Mixing base stop() with rlang::abort() or cli::cli_abort() without consistent convention",
+        "Error messages that don't include the offending function name or argument",
+        "Catching errors with try() or tryCatch() without re-raising or logging",
+        "Using warning() for conditions that should be errors (e.g., invalid input that produces wrong output)",
+        "Functions that silently return NULL or NA on error instead of signaling a condition"
+      ],
+      "skip": [
+        "Intentional use of base R condition handling for backward compatibility",
+        "S4 method dispatch errors that are controlled by the methods package"
+      ]
+    }
+  },
+  "system_prompt_append": "R anchor checks: T/F instead of TRUE/FALSE, vectorized conditions in if(), library() inside functions, 1:n() instead of seq_len(n), == NA instead of is.na(), and unnecessary return() at end of functions."
+}

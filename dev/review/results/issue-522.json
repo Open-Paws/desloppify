@@ -1,0 +1,21 @@
+{
+  "number": 522,
+  "type": "issue",
+  "title": "`cycles` detector false positives for Rust module system",
+  "author": "Vuk97",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "Plausible bug in the dependency graph builder for Rust. Rust 'mod foo;' declarations in main.rs are module ownership declarations, not imports — they make foo a child module of the crate root. The dep graph likely treats these as import edges, creating false bidirectional cycles (main.rs -> config via mod, config -> main via use crate::). The distinction between mod declarations and use imports is fundamental to Rust's module system and a common source of false positives in non-Rust-native tooling.",
+    "confidence": "medium",
+    "scope_estimate": "medium"
+  },
+  "stage3": {
+    "decision": "CLOSE_FIXED",
+    "reasoning": "The accepted report is covered by the broader Rust cycle-detector fix in #545. Rust still builds the module/use dependency graph, but it no longer runs the generic SCC cycle detector or emits `cycles` issues for Rust module relationships, avoiding false positives from `mod` declarations and same-crate `use crate::...` references.",
+    "fixed_by": "a67050b3",
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/languages/rust/tests/test_commands.py desloppify/languages/rust/tests/test_phases.py desloppify/languages/rust/tests/test_deps.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/ -q"
+    ]
+  }
+}

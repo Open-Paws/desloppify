@@ -1,0 +1,16 @@
+{
+  "number": 493,
+  "type": "pr",
+  "role": "challenger",
+  "verdict": "ACCEPT_WITH_CONDITIONS",
+  "counter_case": "Documentation PRs from external contributors tend to go stale quickly — they describe the codebase at a point in time and nobody maintains them. The TypeScript README in particular contains a detailed detector/phase layout that will drift as files are renamed or restructured. The 'What it is / What it isn't' section includes framing language ('The framing to nail:') that reads like draft notes, not finished copy. The test path in the TS README ('pytest -q desloppify/languages/typescript/tests/') is wrong — TypeScript tests live in desloppify/tests/, not inside the plugin directory. Inaccurate docs are worse than no docs.",
+  "summary": "The content fills a real gap but has accuracy problems that Stage 1 correctly identified. The main README additions are largely fine — the language table matches the registry, the quick start is accurate. The TypeScript README is the riskier part: it has wrong test paths and a detailed internal layout that will rot. Stage 1's conditions are appropriate but should be strengthened: the TS README test paths must be fixed (not just verified), and the 'framing to nail' line must be removed.",
+  "conditions": [
+    "Fix the TypeScript README test paths — tests are at desloppify/tests/ not desloppify/languages/typescript/tests/",
+    "Remove the 'The framing to nail:' draft note line from the 'What it is / What it isn't' section",
+    "Verify the '23+' generic plugin count matches the current registry",
+    "Remove or simplify the 'Maintainer Notes' section of the TypeScript README — internal layout details rot quickly and this information belongs in code comments, not a README"
+  ],
+  "confidence": "medium",
+  "implementation_notes": "The main README changes are straightforward to merge. The TypeScript README needs the most editing. Consider whether the TS README maintainer notes section adds enough value to justify its maintenance cost."
+}

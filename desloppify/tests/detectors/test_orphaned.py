@@ -7,8 +7,10 @@ from unittest.mock import patch
 
 from desloppify.engine.detectors.orphaned import (
     OrphanedDetectionOptions,
+    _detect_nextjs_project,
     _has_dunder_all,
     _is_dynamically_imported,
+    _is_nextjs_convention_entry,
     detect_orphaned_files,
 )
 
@@ -379,7 +381,7 @@ class TestDetectOrphanedFiles:
             "desloppify.engine.detectors.orphaned.rel",
             side_effect=lambda p: str(Path(p).relative_to(tmp_path)),
         ):
-            entries, _total = detect_orphaned_files(
+            entries, total = detect_orphaned_files(
                 tmp_path,
                 graph,
                 [".py"],
@@ -401,7 +403,7 @@ class TestDetectOrphanedFiles:
             "desloppify.engine.detectors.orphaned.rel",
             side_effect=lambda p: str(Path(p).relative_to(tmp_path)),
         ):
-            entries, _total = detect_orphaned_files(tmp_path, graph, [".py"])
+            entries, total = detect_orphaned_files(tmp_path, graph, [".py"])
 
         assert len(entries) == 1
         assert set(entries[0].keys()) == {"file", "loc", "import_count"}
@@ -469,7 +471,7 @@ class TestDetectOrphanedFiles:
             "desloppify.engine.detectors.orphaned.rel",
             side_effect=lambda p: str(Path(p).relative_to(tmp_path)),
         ):
-            entries, _total = detect_orphaned_files(tmp_path, graph, [".py"])
+            entries, total = detect_orphaned_files(tmp_path, graph, [".py"])
 
         # The regex requires __all__ at the start of a line, so a comment line
         # starting with # won't match.
@@ -515,3 +517,169 @@ class TestHasDunderAll:
         f = tmp_path / "mod.py"
         f.write_text("x = __all__\n")
         assert _has_dunder_all(str(f)) is False
+
+
+# ===================================================================
+# Next.js App Router framework awareness
+# ===================================================================
+
+
+class TestDetectNextjsProject:
+    """Unit tests for _detect_nextjs_project."""
+
+    def test_next_config_js(self, tmp_path):
+        (tmp_path / "next.config.js").write_text("module.exports = {}")
+        assert _detect_nextjs_project(tmp_path) is True
+
+    def test_next_config_mjs(self, tmp_path):
+        (tmp_path / "next.config.mjs").write_text("export default {}")
+        assert _detect_nextjs_project(tmp_path) is True
+
+    def test_next_config_ts(self, tmp_path):
+        (tmp_path / "next.config.ts").write_text("export default {}")
+        assert _detect_nextjs_project(tmp_path) is True
+
+    def test_no_next_config(self, tmp_path):
+        assert _detect_nextjs_project(tmp_path) is False
+
+
+class TestIsNextjsConventionEntry:
+    """Unit tests for _is_nextjs_convention_entry."""
+
+    def test_page_in_app_dir(self):
+        assert _is_nextjs_convention_entry("app/dashboard/page.tsx") is True
+
+    def test_layout_in_app_dir(self):
+        assert _is_nextjs_convention_entry("app/layout.tsx") is True
+
+    def test_loading_in_nested_app_dir(self):
+        assert _is_nextjs_convention_entry("app/shop/items/loading.jsx") is True
+
+    def test_route_handler(self):
+        assert _is_nextjs_convention_entry("app/api/users/route.ts") is True
+
+    def test_error_boundary(self):
+        assert _is_nextjs_convention_entry("app/error.tsx") is True
+
+    def test_not_found(self):
+        assert _is_nextjs_convention_entry("app/not-found.tsx") is True
+
+    def test_global_error(self):
+        assert _is_nextjs_convention_entry("app/global-error.tsx") is True
+
+    def test_template(self):
+        assert _is_nextjs_convention_entry("app/template.tsx") is True
+
+    def test_default_parallel_route(self):
+        assert _is_nextjs_convention_entry("app/@modal/default.tsx") is True
+
+    def test_opengraph_image(self):
+        assert _is_nextjs_convention_entry("app/opengraph-image.tsx") is True
+
+    def test_sitemap(self):
+        assert _is_nextjs_convention_entry("app/sitemap.ts") is True
+
+    def test_robots(self):
+        assert _is_nextjs_convention_entry("app/robots.ts") is True
+
+    def test_middleware_at_root(self):
+        assert _is_nextjs_convention_entry("middleware.ts") is True
+
+    def test_middleware_in_src(self):
+        assert _is_nextjs_convention_entry("src/middleware.ts") is True
+
+    def test_instrumentation_at_root(self):
+        assert _is_nextjs_convention_entry("instrumentation.ts") is True
+
+    def test_instrumentation_client(self):
+        assert _is_nextjs_convention_entry("src/instrumentation-client.js") is True
+
+    def test_page_in_src_app(self):
+        assert _is_nextjs_convention_entry("src/app/page.tsx") is True
+
+    def test_regular_file_in_app_not_matched(self):
+        """A non-convention file inside app/ is NOT treated as entry."""
+        assert _is_nextjs_convention_entry("app/utils/helpers.ts") is False
+
+    def test_page_outside_app_not_matched(self):
+        """page.tsx outside an app/ directory is NOT treated as entry."""
+        assert _is_nextjs_convention_entry("src/components/page.tsx") is False
+
+    def test_middleware_too_deep_not_matched(self):
+        """middleware.ts nested more than one level deep is not an entry."""
+        assert _is_nextjs_convention_entry("src/lib/middleware.ts") is False
+
+    def test_non_js_extension_not_matched(self):
+        assert _is_nextjs_convention_entry("app/page.py") is False
+
+    def test_css_extension_not_matched(self):
+        assert _is_nextjs_convention_entry("app/page.css") is False
+
+
+class TestNextjsIntegration:
+    """Integration tests for Next.js orphan detection in detect_orphaned_files."""
+
+    def test_nextjs_app_router_files_not_orphaned(self, tmp_path):
+        """Next.js convention files are excluded when next.config.js exists."""
+        (tmp_path / "next.config.js").write_text("module.exports = {}")
+        app_dir = tmp_path / "app"
+        page = _write_file(app_dir / "page.tsx", lines=30)
+        layout = _write_file(app_dir / "layout.tsx", lines=50)
+        route = _write_file(app_dir / "api" / "route.ts", lines=20)
+        orphan = _write_file(tmp_path / "src" / "orphan.ts", lines=25)
+
+        graph = {
+            str(page): _graph_entry(importer_count=0),
+            str(layout): _graph_entry(importer_count=0),
+            str(route): _graph_entry(importer_count=0),
+            str(orphan): _graph_entry(importer_count=0),
+        }
+
+        with patch(
+            "desloppify.engine.detectors.orphaned.rel",
+            side_effect=lambda p: str(Path(p).relative_to(tmp_path)),
+        ):
+            entries, total = detect_orphaned_files(tmp_path, graph, [".ts", ".tsx"])
+
+        assert total == 4
+        assert len(entries) == 1
+        assert entries[0]["file"] == str(orphan)
+
+    def test_no_nextjs_config_no_exclusion(self, tmp_path):
+        """Without next.config, convention files ARE reported as orphaned."""
+        app_dir = tmp_path / "app"
+        page = _write_file(app_dir / "page.tsx", lines=30)
+
+        graph = {
+            str(page): _graph_entry(importer_count=0),
+        }
+
+        with patch(
+            "desloppify.engine.detectors.orphaned.rel",
+            side_effect=lambda p: str(Path(p).relative_to(tmp_path)),
+        ):
+            entries, total = detect_orphaned_files(tmp_path, graph, [".tsx"])
+
+        assert len(entries) == 1
+
+    def test_detect_frameworks_false_disables(self, tmp_path):
+        """Setting detect_frameworks=False skips Next.js detection."""
+        (tmp_path / "next.config.js").write_text("module.exports = {}")
+        page = _write_file(tmp_path / "app" / "page.tsx", lines=30)
+
+        graph = {
+            str(page): _graph_entry(importer_count=0),
+        }
+
+        with patch(
+            "desloppify.engine.detectors.orphaned.rel",
+            side_effect=lambda p: str(Path(p).relative_to(tmp_path)),
+        ):
+            entries, total = detect_orphaned_files(
+                tmp_path,
+                graph,
+                [".tsx"],
+                options=OrphanedDetectionOptions(detect_frameworks=False),
+            )
+
+        assert len(entries) == 1

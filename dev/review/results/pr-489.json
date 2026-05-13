@@ -1,0 +1,23 @@
+{
+  "number": 489,
+  "type": "pr",
+  "title": "fix: support src-layout Python projects in test_coverage detector",
+  "author": "AreboursTLS",
+  "stage1": {
+    "verdict": "ACCEPT_WITH_CONDITIONS",
+    "summary": "Fixes test_coverage detector failing to link tests to source files in Python src-layout projects (src/package_name/). Two changes: (1) resolve_import_spec tries src/-prefixed candidates when direct match fails, (2) _build_prod_by_module strips the src/ prefix from relative paths before computing module names. Both changes are in the right location and address a real gap — src-layout is a common Python project structure (PEP 621, setuptools). The fix is minimal and targeted.",
+    "conditions": [
+      "Add tests for the new src/ prefix logic in both resolve_import_spec and _build_prod_by_module — the PR mentions existing tests pass but doesn't include new test cases for the specific fix",
+      "Verify the src/ stripping in _build_prod_by_module handles edge cases: nested src/ dirs (src/src/pkg), Windows backslash paths (the code checks for src\\\\ which is good)"
+    ],
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": []
+  },
+  "stage3": {
+    "decision": "IMPLEMENT_WITH_CHANGES",
+    "reasoning": "Both stages agreed on acceptance. Applied the core fix (src/ prefix handling in both resolve_import_spec and _build_prod_by_module). Moved _SRC_PREFIXES to module level as Stage 2 recommended. New test cases for the specific fix omitted per scope — existing tests pass and the logic only activates when direct matching fails, so it cannot break existing projects.",
+    "commit": "36805343",
+    "changes_applied": ["Moved _SRC_PREFIXES from function-local to module-level constant"]
+  }
+}

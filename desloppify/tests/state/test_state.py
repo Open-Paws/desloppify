@@ -707,7 +707,7 @@ class TestWontfixAutoResolution:
         diff = merge_scan(
             st, [], MergeScanOptions(lang="python", potentials={"test_coverage": 50, "smells": 100})
         )
-        assert diff["auto_resolved"] == 2
+        assert diff["auto_resolved"] == 5
         assert (
             st["issues"]["test_coverage::mod3.py::untested_module"]["status"]
             == "wontfix"
@@ -718,7 +718,11 @@ class TestWontfixAutoResolution:
         )
         assert (
             st["issues"]["test_coverage::mod0.py::untested_module"]["status"]
-            == "open"
+            == "auto_resolved"
+        )
+        assert (
+            st["issues"]["test_coverage::mod0.py::untested_module"]["note"]
+            == "Auto-resolved: absent from latest detector output"
         )
 
     def test_wontfix_not_resolved_when_detector_suspect(self):
@@ -750,6 +754,69 @@ class TestWontfixAutoResolution:
             st["issues"]["test_coverage::mod4.py::untested_module"]["status"]
             == "wontfix"
         )
+
+    def test_open_issue_auto_resolves_when_detector_ran_clean(self):
+        """Absent open issues are stale when the detector ran successfully."""
+        st = empty_state()
+        issue = _make_raw_issue(
+            "security::src/app.py::log_sensitive",
+            detector="security",
+            file="src/app.py",
+            lang="python",
+        )
+        st["issues"][issue["id"]] = issue
+
+        diff = merge_scan(
+            st,
+            [],
+            MergeScanOptions(lang="python", potentials={"security": 10}),
+        )
+
+        assert diff["auto_resolved"] == 1
+        resolved = st["issues"]["security::src/app.py::log_sensitive"]
+        assert resolved["status"] == "auto_resolved"
+        assert resolved["note"] == "Auto-resolved: absent from latest detector output"
+
+    def test_open_issue_auto_resolves_when_same_detector_emits_other_findings(self):
+        """Detector output with other current IDs confirms absent sibling IDs are stale."""
+        st = empty_state()
+        old_issue = _make_raw_issue(
+            "unused::src/a.ts::old",
+            detector="unused",
+            file="src/a.ts",
+            lang="typescript",
+        )
+        st["issues"][old_issue["id"]] = old_issue
+
+        current = [
+            _make_raw_issue(
+                "unused::src/b.ts::new",
+                detector="unused",
+                file="src/b.ts",
+                lang="typescript",
+            )
+        ]
+        diff = merge_scan(st, current, MergeScanOptions(lang="typescript"))
+
+        assert diff["auto_resolved"] == 1
+        assert st["issues"]["unused::src/a.ts::old"]["status"] == "auto_resolved"
+        assert st["issues"]["unused::src/b.ts::new"]["status"] == "open"
+
+    def test_open_issue_stays_open_when_detector_not_confirmed(self):
+        """Small prior issue counts without ran-detector evidence remain user-controlled."""
+        st = empty_state()
+        issue = _make_raw_issue(
+            "det::src/a.py::old",
+            detector="det",
+            file="src/a.py",
+            lang="python",
+        )
+        st["issues"][issue["id"]] = issue
+
+        diff = merge_scan(st, [], MergeScanOptions(lang="python"))
+
+        assert diff["auto_resolved"] == 0
+        assert st["issues"]["det::src/a.py::old"]["status"] == "open"
 
     def test_wontfix_stays_wontfix_when_some_issues_remain(self):
         """Wontfix issues stay wontfix even when other issues remain open."""

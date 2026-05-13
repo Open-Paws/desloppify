@@ -13,5 +13,14 @@
     "potential_duplicates": [],
     "real_problem": true,
     "suggested_fix": "After _reset_cycle_for_force_rescan clears synthetic items, the plan_start_scores should be updated to reflect the new scan's scores (not skipped entirely). The fix is to change the condition at line 312 from 'if not force_rescan' to always run _sync_plan_start_scores_and_log, or to explicitly reset plan_start_scores in _reset_cycle_for_force_rescan with a 'reset' flag so _seed_plan_start_scores can re-seed from the fresh scan. Need to ensure this doesn't trigger full cluster regeneration (the original reason for preserving plan_start_scores)."
+  },
+  "stage3": {
+    "decision": "CLOSE_FIXED",
+    "reasoning": "The current implementation already addresses the accepted force-rescan failure mode. After a force rescan removes synthetic queue items, reconcile_plan_post_scan runs reconciliation at the scan boundary and then refreshes plan_start_scores from the fresh scan via _refresh_plan_start_baseline, preserving manual cluster protection without leaving the stale frozen score. Existing tests cover the force-rescan refresh and postflight completion path.",
+    "fixed_by": "cf6f14a17",
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/scan/test_plan_reconcile_postflight_and_reconcile.py desloppify/tests/commands/scan/test_plan_reconcile.py desloppify/tests/engine/test_sync_split_modules_direct.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/scan/test_plan_reconcile_postflight_and_reconcile.py desloppify/tests/commands/scan/test_plan_reconcile.py desloppify/tests/engine/test_sync_split_modules_direct.py desloppify/tests/commands/plan/test_strategist.py desloppify/tests/commands/plan/test_triage_stage_prompts_flow_direct.py -q"
+    ]
   }
 }

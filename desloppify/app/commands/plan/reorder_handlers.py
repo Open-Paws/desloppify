@@ -19,6 +19,21 @@ from desloppify.engine.plan_ops import (
 )
 from desloppify.engine._plan.promoted_ids import add_promoted_ids
 
+_ACTIONABLE_PROMOTE_STATUSES = {"open", "deferred", "triaged_out"}
+
+
+def _actionable_issue_ids(state: dict, issue_ids: list[str]) -> list[str]:
+    """Keep IDs whose current state status can appear in execution work."""
+    issues = state.get("work_items") or state.get("issues", {})
+    actionable: list[str] = []
+    for issue_id in issue_ids:
+        issue = issues.get(issue_id)
+        if issue is None:
+            continue
+        if issue.get("status", "open") in _ACTIONABLE_PROMOTE_STATUSES:
+            actionable.append(issue_id)
+    return actionable
+
 
 def resolve_target(plan: dict, target: str | None, position: str) -> str | None:
     """Resolve a cluster name used as a before/after target to a member ID."""
@@ -100,8 +115,9 @@ def cmd_plan_promote(args: argparse.Namespace) -> None:
     target = resolve_target(plan, target, position)
 
     issue_ids = resolve_ids_from_patterns(state, patterns, plan=plan)
+    issue_ids = _actionable_issue_ids(state, issue_ids)
     if not issue_ids:
-        print(colorize("  No matching issues found.", "yellow"))
+        print(colorize("  No matching actionable issues found.", "yellow"))
         return
 
     count = move_items(plan, issue_ids, position, target=target)

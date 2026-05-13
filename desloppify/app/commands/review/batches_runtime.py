@@ -160,7 +160,7 @@ def build_batch_tasks(
     output_files: dict[int, Path],
     log_files: dict[int, Path],
     project_root: Path,
-    run_codex_batch_fn: Callable[..., int],
+    run_batch_fn: Callable[..., int],
 ) -> dict[int, Callable[[], int]]:
     return {
         idx: partial(
@@ -170,7 +170,7 @@ def build_batch_tasks(
             output_path=output_files[idx],
             log_path=log_files[idx],
             project_root=project_root,
-            run_codex_batch_fn=run_codex_batch_fn,
+            run_batch_fn=run_batch_fn,
         )
         for idx in selected_indexes
     }
@@ -236,7 +236,7 @@ def _run_batch_task(
     output_path: Path,
     log_path: Path,
     project_root: Path,
-    run_codex_batch_fn: Callable[..., int],
+    run_batch_fn: Callable[..., int],
 ) -> int:
     try:
         prompt = prompt_path.read_text()
@@ -244,7 +244,7 @@ def _run_batch_task(
         raise RuntimeError(
             f"unable to read prompt for batch #{batch_index + 1}: {prompt_path}"
         ) from exc
-    return run_codex_batch_fn(
+    return run_batch_fn(
         prompt=prompt,
         repo_root=project_root,
         output_file=output_path,

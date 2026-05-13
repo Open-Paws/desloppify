@@ -1,0 +1,32 @@
+{
+  "number": 545,
+  "type": "issue",
+  "title": "`cycles` detector flags legitimate flat-module binary crate layouts as import cycles",
+  "author": "Vuk97",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "The issue is real. Current Rust coupling runs `detect_cycles` on a graph built from `use` references with `include_mod_declarations=False`; a flat binary crate where `foo.rs` uses `crate::bar` and `bar.rs` uses `crate::foo` compiles successfully, but the generic SCC detector reports it as an import cycle. In Rust, reciprocal `use crate::...` paths between sibling modules are not module-load cycles, so these findings are false positives and create unactionable T4 noise.",
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": [
+      522,
+      569
+    ],
+    "real_problem": true,
+    "suggested_fix": "Treat Rust differently from languages with import-time module loading: do not emit generic `cycles` findings for Rust `use` dependency SCCs. Keep the Rust dependency graph for coupling, single-use, orphaned, and visualization, but disable or narrowly redefine the Rust `cycles` detector so ordinary same-crate path references cannot become cycle findings. Add a regression test with `src/main.rs` declaring sibling modules and reciprocal `use crate::...` references that compiles but produces zero cycle issues."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented the Rust-specific policy from Stage 1: Rust scans no longer emit generic `cycles` findings from same-crate `use` dependency SCCs. The Rust dependency graph is still built and retained for coupling, single-use, orphaned, and visualization use cases, but ordinary reciprocal Rust path references are no longer treated as import-load cycles.",
+    "commit": "a67050b3",
+    "changes_applied": [
+      "Removed generic cycle issue generation from the Rust coupling phase and report zero Rust cycle potential.",
+      "Changed the Rust `detect cycles` command to return zero entries and an explicit disabled message.",
+      "Added regression coverage for a valid flat binary crate layout with sibling modules and reciprocal `use crate::...` references."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/languages/rust/tests/test_commands.py desloppify/languages/rust/tests/test_phases.py desloppify/languages/rust/tests/test_deps.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/ -q"
+    ]
+  }
+}

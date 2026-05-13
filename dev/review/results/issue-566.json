@@ -1,0 +1,30 @@
+{
+  "number": 566,
+  "type": "issue",
+  "title": "Bare-ID review items (`review::.::holistic::<dim>::ok<N>`) ship with no summary, no description, no evidence - just the issue ID as the title",
+  "author": "Vuk97",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "This is a real UX/actionability bug. Current review import validation does reject empty summary/suggestion/related_files/evidence, so the likely root is not the normal holistic import validator. However, the reported bare-ID shape is reachable through saved-plan recovery: `reconstruct_state_from_saved_plan` hydrates missing review IDs from `plan[\"queue_order\"]` with `summary` equal to the issue ID and no evidence/suggestion/files. That produces exactly the `next`/`show` output described for IDs like `review::.::holistic::authorization_consistency::ok6`. Review queue items should not become actionable defects unless the tool has enough work-order content to tell the user what to do.",
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": [
+      536
+    ],
+    "real_problem": true
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented the saved-plan recovery fix for bare review IDs. Reconstructed review and concern items no longer use the raw issue ID as the summary. Holistic review IDs are parsed into human-readable summaries, and recovered items now carry explicit recovery evidence plus a suggestion to re-run or re-import review evidence before treating the item as a code defect.",
+    "commit": "e7773623",
+    "changes_applied": [
+      "Added human-readable summaries for recovered holistic review IDs, file-scoped review IDs, and concern IDs.",
+      "Added recovered-item detail fields with dimension, recovery evidence, and a concrete re-review suggestion.",
+      "Added regression coverage for `review::.::holistic::<dim>::ok<N>` recovery so the summary is no longer the raw ID."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/plan/test_saved_plan_recovery.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/test_cmd_next.py desloppify/tests/commands/show/test_cmd_show.py -q"
+    ]
+  }
+}

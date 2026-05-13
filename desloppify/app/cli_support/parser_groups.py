@@ -12,7 +12,6 @@ from desloppify.app.cli_support.parser_groups_admin import (  # noqa: F401 (re-e
     _add_autofix_parser,
     _add_langs_parser,
     _add_move_parser,
-    _add_persona_qa_parser,
     _add_review_parser,
     _add_setup_parser,
     _add_update_skill_parser,
@@ -36,7 +35,6 @@ __all__ = [
     "_add_langs_parser",
     "_add_move_parser",
     "_add_next_parser",
-    "_add_persona_qa_parser",
     "add_plan_parser",
     "_add_review_parser",
     "_add_scan_parser",
@@ -64,6 +62,11 @@ examples:
     )
     p_scan.add_argument("--path", type=str, default=None, help="Project root directory (default: auto-detected)")
     p_scan.add_argument("--state", type=str, default=None, help="Path to state file")
+    p_scan.add_argument(
+        "--by-language",
+        action="store_true",
+        help="Run independent scans for each detected language state",
+    )
     p_scan.add_argument(
         "--reset-subjective",
         action="store_true",
@@ -120,6 +123,11 @@ def _add_status_parser(sub) -> None:
     p_status = sub.add_parser("status", help="Full project dashboard: score, dimensions, progress, coaching")
     p_status.add_argument("--state", type=str, default=None, help="Path to state file")
     p_status.add_argument("--json", action="store_true", help="Output as JSON")
+    p_status.add_argument(
+        "--by-language",
+        action="store_true",
+        help="Show independent score rows for detected language states",
+    )
 
 
 def _add_tree_parser(sub) -> None:
@@ -324,7 +332,13 @@ def _add_suppress_parser(sub) -> None:
     p_suppress = sub.add_parser(
         "suppress", help="Permanently silence issues matching a pattern (false positives / accepted debt)"
     )
-    p_suppress.add_argument("pattern", help="File path, glob, or detector::prefix")
+    p_suppress.add_argument(
+        "pattern",
+        help=(
+            "File path, glob, or detector::prefix. Use detector::*::rule to keep "
+            "a suppression across file moves."
+        ),
+    )
     p_suppress.add_argument(
         "--attest",
         type=str,

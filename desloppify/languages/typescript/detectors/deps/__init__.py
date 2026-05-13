@@ -82,6 +82,7 @@ def build_dep_graph(
                 tsconfig_root,
                 graph,
                 source_resolved,
+                source_root=project_root,
             )
 
     fw_files = find_source_files(path, list(_FRAMEWORK_EXTENSIONS))
@@ -101,6 +102,7 @@ def build_dep_graph(
                     tsconfig_root,
                     graph,
                     source_resolved,
+                    source_root=project_root,
                 )
 
     return finalize_graph(dict(graph))

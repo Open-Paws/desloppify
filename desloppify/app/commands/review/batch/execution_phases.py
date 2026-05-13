@@ -467,7 +467,7 @@ def execute_batch_run(*, prepared: PreparedBatchRunContext, deps: BatchRunDeps) 
         output_files=prepared.output_files,
         log_files=prepared.log_files,
         project_root=prepared.project_root,
-        run_codex_batch_fn=deps.run_codex_batch_fn,
+        run_batch_fn=deps.run_batch_fn,
     )
     try:
         execution_failures = deps.execute_batches_fn(

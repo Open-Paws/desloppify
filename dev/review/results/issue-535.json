@@ -1,0 +1,36 @@
+{
+  "number": 535,
+  "type": "issue",
+  "title": "Reduce Agent resource usage on constrained hosts",
+  "author": "CrusheRDevourer",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "Real, actionable resource-control issue, though the review-runner half appears partly fixed in current code. The review path is `review --run-batches` -> `do_run_batches()` -> `resolve_batch_run_policy()` -> `execute_batch_run()` -> `execute_batches()` -> `ThreadPoolExecutor`; current parser and policy expose `--max-parallel-batches` and default it to 3, so the reported workaround is now the default for parallel review runs. The PMD path is still unbounded from desloppify's side: the Java plugin registers `pmd check -d . -R rulesets/java/quickstart.xml -f textcolor 2>&1`, generic phases pass that command unchanged through `make_tool_phase()` to `run_tool_result()`, and `resolve_command_argv()` ultimately invokes it with no PMD thread argument or configuration hook. This is worth fixing because Java scans on constrained hosts can still spawn PMD with tool-default threading while also running inside larger scan/review workflows.",
+    "conditions": [],
+    "reject_reason": "",
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": [
+      518,
+      524,
+      534
+    ],
+    "real_problem": true,
+    "suggested_fix": "Keep the existing conservative review batch default, but add explicit PMD thread control for the Java detector. A small fix would thread a configurable value from desloppify config or an environment variable into the Java PMD command, defaulting conservatively on low-resource hosts or at least documenting and exposing a stable setting. Avoid a broad generic-tool abstraction unless other external tools need the same resource knob."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented the remaining resource-control gap identified in Stage 1. Parallel review batches already default to a conservative max parallelism, and the Java PMD detector now passes an explicit `--threads` value instead of leaving PMD at its host-core-relative default. Desloppify defaults PMD to `--threads 0` for constrained hosts and exposes `DESLOPPIFY_PMD_THREADS` for users who want a higher PMD thread count.",
+    "commit": "8b012751",
+    "changes_applied": [
+      "Added a Java PMD command builder that emits `--threads 0` by default.",
+      "Added `DESLOPPIFY_PMD_THREADS` override support for integer and PMD core-relative values such as `0.5C`.",
+      "Rejected unsafe/invalid PMD thread override values back to `0`.",
+      "Documented the Java PMD threading default and override in the README CI guidance."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/lang/common/test_generic_plugin.py -q"
+    ],
+    "notes": "PMD's official CLI reference documents `--threads`/`-t`, including `0` meaning PMD uses the main thread only and `1C` as the default."
+  }
+}

@@ -14,7 +14,10 @@ from desloppify.engine._state.persistence import load_state
 from desloppify.engine._state.schema import empty_state
 
 
-def test_load_state_recovers_runtime_state_from_saved_plan(tmp_path: Path) -> None:
+def test_load_state_recovers_runtime_state_from_saved_plan(
+    tmp_path: Path,
+    capsys,
+) -> None:
     """Missing state file should recover current review issues from sibling plan.json."""
     plan = {
         "queue_order": ["review::src/foo.ts::abcd1234"],
@@ -41,6 +44,32 @@ def test_load_state_recovers_runtime_state_from_saved_plan(tmp_path: Path) -> No
         "plan_queue_available": True,
         "reconstructed_issue_count": 1,
     }
+    assert "State file missing" in capsys.readouterr().err
+
+
+def test_saved_plan_recovery_gives_holistic_items_actionable_context(
+    tmp_path: Path,
+) -> None:
+    issue_id = "review::.::holistic::authorization_consistency::ok6"
+    plan = {
+        "queue_order": [issue_id],
+        "clusters": {},
+        "epic_triage_meta": {"triage_stages": {"observe": {"report": "done"}}},
+        "skipped": {},
+    }
+    (tmp_path / "plan.json").write_text(json.dumps(plan))
+
+    state = load_state(tmp_path / "state-typescript.json")
+
+    item = state["work_items"][issue_id]
+    assert item["summary"] != issue_id
+    assert item["summary"] == (
+        "Recovered holistic review item for authorization consistency: ok6"
+    )
+    assert item["detail"]["dimension"] == "authorization_consistency"
+    assert item["detail"]["recovered_from_plan"] is True
+    assert item["detail"]["evidence"]
+    assert "Re-run or re-import" in item["detail"]["suggestion"]
 
 
 def test_load_state_drops_stale_reconstructed_state_without_live_plan(tmp_path: Path) -> None:
@@ -240,3 +269,81 @@ def test_cmd_plan_repair_state_rebuilds_persisted_state(
     }
     assert "review::src/foo.ts::abcd1234" in repaired["work_items"]
     assert "Rebuilt state-typescript.json from plan.json" in capsys.readouterr().out
+
+
+def test_cmd_plan_repair_state_restores_skips_into_scan_backed_state(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    """Repair should restore surviving plan skip dispositions after a scan overwrote state."""
+    skipped_id = "security::src/order.rs::security::hardcoded_secret_name"
+    plan = {
+        "queue_order": [],
+        "clusters": {},
+        "epic_triage_meta": {"triage_stages": {"observe": {"report": "done"}}},
+        "skipped": {
+            skipped_id: {
+                "issue_id": skipped_id,
+                "kind": "permanent",
+                "note": "Known generated fixture",
+                "attestation": "reviewed and not gaming",
+            }
+        },
+    }
+    (tmp_path / "plan.json").write_text(json.dumps(plan))
+    state = empty_state()
+    state["scan_metadata"] = {"source": "scan"}
+    state["scan_count"] = 3
+    runtime = CommandRuntime(
+        config={},
+        state=state,
+        state_path=tmp_path / "state-rust.json",
+    )
+    monkeypatch.setattr(repair_state_mod, "command_runtime", lambda _args: runtime)
+
+    repair_state_mod.cmd_plan_repair_state(argparse.Namespace())
+
+    repaired = json.loads((tmp_path / "state-rust.json").read_text())
+    item = repaired["work_items"][skipped_id]
+    assert item["status"] == "wontfix"
+    assert item["note"] == "Known generated fixture"
+    assert item["detail"]["recovered_skip_kind"] == "permanent"
+    assert "Restored 1 plan skip disposition" in capsys.readouterr().out
+
+
+def test_cmd_plan_repair_state_restores_false_positive_skip(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    skipped_id = "review::.::holistic::api_surface::ok2"
+    plan = {
+        "queue_order": [],
+        "clusters": {},
+        "epic_triage_meta": {"triage_stages": {"observe": {"report": "done"}}},
+        "skipped": {
+            skipped_id: {
+                "issue_id": skipped_id,
+                "kind": "false_positive",
+                "reason": "Observe sampling marked it exaggerated",
+                "attestation": "reviewed and not gaming",
+            }
+        },
+    }
+    (tmp_path / "plan.json").write_text(json.dumps(plan))
+    state = empty_state()
+    state["scan_metadata"] = {"source": "scan"}
+    runtime = CommandRuntime(
+        config={},
+        state=state,
+        state_path=tmp_path / "state-typescript.json",
+    )
+    monkeypatch.setattr(repair_state_mod, "command_runtime", lambda _args: runtime)
+
+    repair_state_mod.cmd_plan_repair_state(argparse.Namespace())
+
+    repaired = json.loads((tmp_path / "state-typescript.json").read_text())
+    item = repaired["work_items"][skipped_id]
+    assert item["status"] == "false_positive"
+    assert item["summary"] != skipped_id
+    assert item["detail"]["dimension"] == "api_surface"

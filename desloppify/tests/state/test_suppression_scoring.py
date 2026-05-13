@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from desloppify.engine._scoring.detection import _iter_scoring_candidates
 from desloppify.engine._state.filtering import (
+    issue_suppression_fingerprint,
     open_scope_breakdown,
     remove_ignored_issues,
 )
@@ -272,6 +273,71 @@ class TestUpsertPreservesResolvedStatus:
         assert f["suppressed"] is True
         assert f["status"] == "auto_resolved"
         assert reopened == 0
+
+
+class TestPathIndependentSuppressions:
+    def test_exact_suppression_metadata_matches_moved_finding(self):
+        original = _make_issue(
+            "security::src/order.rs::security::hardcoded_secret_name",
+            detector="security",
+            file="src/order.rs",
+        )
+        moved = _make_issue(
+            "security::src/order_tests.rs::security::hardcoded_secret_name",
+            detector="security",
+            file="src/order_tests.rs",
+        )
+        moved["summary"] = original["summary"]
+        metadata = {
+            original["id"]: {
+                "fingerprints": [issue_suppression_fingerprint(original)],
+            },
+        }
+
+        existing = {}
+        _, new, reopened, _, ignored, _ = upsert_issues(
+            existing,
+            [moved],
+            [original["id"]],
+            "2025-06-01T00:00:00Z",
+            lang=None,
+            ignore_metadata=metadata,
+        )
+
+        assert ignored == 1
+        assert new == 0
+        assert reopened == 0
+        assert existing[moved["id"]]["suppressed"] is True
+        assert existing[moved["id"]]["suppression_pattern"] == original["id"]
+
+    def test_existing_suppressed_issue_backfills_fingerprint_for_refactor(self):
+        original = _make_issue(
+            "security::src/order.rs::security::hardcoded_secret_name",
+            detector="security",
+            file="src/order.rs",
+            suppressed=True,
+        )
+        original["suppression_pattern"] = original["id"]
+        moved = _make_issue(
+            "security::src/order_tests.rs::security::hardcoded_secret_name",
+            detector="security",
+            file="src/order_tests.rs",
+        )
+        moved["summary"] = original["summary"]
+        existing = {original["id"]: original}
+
+        _, new, reopened, _, ignored, _ = upsert_issues(
+            existing,
+            [moved],
+            [original["id"]],
+            "2025-06-01T00:00:00Z",
+            lang=None,
+        )
+
+        assert ignored == 1
+        assert new == 0
+        assert reopened == 0
+        assert existing[moved["id"]]["suppressed"] is True
 
 
 # ---------------------------------------------------------------------------

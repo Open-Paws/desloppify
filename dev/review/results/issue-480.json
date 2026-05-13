@@ -17,5 +17,20 @@
     "potential_duplicates": [],
     "real_problem": true,
     "suggested_fix": "Evaluate whether Codex subagents can be used in codex_batch.py and codex_runner.py to split complex triage/review tasks into delegated sub-steps. Start with a spike to measure quality and cost impact. If net negative, document the decision and close."
+  },
+  "stage3": {
+    "decision": "CLOSE_NOT_ACTIONABLE",
+    "reasoning": "Evaluated the current local Codex CLI surface and found no stable non-interactive subagent contract exposed by `codex exec` for review/triage batch runs. The conditions for adoption are therefore not met: prompt-level child delegation would weaken the existing runner guardrails, make retry/cost control less explicit, and overlap with the existing first-class batch runner that already isolates packet slices and runs subprocesses in parallel. Documented the no-adoption decision in the Codex overlay so this can be revisited when a stable contract exists.",
+    "commit": "e2c4f093",
+    "changes_applied": [
+      "Added a `Subagent policy` section to `docs/CODEX.md` explaining why Codex review/triage prompts should not spawn child agents today.",
+      "Synced the packaged `desloppify/data/global/CODEX.md` copy.",
+      "Kept the supported Codex path on `desloppify review --run-batches --runner codex --parallel --scan-after-import`."
+    ],
+    "tests": [
+      "codex --help",
+      "codex exec --help",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/test_bundled_sync.py -q"
+    ]
   }
 }

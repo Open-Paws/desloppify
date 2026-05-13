@@ -1,0 +1,9 @@
+{
+  "number": 495,
+  "type": "pr",
+  "role": "challenger",
+  "verdict": "ACCEPT",
+  "counter_case": "The errors='replace' strategy silently replaces undecodable bytes with U+FFFD, which could mask corruption in batch payloads. If a payload contains binary data or a non-UTF-8 encoding, the JSON parsed from it would contain replacement characters instead of failing loudly. For log reads this is fine, but for extract_payload_fn in collect_batch_results (runner_parallel/__init__.py), silent corruption in the payload could cause downstream logic to silently produce wrong results rather than raising an error.",
+  "summary": "Traced all 6 call sites. The fix is correct and surgical. For log reads (runner_failures.py), lossy decoding is clearly the right choice — these are diagnostic reads where a crash is worse than a replacement character. For subprocess invocations (attempts.py), encoding='utf-8' with errors='replace' is correct because Codex runners emit UTF-8. The one slightly risky site is collect_batch_results where the payload is parsed as JSON — but even there, if the encoding is wrong, the JSON parse would fail anyway (replacement characters would break JSON structure), so errors='replace' doesn't actually hide corruption. No test coverage concerns since this is defensive encoding handling. No import layering issues.",
+  "confidence": "high"
+}

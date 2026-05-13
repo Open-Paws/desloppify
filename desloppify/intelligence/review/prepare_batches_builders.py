@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .personas import assign_personas
 from .prepare_batches_collectors import _DIMENSION_FILE_MAPPING
 from .prepare_batches_core import (
     _ensure_holistic_context,
@@ -80,6 +81,9 @@ def build_investigation_batches(
                 batch["mechanical_finding_counts"] = m_counts
 
         batches.append(batch)
+
+    for batch, persona in zip(batches, assign_personas(len(batches))):
+        batch["persona"] = persona.name
 
     return batches
 

@@ -193,3 +193,59 @@ def test_reflect_rejects_incomplete_issue_accounting(monkeypatch, capsys) -> Non
     out = capsys.readouterr().out
     assert "account for every open review issue exactly once" in out
     assert "reflect" not in plan["epic_triage_meta"]["triage_stages"]
+
+
+def test_reflect_preserves_observe_auto_disposition_during_fresh_persist(
+    monkeypatch,
+) -> None:
+    plan = {
+        "epic_triage_meta": {
+            "issue_dispositions": {
+                "review::naming::bbbb2222": {
+                    "verdict": "false positive",
+                    "decision": "skip",
+                    "target": "duplicate-work",
+                    "decision_source": "observe_auto",
+                },
+            },
+            "triage_stages": {
+                "observe": {
+                    "report": "x" * 120,
+                    "confirmed_at": "2026-03-09T00:00:00Z",
+                }
+            },
+        }
+    }
+    open_issues = {
+        "review::complexity::aaaa1111": {"status": "open"},
+        "review::naming::bbbb2222": {"status": "open"},
+    }
+    services, saved, _logs = _services(plan, open_issues=open_issues)
+    monkeypatch.setattr(reflect_mod, "has_triage_in_queue", lambda _plan: True)
+    monkeypatch.setattr(reflect_mod, "auto_confirm_observe_if_attested", lambda **_kwargs: True)
+    monkeypatch.setattr(reflect_mod, "validate_stage_report_length", lambda **_kwargs: True)
+    monkeypatch.setattr(reflect_mod, "_validate_recurring_dimension_mentions", lambda **_kwargs: True)
+
+    reflect_mod._cmd_stage_reflect(
+        _args(
+            report=(
+                "## Coverage Ledger\n"
+                '- aaaa1111 -> cluster "cluster-alpha"\n'
+                '- bbbb2222 -> skip "duplicate-work"\n'
+                "## Strategy\n"
+                "Cluster alpha handles the real complexity issue while observe-auto remains skipped."
+            )
+        ),
+        services=services,
+    )
+
+    dispositions = plan["epic_triage_meta"]["issue_dispositions"]
+    assert dispositions["review::complexity::aaaa1111"]["decision"] == "cluster"
+    assert dispositions["review::complexity::aaaa1111"]["target"] == "cluster-alpha"
+    assert dispositions["review::complexity::aaaa1111"]["decision_source"] == "reflect"
+    assert dispositions["review::naming::bbbb2222"]["decision"] == "skip"
+    assert dispositions["review::naming::bbbb2222"]["target"] == "duplicate-work"
+    assert dispositions["review::naming::bbbb2222"]["decision_source"] == "observe_auto"
+    ledger = plan["epic_triage_meta"]["triage_stages"]["reflect"]["disposition_ledger"]
+    assert [entry["issue_id"] for entry in ledger] == ["review::complexity::aaaa1111"]
+    assert saved

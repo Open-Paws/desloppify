@@ -594,6 +594,24 @@ def build_rustdoc_warning_cmd(package: str) -> str:
     return RUSTDOC_WARNING_CMD.format(package=shlex.quote(package))
 
 
+def _entry_file_exists(entry: dict[str, Any], workspace_root: Path) -> bool:
+    file_name = entry.get("file")
+    if not isinstance(file_name, str) or not file_name.strip():
+        return False
+    path = Path(file_name)
+    if path.is_absolute():
+        return path.is_file()
+    return (workspace_root / path).is_file()
+
+
+def _filter_existing_rustdoc_entries(
+    entries: list[dict[str, Any]],
+    workspace_root: Path,
+) -> list[dict[str, Any]]:
+    """Keep rustdoc diagnostics only when their primary span exists on disk."""
+    return [entry for entry in entries if _entry_file_exists(entry, workspace_root)]
+
+
 def _extract_workspace_rustdoc_packages(payload: dict[str, Any]) -> list[str]:
     workspace_members = set(payload.get("workspace_members") or [])
     packages: list[str] = []
@@ -730,7 +748,7 @@ def run_rustdoc_result(
                 returncode=result.returncode,
             )
         if result.status == "ok":
-            entries.extend(result.entries)
+            entries.extend(_filter_existing_rustdoc_entries(result.entries, workspace_root))
             if result.returncode not in (0, None):
                 returncode = result.returncode
     if not entries:

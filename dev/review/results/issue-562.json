@@ -1,0 +1,30 @@
+{
+  "number": 562,
+  "type": "issue",
+  "title": "`review --run-batches --dry-run` always generates 20 prompts even when `review --prepare --dimensions X` was called with a single dimension",
+  "author": "Vuk97",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "Confirmed real review workflow bug. `review --prepare --dimensions type_safety` correctly filters the packet through `prepare_holistic_review` and `filter_batches_to_dimensions`, so `query.json` contains only the requested dimension/batch. But `review --run-batches --dry-run` with no explicit `--dimensions` only reuses `query.json` if it contains `prepared_packet_contract`; `build_review_packet_payload()` used by prepare writes `config` and `next_command` but not that contract. `_try_load_prepared_packet()` therefore rejects the prepared one-batch packet as missing contract metadata, `_load_or_prepare_packet()` rebuilds from args with no dimensions, and the dry-run prompt artifact path explodes the full default dimension set to one prompt per dimension. The issue is meaningful because it creates inert prompts and makes manual review runs ambiguous after a targeted prepare.",
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": [
+      541
+    ],
+    "real_problem": true
+  },
+  "stage3": {
+    "decision": "CLOSE_FIXED",
+    "reasoning": "Closed as fixed by the same prepared-packet contract change implemented for #541. `review --prepare --dimensions X` now writes contract metadata into `query.json`, allowing a following `review --run-batches --dry-run` without explicit dimensions to reuse the one-dimension prepared packet instead of rebuilding the full default dimension set.",
+    "commit": "676b510e",
+    "changes_applied": [
+      "Added reusable contract metadata to prepared review packets.",
+      "Added regression coverage that the shared packet builder preserves targeted dimensions in the contract."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/review/test_review_packet_build_direct.py desloppify/tests/commands/review/test_review_batch_execution_helpers_direct.py desloppify/tests/commands/test_runner_modules_direct.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/review desloppify/tests/review/review_commands_cases.py desloppify/tests/review/review_commands_runner_cases.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/ -q"
+    ]
+  }
+}

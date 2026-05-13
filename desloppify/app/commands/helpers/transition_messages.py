@@ -11,7 +11,6 @@ import urllib.request as _urlreq
 from desloppify.base.config import load_config
 from desloppify.base.output.user_message import print_user_message
 from desloppify.engine._plan.refresh_lifecycle import user_facing_mode
-
 logger = logging.getLogger(__name__)
 
 # Phases that are NOT postflight — everything else counts as postflight.
@@ -147,8 +146,8 @@ def _ensure_hermes_autoreply() -> None:
 def emit_transition_message(new_phase: str) -> bool:
     """Print a transition message if one is configured for *new_phase*.
 
-    Lookup order: exact phase → ``postflight`` fallback (if the phase
-    is not execute/scan).
+    Lookup order: exact phase → coarse phase → ``postflight`` (if the
+    phase is not execute/scan).
 
     Also triggers a Hermes model switch if the control API is available.
 

@@ -140,12 +140,20 @@ def coerce_target_score(
     value: object, *, fallback: float = DEFAULT_TARGET_STRICT_SCORE
 ) -> float:
     """Normalize target score-like values to a safe [0, 100] float."""
-    if is_numeric(fallback):
+    if isinstance(fallback, bool):
+        fallback_value = DEFAULT_TARGET_STRICT_SCORE
+    elif isinstance(fallback, int):
+        fallback_value = float(max(0, min(100, fallback)))
+    elif is_numeric(fallback):
         fallback_value = float(fallback)
     else:
         fallback_value = DEFAULT_TARGET_STRICT_SCORE
 
-    if is_numeric(value):
+    if isinstance(value, bool):
+        parsed = fallback_value
+    elif isinstance(value, int):
+        return float(max(0, min(100, value)))
+    elif is_numeric(value):
         parsed = float(value)
     elif isinstance(value, str):
         text = value.strip()

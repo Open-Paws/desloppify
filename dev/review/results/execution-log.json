@@ -1,5 +1,13 @@
 [
   {"number": 484, "type": "pr", "decision": "IMPLEMENT_WITH_CHANGES", "commit": "18b497a2", "notes": "Cherry-picked + added regression tests"},
   {"number": 486, "type": "pr", "decision": "REJECT_AND_FIX", "commit": "61bb7cb3", "notes": "Bug real, fix wrong. Wrote correct one-liner with tests. Credited contributor."},
-  {"number": 485, "type": "pr", "decision": "IMPLEMENT_WITH_CHANGES", "commit": "1a0439e2", "notes": "Stage 2 overturned Stage 1 rejection. Cherry-picked synthetic loop fix only; dataclass part handled via #486 fix."}
+  {"number": 485, "type": "pr", "decision": "IMPLEMENT_WITH_CHANGES", "commit": "1a0439e2", "notes": "Stage 2 overturned Stage 1 rejection. Cherry-picked synthetic loop fix only; dataclass part handled via #486 fix."},
+  {"number": 495, "type": "pr", "decision": "IMPLEMENT_WITH_CHANGES", "commit": "8411efed", "notes": "Cherry-picked file-read UTF-8 encoding fixes; dropped subprocess kwargs in attempts.py (test mock compat)"},
+  {"number": 489, "type": "pr", "decision": "IMPLEMENT_WITH_CHANGES", "commit": "36805343", "notes": "src-layout support. Moved _SRC_PREFIXES to module-level constant."},
+  {"number": 494, "type": "issue", "decision": "IMPLEMENT", "commit": "bb531dec", "notes": "stdin=DEVNULL + --yes flag + node_modules pre-check for knip hang"},
+  {"number": 493, "type": "pr", "decision": "REJECT", "commit": null, "notes": "Docs with wrong test paths, draft artifacts, low priority. Keeping README minimal."},
+  {"number": 189, "type": "pr", "decision": "REJECT", "commit": null, "notes": "WIP, stale imports from renamed modules. Encouraged rebase and split."},
+  {"number": 492, "type": "issue", "decision": "DEFER", "commit": null, "notes": "Valid __init__.py re-export enhancement, deferred to follow-up release."},
+  {"number": 491, "type": "issue", "decision": "REJECT", "commit": null, "notes": "Anti-gaming safeguard working as designed. Workaround: adjust target."},
+  {"number": 490, "type": "issue", "decision": "CLOSE_NOT_ACTIONABLE", "commit": null, "notes": "Insufficient repro info. Asked for project structure and config."}
 ]

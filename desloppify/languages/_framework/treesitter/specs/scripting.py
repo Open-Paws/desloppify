@@ -50,6 +50,8 @@ BASH_SPEC = TreeSitterLangSpec(
     import_query="""
         (command
             name: (command_name) @_cmd
+            (#match? @_cmd "^(source|\\.)$")
+            .
             argument: (word) @path) @import
     """,
     resolve_import=resolve_bash_source,

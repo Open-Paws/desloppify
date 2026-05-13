@@ -74,13 +74,14 @@ def test_override_resolve_helpers_cover_synthetic_split_and_blocked_stages(
     blocked_cluster = resolve_helpers_mod.check_cluster_guard(
         ["small"], cluster_plan, state
     )
-    assert blocked_cluster is True
+    assert blocked_cluster is False
     out = capsys.readouterr().out
-    assert "mark them done individually first" in out
+    assert out == ""
 
     step_cluster_plan = {
         "clusters": {
             "step-cluster": {
+                "issue_ids": ["i1", "i2"],
                 "action_steps": [{"title": "Do auth fix", "issue_refs": ["i1", "i2"]}],
             }
         }
@@ -88,7 +89,53 @@ def test_override_resolve_helpers_cover_synthetic_split_and_blocked_stages(
     blocked_step_cluster = resolve_helpers_mod.check_cluster_guard(
         ["step-cluster"], step_cluster_plan, state
     )
-    assert blocked_step_cluster is True
+    assert blocked_step_cluster is False
+
+
+def test_override_resolve_cmd_confirm_allows_small_cluster(monkeypatch) -> None:
+    state = {
+        "issues": {
+            "i1": {"status": "open", "summary": "First", "detector": "review"},
+            "i2": {"status": "open", "summary": "Second", "detector": "review"},
+        }
+    }
+    plan = {"clusters": {"small": {"issue_ids": ["i1", "i2"]}}}
+    delegated: list[argparse.Namespace] = []
+    log_entries: list[dict] = []
+
+    monkeypatch.setattr(
+        override_resolve_cmd_mod,
+        "command_runtime",
+        lambda _args: SimpleNamespace(state=state),
+    )
+    monkeypatch.setattr(override_resolve_cmd_mod, "load_plan", lambda: plan)
+    monkeypatch.setattr(
+        override_resolve_cmd_mod,
+        "append_log_entry",
+        lambda *_args, **kwargs: log_entries.append(kwargs),
+    )
+    monkeypatch.setattr(override_resolve_cmd_mod, "save_plan", lambda _plan: None)
+    monkeypatch.setattr(override_resolve_cmd_mod, "cmd_resolve", delegated.append)
+
+    override_resolve_cmd_mod.cmd_plan_resolve(
+        argparse.Namespace(
+            patterns=["small"],
+            attest=None,
+            note="resolved the small cluster by applying the reviewed fix",
+            confirm=True,
+            force_resolve=False,
+            state=None,
+            lang=None,
+            path=".",
+            exclude=None,
+        )
+    )
+
+    assert len(delegated) == 1
+    assert delegated[0].patterns == ["small"]
+    assert delegated[0].status == "fixed"
+    assert delegated[0].attest.startswith("I have actually resolved the small cluster")
+    assert log_entries[0]["cluster_name"] == "small"
 
 
 def test_override_resolve_cmd_confirm_requires_note(capsys) -> None:
@@ -541,6 +588,60 @@ def test_plan_promote_moves_backlog_items_into_queue(monkeypatch, capsys) -> Non
     assert plan["promoted_ids"] == ["unused::a"]
 
 
+def test_plan_promote_filters_resolved_cluster_members(monkeypatch, capsys) -> None:
+    plan = {
+        "queue_order": [],
+        "clusters": {"cluster-a": {"issue_ids": ["fixed::a", "unused::b"]}},
+    }
+    runtime = SimpleNamespace(
+        state={
+            "issues": {
+                "fixed::a": {"id": "fixed::a", "status": "fixed"},
+                "unused::b": {"id": "unused::b", "status": "open"},
+            }
+        }
+    )
+    saved: list[dict] = []
+
+    monkeypatch.setattr(reorder_handlers_mod, "command_runtime", lambda _args: runtime)
+    monkeypatch.setattr(reorder_handlers_mod, "require_issue_inventory", lambda _state: True)
+    monkeypatch.setattr(reorder_handlers_mod, "load_plan", lambda: plan)
+    monkeypatch.setattr(reorder_handlers_mod, "save_plan", lambda plan_obj: saved.append(plan_obj))
+    monkeypatch.setattr(reorder_handlers_mod, "append_log_entry", lambda *_a, **_k: None)
+
+    reorder_handlers_mod.cmd_plan_promote(
+        argparse.Namespace(patterns=["cluster-a"], position="top", target=None)
+    )
+    out = capsys.readouterr().out
+
+    assert "Promoted 1 item(s)" in out
+    assert plan["queue_order"] == ["unused::b"]
+    assert plan["promoted_ids"] == ["unused::b"]
+    assert saved == [plan]
+
+
+def test_plan_promote_noops_when_cluster_has_no_actionable_members(monkeypatch, capsys) -> None:
+    plan = {"queue_order": [], "clusters": {"cluster-a": {"issue_ids": ["fixed::a"]}}}
+    runtime = SimpleNamespace(
+        state={"issues": {"fixed::a": {"id": "fixed::a", "status": "fixed"}}}
+    )
+    saved: list[dict] = []
+
+    monkeypatch.setattr(reorder_handlers_mod, "command_runtime", lambda _args: runtime)
+    monkeypatch.setattr(reorder_handlers_mod, "require_issue_inventory", lambda _state: True)
+    monkeypatch.setattr(reorder_handlers_mod, "load_plan", lambda: plan)
+    monkeypatch.setattr(reorder_handlers_mod, "save_plan", lambda plan_obj: saved.append(plan_obj))
+
+    reorder_handlers_mod.cmd_plan_promote(
+        argparse.Namespace(patterns=["cluster-a"], position="top", target=None)
+    )
+    out = capsys.readouterr().out
+
+    assert "No matching actionable issues found" in out
+    assert plan["queue_order"] == []
+    assert saved == []
+
+
 def test_override_skip_helpers_and_commands(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
         override_skip_mod, "skip_kind_requires_attestation", lambda _kind: True
@@ -932,6 +1033,17 @@ def test_validate_skip_requirements_accepts_review_attestation() -> None:
         attestation=(
             "I have reviewed this triage skip against the code and I am not gaming "
             "the score by suppressing a real defect."
+        ),
+        note="Reviewed and intentionally accepted for now.",
+    )
+
+
+def test_validate_skip_requirements_accepts_i_have_actually_attestation() -> None:
+    assert override_skip_mod._validate_skip_requirements(
+        kind="permanent",
+        attestation=(
+            "I have actually reviewed this triage skip against the code and I am "
+            "not gaming the score by suppressing a real defect."
         ),
         note="Reviewed and intentionally accepted for now.",
     )

@@ -1,0 +1,10 @@
+{
+  "number": 447,
+  "type": "issue",
+  "role": "challenger",
+  "verdict": "ACCEPT",
+  "counter_case": "The communicate-score re-injection is an edge case that only triggers after queue-drain + rescan. The practical impact is a spurious queue item that the user can dismiss. The sentinel/guard system is already complex — adding another sentinel (communicate_score_resolved_this_cycle) adds more state to track across cycle boundaries. The simpler fix (stop clearing the sentinel at queue-drain) could have unintended effects on the next plan cycle.",
+  "summary": "The bug is real and well-investigated. The edge case is narrow but affects real users who complete their plan and rescan. The proposed fix (stop clearing previous_plan_start_scores at queue-drain) is minimal and correct. Stage 1's assessment is sound.",
+  "confidence": "medium",
+  "implementation_notes": "PR #448 may already address this. Review that PR first before implementing independently."
+}

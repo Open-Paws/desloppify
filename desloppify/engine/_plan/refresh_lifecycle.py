@@ -102,9 +102,7 @@ def _touches_objective_issue(
     if not isinstance(state, dict):
         return True
 
-    issues = state.get("work_items")
-    if not isinstance(issues, dict):
-        issues = state.get("issues", {})
+    issues = state.get("work_items") or state.get("issues", {})
     if not isinstance(issues, dict):
         return True
 
@@ -142,20 +140,11 @@ def migrate_legacy_phase(plan: PlanModel) -> bool:
     if migrated is None:
         return False
 
-    # Only run the execute-promotion heuristic for coarse legacy phases
-    # that are genuinely ambiguous.  Fine-grained phases like
-    # "assessment_postflight" or "review_initial" already encode intent
-    # and must NOT be promoted to execute.
-    _COARSE_LEGACY_PHASES = {"scan", "review", "workflow", "triage"}
-    if (
-        migrated == "plan"
-        and phase in _COARSE_LEGACY_PHASES
-        and plan.get("plan_start_scores")
-    ):
+    if migrated == "plan" and plan.get("plan_start_scores"):
         queue_order = plan.get("queue_order", [])
         has_plan_work = any(
             isinstance(item_id, str)
-            and item_id.startswith(("workflow::", "triage::"))
+            and (item_id.startswith("workflow::") or item_id.startswith("triage::"))
             for item_id in queue_order
         )
         if not has_plan_work:
@@ -163,7 +152,6 @@ def migrate_legacy_phase(plan: PlanModel) -> bool:
 
     refresh_state[_LIFECYCLE_PHASE_KEY] = migrated
     return True
-
 
 
 def current_lifecycle_phase(plan: PlanModel) -> str:
@@ -299,10 +287,6 @@ def carry_forward_subjective_review(
         normalized_old_postflight = int(old_postflight_scan_count or 0)
     except (TypeError, ValueError):
         normalized_old_postflight = 0
-    # If the postflight boundary has already moved past the old value,
-    # the review marker belongs to a stale cycle — don't carry it forward.
-    if refresh_state.get(_POSTFLIGHT_SCAN_KEY) != normalized_old_postflight:
-        return False
     marker = refresh_state.get(_SUBJECTIVE_REVIEW_KEY)
     if marker != normalized_old_postflight:
         return False

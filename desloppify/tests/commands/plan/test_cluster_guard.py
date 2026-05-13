@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from desloppify.app.commands.plan.override.resolve_helpers import (
-    _CLUSTER_INDIVIDUAL_THRESHOLD,
     check_cluster_guard as _check_cluster_guard,
 )
 from desloppify.engine._plan.schema import empty_plan, ensure_plan_defaults
@@ -45,14 +44,14 @@ def _state_with_issues(*ids: str) -> dict:
 # Tests
 # ---------------------------------------------------------------------------
 
-def test_cluster_guard_blocks_small_cluster():
-    """Clusters with <= threshold items should be blocked."""
+def test_cluster_guard_allows_small_cluster():
+    """Cluster-name resolve should expand small clusters instead of blocking."""
     ids = [f"f{i}" for i in range(5)]
     plan = _plan_with_cluster("auto/test", ids)
     state = _state_with_issues(*ids)
 
     blocked = _check_cluster_guard(["auto/test"], plan, state)
-    assert blocked is True
+    assert blocked is False
 
 
 def test_cluster_guard_blocks_empty_cluster(capsys):
@@ -69,8 +68,8 @@ def test_cluster_guard_blocks_empty_cluster(capsys):
 
 
 def test_cluster_guard_allows_large_cluster():
-    """Clusters with > threshold items should be allowed."""
-    ids = [f"f{i}" for i in range(_CLUSTER_INDIVIDUAL_THRESHOLD + 1)]
+    """Large clusters are also left to the downstream resolver."""
+    ids = [f"f{i}" for i in range(11)]
     plan = _plan_with_cluster("auto/test", ids)
     state = _state_with_issues(*ids)
 
@@ -87,23 +86,21 @@ def test_cluster_guard_allows_non_cluster_pattern():
     assert blocked is False
 
 
-def test_cluster_guard_at_threshold_boundary():
-    """Exactly threshold items should be blocked."""
-    ids = [f"f{i}" for i in range(_CLUSTER_INDIVIDUAL_THRESHOLD)]
+def test_cluster_guard_allows_ten_item_cluster():
+    """The old individual-resolution threshold no longer blocks clusters."""
+    ids = [f"f{i}" for i in range(10)]
     plan = _plan_with_cluster("auto/test", ids)
     state = _state_with_issues(*ids)
 
     blocked = _check_cluster_guard(["auto/test"], plan, state)
-    assert blocked is True
+    assert blocked is False
 
 
-def test_cluster_guard_prints_items(capsys):
-    """Guard should print the items in the cluster."""
+def test_cluster_guard_does_not_print_items_for_resolvable_cluster(capsys):
+    """Resolvable clusters are left for the downstream resolver to expand."""
     plan = _plan_with_cluster("auto/test", ["f1", "f2"])
     state = _state_with_issues("f1", "f2")
 
     _check_cluster_guard(["auto/test"], plan, state)
     captured = capsys.readouterr()
-    assert "f1" in captured.out
-    assert "f2" in captured.out
-    assert "individually" in captured.out
+    assert captured.out == ""

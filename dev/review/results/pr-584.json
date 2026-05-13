@@ -1,0 +1,32 @@
+{
+  "number": 584,
+  "type": "pr",
+  "title": "Disambiguate colliding reflect ledger tokens",
+  "author": "tristanmanchester",
+  "stage1": {
+    "verdict": "ACCEPT_WITH_CONDITIONS",
+    "summary": "The underlying bug is real: reflect accounting currently resolves repeated short ledger IDs by bucket order in validation/reflect_accounting.py, so two distinct review issues ending in the same token can be silently assigned based on ledger line order rather than identity. The PR fixes the main prompt, parser, validation, and disposition paths by requiring full IDs only for colliding short IDs while preserving short-token compatibility for unique IDs. Tests cover the parser, accounting validator, and prompt generation. One repair-prompt helper still computes display tokens from only the missing/duplicate subset, so if just one member of a colliding short-ID pair is missing it can print the ambiguous short token in the repair section even though the full issue set requires the full ID.",
+    "conditions": [
+      "Make reflect repair prompt missing/duplicate token display use the full valid issue-id set from triage_input, not only the missing_ids or duplicate_ids subset, so a lone missing member of a colliding short-id group is still displayed as its full issue ID.",
+      "Add a regression for build_reflect_repair_prompt where valid issues include two IDs with the same short token, only one of them is missing, and the repair prompt's Missing tokens line uses the full issue ID rather than the ambiguous short token."
+    ],
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": [],
+    "real_problem": true
+  },
+  "stage3": {
+    "decision": "IMPLEMENT_WITH_CHANGES",
+    "reasoning": "Implemented the accepted reflect-ledger collision fix while satisfying the repair-prompt condition. Required ledger tokens now remain short only when unique; colliding short IDs require the full issue ID. Parser/accounting validation no longer resolves ambiguous short IDs by ledger order, and repair-prompt missing/duplicate display is computed from the full valid issue-id set so a lone missing member of a collision is still shown as its full ID.",
+    "commit": "589216d0",
+    "changes_applied": [
+      "Added required/display token helpers for reflect issue IDs.",
+      "Updated reflect prompts, repair prompts, parser resolution, and validation output to use exact ledger tokens.",
+      "Rejected ambiguous short-token collisions instead of assigning them by order.",
+      "Added regressions for parser collisions, prompt generation, and repair prompts with a lone missing colliding ID."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/plan/test_reflect_disposition_ledger.py desloppify/tests/commands/plan/test_triage_runner.py desloppify/tests/commands/plan/test_triage_split_modules_direct.py desloppify/tests/commands/plan/test_triage_stage_flow_observe_reflect_organize_direct.py desloppify/tests/plan/test_unified_disposition_map.py -q"
+    ]
+  }
+}

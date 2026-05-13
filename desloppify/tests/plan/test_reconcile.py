@@ -167,6 +167,35 @@ def test_reconcile_prunes_existing_superseded_references():
     assert "a" not in plan["clusters"]["my-cluster"]["issue_ids"]
 
 
+def test_reconcile_supersedes_resolved_action_references():
+    """Resolved IDs should not linger as queue/promoted/cluster work."""
+    plan = _plan_with_queue("a", "b")
+    ensure_plan_defaults(plan)
+    plan["promoted_ids"] = ["a", "b"]
+    create_cluster(plan, "my-cluster")
+    add_to_cluster(plan, "my-cluster", ["a", "b"])
+
+    state = _state_with_issues("b")
+    state["issues"]["a"] = {
+        "id": "a",
+        "status": "fixed",
+        "detector": "test",
+        "file": "test.py",
+        "tier": 1,
+        "confidence": "high",
+        "summary": "Issue a",
+    }
+
+    result = reconcile_plan_after_scan(plan, state)
+
+    assert "a" in result.superseded
+    assert "a" not in plan["queue_order"]
+    assert "a" not in plan["promoted_ids"]
+    assert "a" not in plan["clusters"]["my-cluster"]["issue_ids"]
+    assert "b" in plan["queue_order"]
+    assert "b" in plan["promoted_ids"]
+
+
 # ---------------------------------------------------------------------------
 # Active clusters completed when all items resolved
 # ---------------------------------------------------------------------------

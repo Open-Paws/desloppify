@@ -63,8 +63,6 @@ def load_progression(path: Path | None = None) -> list[dict[str, Any]]:
 def last_plan_checkpoint_timestamp(path: Path | None = None) -> str | None:
     """Return the most recent plan-checkpoint timestamp from the progression log."""
     for event in reversed(load_progression(path)):
-        if not isinstance(event, dict):
-            continue
         if event.get("event_type") != "plan_checkpoint":
             continue
         timestamp = event.get("timestamp")

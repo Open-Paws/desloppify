@@ -1,0 +1,35 @@
+{
+  "number": 580,
+  "type": "pr",
+  "title": "Ignore TypeScript comments in syntax scan",
+  "author": "tristanmanchester",
+  "stage1": {
+    "verdict": "ACCEPT_WITH_CONDITIONS",
+    "summary": "The underlying bug is real: find_balanced_end() and extract_body_between_braces() currently count parens/braces inside TypeScript comments, which can make fix_debug_logs(), fix_dead_useeffect(), and remove_empty_blocks() stop at the wrong line or mis-detect empty bodies. The PR adds relevant regressions and fixes the demonstrated comment cases, but its new _iter_code_chars() strips block comments with raw line.find() before string-aware scanning, so string literals containing /* can now make balanced code look unbalanced. I verified this regression against the PR head: find_balanced_end([\"foo('/*', bar)\\n\"], 0, track=\"parens\") returns None on the PR but 0 on main, and a multiline console.log with \"'/*'\" similarly returns None instead of the closing line.",
+    "conditions": [
+      "Make the comment-skipping path string/template-literal aware before recognizing /* or */ delimiters. A suitable fix would scan the full selected range with a state machine that tracks strings and block comments together, or reuse/extend strip_c_style_comments in a way that preserves line boundaries for find_balanced_end().",
+      "Add regression tests for balanced parens/braces when string literals contain comment delimiters, including at least a single-line call like foo('/*', bar) and a multiline console.log whose argument string contains /*."
+    ],
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": [
+      573
+    ],
+    "real_problem": true,
+    "suggested_fix": "Keep the intended comment-ignoring behavior, but implement it with one string-aware scanner rather than a raw line.find() block-comment pre-pass. The scanner must ignore // and /* */ only when outside strings/template literals and must preserve enough line mapping to return the correct ending line."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT_WITH_CHANGES",
+    "reasoning": "Implemented the accepted TypeScript comment-skipping fix while addressing the Stage 1 regression. The syntax scanner now recognizes comments only when outside strings and template literals, preserves source offsets for body extraction, and maps joined multiline scans back to the correct original line numbers.",
+    "commit": "cfaf2561",
+    "changes_applied": [
+      "Replaced the raw scan_code-based TypeScript syntax walk with a comment-aware scanner that still treats comment delimiters inside strings as string content.",
+      "Updated balanced-line detection to scan multiline ranges as one source string while preserving line mapping.",
+      "Updated body extraction to find opening and closing braces outside comments and strings.",
+      "Added regressions for comment delimiters inside strings, comments containing braces/parens, and multiline debug-log removal with a string containing /*."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/languages/csharp/tests/test_csharp_parse_helpers.py desloppify/languages/cxx/tests/test_extractors.py desloppify/languages/dart/tests/test_extractors.py desloppify/languages/rust/tests/test_extractors.py desloppify/languages/typescript/tests/test_ts_fixers.py -q"
+    ]
+  }
+}

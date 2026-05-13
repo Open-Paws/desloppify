@@ -29,6 +29,26 @@ def test_capture_cluster_context_returns_remaining_counts() -> None:
     assert done_ctx.cluster_remaining == 0
 
 
+def test_completed_cluster_names_returns_all_empty_clusters() -> None:
+    plan = {
+        "overrides": {
+            "a": {"cluster": "epic/x"},
+            "b": {"cluster": "epic/x"},
+            "c": {"cluster": "epic/y"},
+            "d": {"cluster": "epic/y"},
+        },
+        "clusters": {
+            "epic/x": {"issue_ids": ["a", "b"]},
+            "epic/y": {"issue_ids": ["c", "d"]},
+        },
+    }
+
+    assert living_plan_mod._completed_cluster_names(plan, ["a", "b", "c", "d"]) == [
+        "epic/x",
+        "epic/y",
+    ]
+
+
 def test_update_living_plan_after_resolve_no_living_plan(monkeypatch) -> None:
     monkeypatch.setattr(living_plan_mod, "has_living_plan", lambda _p=None: False)
     plan, ctx = living_plan_mod.update_living_plan_after_resolve(
@@ -83,6 +103,58 @@ def test_update_living_plan_after_resolve_fixed_flow(monkeypatch, capsys) -> Non
     assert "add" in calls and "clear" in calls and "save" in calls
 
 
+def test_update_living_plan_after_resolve_marks_all_completed_clusters_done(
+    monkeypatch,
+) -> None:
+    plan = {
+        "queue_order": ["a", "b"],
+        "active_cluster": "epic/y",
+        "overrides": {
+            "a": {"cluster": "epic/x"},
+            "b": {"cluster": "epic/y"},
+        },
+        "clusters": {
+            "epic/x": {"issue_ids": ["a"], "execution_status": "active"},
+            "epic/y": {"issue_ids": ["b"], "execution_status": "active"},
+        },
+    }
+    calls: list[tuple[str, str | None]] = []
+
+    monkeypatch.setattr(living_plan_mod, "has_living_plan", lambda _p=None: True)
+    monkeypatch.setattr(living_plan_mod, "load_plan", lambda _p=None: plan)
+    monkeypatch.setattr(living_plan_mod, "purge_ids", lambda _plan, _ids: 2)
+    monkeypatch.setattr(living_plan_mod, "auto_complete_steps", lambda _plan: [])
+    monkeypatch.setattr(
+        living_plan_mod,
+        "append_log_entry",
+        lambda _plan, event, **kwargs: calls.append((event, kwargs.get("cluster_name"))),
+    )
+    monkeypatch.setattr(
+        living_plan_mod, "add_uncommitted_issues", lambda *_a, **_k: None
+    )
+    monkeypatch.setattr(
+        living_plan_mod, "invalidate_postflight_scan", lambda *_a, **_k: None
+    )
+    monkeypatch.setattr(living_plan_mod, "save_plan", lambda _plan, _p=None: None)
+
+    updated_plan, ctx = living_plan_mod.update_living_plan_after_resolve(
+        args=_args(status="fixed", note="done"),
+        all_resolved=["a", "b"],
+        attestation="attest",
+    )
+
+    assert updated_plan is plan
+    assert ctx.cluster_name == "epic/x"
+    assert updated_plan["clusters"]["epic/x"]["execution_status"] == "done"
+    assert updated_plan["clusters"]["epic/y"]["execution_status"] == "done"
+    assert updated_plan["active_cluster"] is None
+    assert calls == [
+        ("resolve", None),
+        ("cluster_done", "epic/x"),
+        ("cluster_done", "epic/y"),
+    ]
+
+
 def test_update_living_plan_after_resolve_reconciles_when_queue_drains(
     monkeypatch,
 ) -> None:
@@ -97,7 +169,7 @@ def test_update_living_plan_after_resolve_reconciles_when_queue_drains(
     monkeypatch.setattr(living_plan_mod, "has_living_plan", lambda _p=None: True)
     monkeypatch.setattr(living_plan_mod, "load_plan", lambda _p=None: plan)
 
-    def _purge(_plan, _ids) -> int:
+    def _purge(_plan, _ids):
         _plan["queue_order"] = []
         return 1
 
@@ -193,7 +265,7 @@ def test_update_living_plan_after_resolve_reconciles_once_when_invalidated_and_d
     monkeypatch.setattr(living_plan_mod, "has_living_plan", lambda _p=None: True)
     monkeypatch.setattr(living_plan_mod, "load_plan", lambda _p=None: plan)
 
-    def _purge(_plan, _ids) -> int:
+    def _purge(_plan, _ids):
         _plan["queue_order"] = []
         return 1
 

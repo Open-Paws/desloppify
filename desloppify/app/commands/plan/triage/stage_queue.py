@@ -24,8 +24,8 @@ def cascade_clear_dispositions(meta: dict[str, Any], from_stage: str) -> None:
     """Reset issue_dispositions when an earlier stage reruns.
 
     - observe rerun: wipe the entire disposition map (verdicts change)
-    - reflect rerun: clear decision/target/decision_source from all entries
-      (observe verdicts remain, but reflect decisions are outdated)
+    - reflect rerun: clear reflect decision/target/decision_source entries
+      (observe verdicts and observe-auto skips remain)
     """
     dispositions = meta.get("issue_dispositions")
     if not dispositions:
@@ -34,6 +34,8 @@ def cascade_clear_dispositions(meta: dict[str, Any], from_stage: str) -> None:
         meta["issue_dispositions"] = {}
     elif from_stage == "reflect":
         for entry in dispositions.values():
+            if entry.get("decision_source") == "observe_auto":
+                continue
             entry.pop("decision", None)
             entry.pop("target", None)
             entry.pop("decision_source", None)

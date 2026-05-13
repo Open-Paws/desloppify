@@ -82,6 +82,33 @@ class TestCmdDetect:
         with pytest.raises(CommandError) as exc_info:
             cmd_detect(FakeArgs())
         assert exc_info.value.exit_code == 1
+        assert "Available:" in exc_info.value.message
+
+    def test_catalog_detector_error_explains_scan_show_workflow(self, monkeypatch):
+        """Catalog detectors that are not direct commands get scan/show guidance."""
+
+        class FakeLang(_FakeLangBase):
+            name = "rust"
+            detect_commands = {"cycles": lambda a: None, "cargo_error": lambda a: None}
+            large_threshold = 500
+
+        monkeypatch.setattr(detect_mod, "resolve_lang", lambda args: FakeLang())
+
+        class FakeArgs:
+            detector = "security"
+            lang = "rust"
+            path = "crates/app"
+            threshold = None
+
+        with pytest.raises(CommandError) as exc_info:
+            cmd_detect(FakeArgs())
+
+        msg = exc_info.value.message
+        assert "Unknown direct detector for rust: security" in msg
+        assert "`security` is a scan/show detector" in msg
+        assert "desloppify scan --path crates/app" in msg
+        assert "desloppify show security" in msg
+        assert "Available direct detectors: cargo_error, cycles" in msg
 
     def test_valid_detector_dispatches(self, monkeypatch):
         """When detector is valid, it should be called."""

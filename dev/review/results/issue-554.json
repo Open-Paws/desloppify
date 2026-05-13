@@ -1,0 +1,28 @@
+{
+  "number": 554,
+  "type": "issue",
+  "title": "`desloppify scan` traceback runs through `desloppify/languages/rust/phases.py` even when invoked as `--path .`; same Python stacktrace keeps being Python 3.12 while `python3 --version` reports 3.13",
+  "author": "Vuk97",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "The issue body identifies a real install-diagnostics gap: `desloppify --version` is implemented in `desloppify/app/cli_support/parser.py` via `_cli_version_string()`, and it currently prints only the package version. It does not include `sys.version` or `sys.executable`, while `status` JSON/terminal output also lacks interpreter metadata. In installations where the console script belongs to a different Python than `python3`, this makes stack traces look inconsistent and gives users no quick way to confirm which interpreter is actually running desloppify. The requested fix is small, clear, and useful for debugging packaging/runtime issues.",
+    "confidence": "high",
+    "scope_estimate": "small",
+    "potential_duplicates": [],
+    "real_problem": true,
+    "suggested_fix": "Add interpreter metadata to the top-level version output, preferably by extending `_cli_version_string()` in `desloppify/app/cli_support/parser.py` to return the package version plus `Python {platform.python_version()} at {sys.executable}` on a second line. Update the existing `test_top_level_version_flag` and `test_top_level_short_version_flag` coverage in `desloppify/tests/commands/test_cli.py` to assert that the Python line is present. Optionally expose the same metadata in `status --json`, but the version command alone is enough to satisfy the core issue."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Added interpreter diagnostics to the top-level version output so users can immediately see which Python executable is actually running Desloppify. This addresses the reported mismatch where `python3 --version` differed from the Python shown in stack traces.",
+    "commit": "c88eb9ed",
+    "changes_applied": [
+      "Extended `_cli_version_string()` to include `Python <version> at <sys.executable>` on a second line.",
+      "Updated `--version` and `-V` parser tests to assert the interpreter line is present."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/languages/rust/tests/test_smells.py desloppify/languages/rust/tests/test_tools.py desloppify/tests/commands/test_cli.py -q",
+      "PYTHONPATH=/Users/peteromalley/Documents/desloppify PYENV_VERSION=3.11.11 python -m desloppify --version"
+    ]
+  }
+}

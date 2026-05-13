@@ -1,0 +1,28 @@
+{
+  "number": 601,
+  "type": "issue",
+  "title": "jscpd grandchild leaks at 100% CPU when subprocess timeout fires",
+  "author": "cryptiklemur",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "The issue is real and worth fixing. `detect_with_jscpd()` currently invokes `subprocess.run(..., timeout=120, check=True)` in `desloppify/engine/detectors/jscpd_adapter.py`; on timeout Python kills only the direct child process, while `npx`/node-launched jscpd descendants can survive outside the scan. This detector is reached through the shared boilerplate duplication phase and may also be prewarmed in a background executor, so a leaked jscpd process can keep consuming CPU after `scan` has recovered gracefully. The requested behavior is clear: run jscpd in an isolated process group/session and kill the whole group on timeout, while preserving the existing best-effort `None` result.",
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": [],
+    "real_problem": true
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented the timeout containment requested in the issue. `detect_with_jscpd()` no longer uses `subprocess.run()` for the jscpd invocation; it launches jscpd in a new session, waits with a timeout, and kills the process group on timeout before returning the existing best-effort `None` result. This preserves existing parse/error behavior while preventing `npx`/node descendants from surviving a detector timeout.",
+    "commit": "21a3c022",
+    "changes_applied": [
+      "Added `_run_jscpd_command()` using `subprocess.Popen(..., start_new_session=True)`.",
+      "Added process-group termination with a direct-process fallback for timeout cleanup.",
+      "Kept existing `CalledProcessError`, `OSError`, `FileNotFoundError`, and timeout handling semantics in `detect_with_jscpd()`.",
+      "Updated jscpd adapter tests to cover the new timeout process-group kill path."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/detectors/test_external_adapters.py -q"
+    ]
+  }
+}

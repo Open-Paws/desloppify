@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ._constants import _history_strict
+from .phase import stable_strict_streak
 
 
 def compute_headline(
@@ -100,7 +101,7 @@ def _compute_headline_inner(
     # Stagnation — suggest which dimension to focus on
     if phase == "stagnation":
         if strict_score is not None:
-            stuck_scans = min(len(history), 5)
+            stuck_scans = stable_strict_streak(history)
             wontfix = debt.get("wontfix_count", 0)
             # Point to the specific dimension dragging things down
             lowest_dims = dimensions.get("lowest_dimensions", [])

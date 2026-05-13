@@ -1,0 +1,31 @@
+{
+  "number": 581,
+  "type": "pr",
+  "title": "Reject non-finite prompt weights",
+  "author": "tristanmanchester",
+  "stage1": {
+    "verdict": "ACCEPT_WITH_CONDITIONS",
+    "summary": "The PR addresses a real validation gap: Python's JSON parsing and direct metadata paths can produce non-finite floats, and validate_prompt_meta currently accepts NaN/Infinity weights because is_numeric only checks int/float excluding bool. The change is in the right shared helper and adds focused regression tests, but the implementation converts every int to float before math.isfinite, which can raise OverflowError for very large integers in shared callers such as coerce_target_score, dimension_weight, extract_prompt_meta, and review assessment import cleanup. That turns malformed or extreme numeric input into an uncontrolled crash instead of existing clamp/fallback behavior.",
+    "conditions": [
+      "Change is_numeric so ints are accepted without float conversion after excluding bool, and only floats are checked with math.isfinite; for example: bool -> false, int -> true, float -> math.isfinite(value), other -> false.",
+      "Add regression coverage for a very large integer input so is_numeric and at least one shared caller such as coerce_target_score do not raise OverflowError."
+    ],
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": [],
+    "real_problem": true
+  },
+  "stage3": {
+    "decision": "IMPLEMENT_WITH_CHANGES",
+    "reasoning": "Implemented the accepted non-finite numeric validation while addressing the Stage 1 condition. `is_numeric()` now rejects NaN and infinities for floats, keeps bool excluded, and accepts ints without converting them through `float()`, so huge integer inputs do not raise `OverflowError`. `coerce_target_score()` also handles large ints directly before float conversion.",
+    "commit": "9da0e653",
+    "changes_applied": [
+      "Updated `is_numeric()` to reject non-finite floats while accepting ints without float conversion.",
+      "Adjusted target-score coercion to clamp large integer values without overflow.",
+      "Added tests for non-finite prompt weights and huge integer handling."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/review/policy/test_review_dimensions_direct.py desloppify/tests/core/test_config_schema_direct.py desloppify/tests/lang/common/test_bash_unused_imports.py desloppify/languages/typescript/tests/test_ts_fixers.py -q"
+    ]
+  }
+}

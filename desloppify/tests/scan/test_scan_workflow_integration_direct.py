@@ -9,6 +9,7 @@ from desloppify import state as state_mod
 from desloppify.app.commands.helpers.command_runtime import CommandRuntime
 from desloppify.app.commands.scan.workflow import (
     ScanRuntime,
+    ScanStateContractError,
     merge_scan_results,
     prepare_scan_runtime,
 )
@@ -66,6 +67,28 @@ def test_prepare_scan_runtime_uses_real_runtime_and_resets_subjective(tmp_path):
     assert naming["score"] == 0.0
     assert naming["source"] == "scan_reset_subjective"
     assert naming["reset_by"] == "scan_reset_subjective"
+
+
+def test_prepare_scan_runtime_rejects_file_scan_path(tmp_path):
+    scan_target = tmp_path / "src.rs"
+    scan_target.write_text("fn main() {}\n", encoding="utf-8")
+    runtime = CommandRuntime(config={}, state={}, state_path=tmp_path / "state.json")
+    args = SimpleNamespace(
+        path=str(scan_target),
+        runtime=runtime,
+        lang=None,
+        reset_subjective=False,
+        skip_slow=False,
+        profile=None,
+    )
+
+    try:
+        prepare_scan_runtime(args)
+    except ScanStateContractError as exc:
+        assert "scan --path must point to an existing directory" in str(exc)
+        assert str(scan_target) in str(exc)
+    else:  # pragma: no cover - assertion branch
+        raise AssertionError("expected file scan path to be rejected")
 
 
 def test_merge_scan_results_persists_state_and_reconciles_plan(tmp_path):

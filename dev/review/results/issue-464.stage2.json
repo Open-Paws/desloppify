@@ -1,0 +1,13 @@
+{
+  "number": 464,
+  "type": "issue",
+  "role": "challenger",
+  "verdict": "ACCEPT_WITH_CONDITIONS",
+  "counter_case": "Paths with spaces are an edge case on macOS/Linux (though common on Windows). The reporter may have been on v0.9.9 and the issue may have been silently fixed by subsequent path handling changes. Without reproduction on current code, this could be a ghost bug. The condition 'reproduce first' from Stage 1 is critical.",
+  "summary": "Stage 1 correctly conditioned acceptance on reproduction. The bug is plausible but unconfirmed on current code. The review --prepare path resolution chain differs from scan, which could cause space-handling discrepancies, but os.walk and Path both handle spaces natively. Must reproduce before implementing.",
+  "conditions": [
+    "Reproduce on current code (0.9.12) before implementing",
+    "If confirmed, fix in path resolution, not string quoting"
+  ],
+  "confidence": "medium"
+}

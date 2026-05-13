@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 
@@ -102,13 +103,19 @@ def strip_c_style_comments(text: str) -> str:
 
 
 def is_numeric(value: object) -> bool:
-    """Return True if *value* is an int or float but NOT a bool.
+    """Return True if *value* is a finite int or float but NOT a bool.
 
     Python's ``bool`` is a subclass of ``int``, so ``isinstance(True, int)``
     is ``True``.  Many JSON-derived payloads need to distinguish real numbers
     from booleans; this helper centralises that guard.
     """
-    return isinstance(value, int | float) and not isinstance(value, bool)
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int):
+        return True
+    if isinstance(value, float):
+        return math.isfinite(value)
+    return False
 
 
 __all__ = [

@@ -651,6 +651,10 @@ def test_build_rustdoc_warning_cmd_targets_one_package():
 def test_run_rustdoc_result_scans_each_workspace_library_package(tmp_path):
     workspace = tmp_path / "workspace"
     workspace.mkdir()
+    (workspace / "pkg-a" / "src").mkdir(parents=True)
+    (workspace / "pkg-a" / "src" / "lib.rs").write_text("pub fn a() {}\n")
+    (workspace / "pkg-c" / "src").mkdir(parents=True)
+    (workspace / "pkg-c" / "src" / "lib.rs").write_text("pub fn c() {}\n")
     commands: list[str] = []
 
     metadata = {
@@ -723,6 +727,86 @@ def test_run_rustdoc_result_scans_each_workspace_library_package(tmp_path):
     assert any("--package pkg-a" in command for command in commands)
     assert not any("--package pkg-b" in command for command in commands)
     assert any("--package pkg-c" in command for command in commands)
+
+
+def test_run_rustdoc_result_filters_missing_primary_span_files(tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "pkg-a" / "src").mkdir(parents=True)
+    (workspace / "pkg-a" / "src" / "lib.rs").write_text("pub fn ok() {}\n")
+
+    metadata = {
+        "workspace_members": ["pkg-a 0.1.0 (path+file:///workspace/pkg-a)"],
+        "packages": [
+            {
+                "id": "pkg-a 0.1.0 (path+file:///workspace/pkg-a)",
+                "name": "pkg-a",
+                "targets": [{"kind": ["lib"], "crate_types": ["lib"]}],
+            }
+        ],
+    }
+
+    def rustdoc_messages() -> str:
+        existing = {
+            "reason": "compiler-message",
+            "message": {
+                "level": "warning",
+                "message": "missing docs",
+                "spans": [{"is_primary": True, "file_name": "pkg-a/src/lib.rs", "line_start": 1}],
+            },
+        }
+        missing = {
+            "reason": "compiler-message",
+            "message": {
+                "level": "warning",
+                "message": "stale docs warning",
+                "spans": [{"is_primary": True, "file_name": "src/lib.rs", "line_start": 1}],
+            },
+        }
+        return "\n".join(json.dumps(message) for message in (existing, missing))
+
+    def runner(args, **kwargs):
+        command = args[2] if args[:2] == ["/bin/sh", "-lc"] else " ".join(args)
+        if command == "cargo metadata --format-version=1 --no-deps":
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=json.dumps(metadata), stderr="")
+        if "--package pkg-a" in command:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout=rustdoc_messages(), stderr="")
+        raise AssertionError(f"unexpected command: {command}")
+
+    result = run_rustdoc_result(workspace, run_subprocess=runner)
+
+    assert result.status == "ok"
+    assert result.entries == [
+        {"file": "pkg-a/src/lib.rs", "line": 1, "message": "missing docs"}
+    ]
+
+
+def test_run_rustdoc_result_skips_binary_only_packages(tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    commands: list[str] = []
+    metadata = {
+        "workspace_members": ["pkg-bin 0.1.0 (path+file:///workspace/pkg-bin)"],
+        "packages": [
+            {
+                "id": "pkg-bin 0.1.0 (path+file:///workspace/pkg-bin)",
+                "name": "pkg-bin",
+                "targets": [{"kind": ["bin"], "crate_types": ["bin"]}],
+            }
+        ],
+    }
+
+    def runner(args, **kwargs):
+        command = args[2] if args[:2] == ["/bin/sh", "-lc"] else " ".join(args)
+        commands.append(command)
+        if command == "cargo metadata --format-version=1 --no-deps":
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=json.dumps(metadata), stderr="")
+        raise AssertionError(f"unexpected command: {command}")
+
+    result = run_rustdoc_result(workspace, run_subprocess=runner)
+
+    assert result.status == "empty"
+    assert commands == ["cargo metadata --format-version=1 --no-deps"]
 
 
 def test_run_rustdoc_result_returns_error_for_unparsed_package_failure(tmp_path):

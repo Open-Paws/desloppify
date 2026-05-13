@@ -24,6 +24,8 @@ def test_setup_parser_and_registry_are_wired() -> None:
     args = parser.parse_args(["setup", "--interface", "claude"])
     assert args.command == "setup"
     assert args.interface == "claude"
+    qwen_args = parser.parse_args(["setup", "--interface", "qwen"])
+    assert qwen_args.interface == "qwen"
 
     handlers = registry_mod.get_command_handlers()
     assert handlers["setup"] is setup_cmd_mod.cmd_setup
@@ -38,6 +40,7 @@ def test_global_install_writes_supported_targets(
     (tmp_path / ".gemini").mkdir()
     (tmp_path / ".config" / "agents").mkdir(parents=True)
     (tmp_path / ".config" / "opencode").mkdir(parents=True)
+    (tmp_path / ".qwen").mkdir()
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
     setup_cmd_mod.cmd_setup(_setup_args())
@@ -45,19 +48,18 @@ def test_global_install_writes_supported_targets(
     claude_target = tmp_path / ".claude" / "skills" / "desloppify" / "SKILL.md"
     codex_target = tmp_path / ".codex" / "AGENTS.md"
     gemini_target = tmp_path / ".gemini" / "skills" / "desloppify" / "SKILL.md"
-    amp_target = tmp_path / ".config" / "agents" / "skills" / "desloppify" / "SKILL.md"
-    opencode_target = tmp_path / ".config" / "opencode" / "skills" / "desloppify" / "SKILL.md"
+    qwen_target = tmp_path / ".qwen" / "skills" / "desloppify" / "SKILL.md"
     assert claude_target.is_file()
     assert codex_target.is_file()
     assert gemini_target.is_file()
-    assert amp_target.is_file()
-    assert opencode_target.is_file()
+    assert qwen_target.is_file()
     assert "desloppify-skill-version" in claude_target.read_text(encoding="utf-8")
     assert "<!-- desloppify-overlay: claude -->" in claude_target.read_text(encoding="utf-8")
     assert "<!-- desloppify-overlay: codex -->" in codex_target.read_text(encoding="utf-8")
     assert "<!-- desloppify-overlay: gemini -->" in gemini_target.read_text(encoding="utf-8")
-    assert "<!-- desloppify-overlay: amp -->" in amp_target.read_text(encoding="utf-8")
-    assert "<!-- desloppify-overlay: opencode -->" in opencode_target.read_text(encoding="utf-8")
+    qwen_content = qwen_target.read_text(encoding="utf-8")
+    assert qwen_content.startswith("---\n")
+    assert "<!-- desloppify-overlay: qwen -->" in qwen_content
 
 
 def test_global_single_interface_installs_only_requested_target(
@@ -192,6 +194,30 @@ def test_bundled_resources_are_readable() -> None:
         "DROID.md",
         "COPILOT.md",
         "OPENCODE.md",
+        "ROVODEV.md",
     ):
         text = resource_dir.joinpath(filename).read_text(encoding="utf-8")
         assert text.strip()
+
+
+def test_rovodev_global_setup_writes_dedicated_skill_file(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Rovo Dev install should write a dedicated SKILL.md under ~/.rovodev."""
+    (tmp_path / ".rovodev").mkdir()
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    setup_cmd_mod.cmd_setup(_setup_args(interface="rovodev"))
+
+    target = tmp_path / ".rovodev" / "skills" / "desloppify" / "SKILL.md"
+    assert target.is_file()
+    content = target.read_text(encoding="utf-8")
+    assert "desloppify-skill-version" in content
+    assert "<!-- desloppify-overlay: rovodev -->" in content
+
+
+def test_setup_parser_accepts_rovodev_choice() -> None:
+    parser = create_parser()
+    args = parser.parse_args(["setup", "--interface", "rovodev"])
+    assert args.interface == "rovodev"

@@ -134,7 +134,7 @@ def test_execute_batch_run_partial_path_records_failures() -> None:
     printed_failures: list[list[int]] = []
     prepared = _prepared_context(append_run_log=logs.append)
     deps = SimpleNamespace(
-        run_codex_batch_fn=lambda *_a, **_k: 0,
+        run_batch_fn=lambda *_a, **_k: 0,
         execute_batches_fn=lambda **_k: [1],
         collect_batch_results_fn=lambda **_k: ({}, []),
         colorize_fn=lambda text, _tone=None: text,
@@ -173,7 +173,7 @@ def test_execute_batch_run_keyboard_interrupt_exits_130() -> None:
         write_run_summary=lambda **kwargs: summary_calls.append(kwargs),
     )
     deps = SimpleNamespace(
-        run_codex_batch_fn=lambda *_a, **_k: 0,
+        run_batch_fn=lambda *_a, **_k: 0,
         execute_batches_fn=lambda **_k: (_ for _ in ()).throw(KeyboardInterrupt()),
         collect_batch_results_fn=lambda **_k: ({}, []),
         colorize_fn=lambda text, _tone=None: text,

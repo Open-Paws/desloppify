@@ -1,0 +1,29 @@
+{
+  "number": 543,
+  "type": "issue",
+  "title": "`unused::unused_import` detector false-positive on Rust imports that are actively used",
+  "author": "Vuk97",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "This is a real and actionable Rust detector problem. The Rust language config includes `*all_treesitter_phases(\"rust\")`, which adds the generic tree-sitter unused-import phase to normal Rust scans. That detector is not Rust-aware: it captures `use_declaration` nodes, derives names by text heuristics, and checks for regex word-boundary occurrences in the remaining source instead of using rustc/cargo diagnostics or Rust name resolution. In particular, wildcard imports such as `use super::*;` are reduced to the literal name `*`, so the search pattern cannot represent real use of imported symbols and can produce bogus `Unused import: *` findings. The issue's grouped-import examples may overlap with the existing grouped-use handling now present in `unused_imports.py`, but the broader report is still valid: Rust unused-import findings should not be emitted from this generic heuristic when rustc reports no `unused_imports` warning. Scope is clear: make Rust unused-import detection rustc-backed, or disable/replace the generic tree-sitter unused-import phase for Rust with conservative Rust-specific behavior and regression tests for grouped imports plus `#[cfg(test)] use super::*`.",
+    "confidence": "medium",
+    "scope_estimate": "medium",
+    "potential_duplicates": [],
+    "real_problem": true,
+    "suggested_fix": "Prefer consuming `cargo check`/`cargo build --message-format=json` diagnostics for `unused_imports` and mapping those diagnostics into `unused::unused_import` issues. If that is too heavy for the default scan path, remove Rust from the generic tree-sitter unused-import phase until a Rust-aware implementation exists. Add regression coverage for grouped imports used in function signatures/bodies, `self` in grouped imports, wildcard imports, and `#[cfg(test)] mod tests { use super::*; }` cases where rustc emits no warning."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented the conservative Stage 1 recommendation: Rust no longer runs the generic tree-sitter unused-import phase. That heuristic is not Rust name-resolution aware and can report false `unused::unused_import` findings for valid grouped or wildcard imports, especially when cargo/rustc emits no `unused_imports` warning.",
+    "commit": "e7eedb83",
+    "changes_applied": [
+      "Filtered the generic `Unused imports` tree-sitter phase out of `RustConfig` while preserving the other Rust tree-sitter phases.",
+      "Added a Rust config regression test so the generic unused-import phase is not reintroduced accidentally."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/languages/rust/tests/test_init.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/lang/common/test_phase_builders.py desloppify/languages/cxx/tests/test_init.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/ -q"
+    ]
+  }
+}

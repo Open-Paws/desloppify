@@ -1,0 +1,9 @@
+{
+  "number": 421,
+  "type": "issue",
+  "role": "challenger",
+  "verdict": "NOT_ACTIONABLE",
+  "counter_case": "A standing bounty is a legitimate quality signal — it shows confidence in the tool and incentivizes external testing.",
+  "summary": "Confirming Stage 1 NOT_ACTIONABLE verdict. This is a bounty offer, not a bug report or feature request. No code changes needed.",
+  "confidence": "high"
+}

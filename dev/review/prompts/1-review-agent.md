@@ -76,15 +76,17 @@ Read `review/schema.json` for field definitions. Write to `review/results/{TYPE}
 
 **Scope estimate** = risk surface, NOT diff size. Small = isolated, few callers. Medium = touches shared code. Large = crosses modules, affects state persistence, or could break plugins.
 
+**Bias to action:** Confirmed bug → ACCEPT. Multiple bugs in one issue → still ACCEPT. ACCEPT_WITH_CONDITIONS is only for items needing specific *code changes*, never process steps ("split into issues," "needs tracking"). When unsure, set `"confidence": "low"` and add `"open_questions"` — Stage 3 will ask the maintainer.
+
 Verdicts:
 - **ACCEPT**: Good to merge/implement as-is.
-- **ACCEPT_WITH_CONDITIONS**: Good idea but needs specific changes. Only use if the changes are concrete and enumerable — not "needs improvement."
+- **ACCEPT_WITH_CONDITIONS**: Good idea but needs specific *code* changes. Only use if the changes are concrete and enumerable — not "needs improvement" or "should be split up."
 - **ALREADY_FIXED**: The problem was real but has been fixed by a recent commit. Note the commit SHA. The item should be closed with a thank-you.
 - **NOT_ACTIONABLE**: The issue lacks enough information to act on (no repro steps, no version, no specifics). Or it's a vague complaint rather than a concrete bug/request. The item should get a polite request for more details.
 - **REJECT**: Not doing this. Problem doesn't exist, wrong approach, or doesn't clearly improve the codebase.
 
 **For issues specifically — classify the type** and adjust your assessment accordingly:
-- **Bug report**: Is the problem real? Can you reproduce it by tracing the code? If you can't reproduce, say so and explain what code paths you checked — don't just dismiss.
+- **Bug report**: Is the problem real? Trace the code. If you can't reproduce, cite the paths you checked. Confirmed bug → ACCEPT.
 - **Feature request**: Is it valuable? Is it feasible? Is the scope clear enough to implement? Don't reject just because it's big — flag it as large scope and let Stage 3 decide priority.
 - **User complaint / feedback**: Is there an actionable fix buried in the complaint? If not, it's NOT_ACTIONABLE.
 - **Tracking / meta issue**: Is there remaining work? Summarize the current status.

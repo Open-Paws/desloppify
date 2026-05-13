@@ -285,6 +285,23 @@ def parse_next_lint(output: str, scan_path: Path) -> tuple[list[dict], dict]:
     return entries, {"potential": potential}
 
 
+def parse_air(output: str, scan_path: Path) -> list[dict]:
+    """Parse air format --check output."""
+    del scan_path
+    entries: list[dict] = []
+    for line in output.splitlines():
+        match = re.match(r"^Would reformat:\s+(.+)$", line)
+        if match:
+            entries.append(
+                {
+                    "file": match.group(1).strip(),
+                    "line": 0,
+                    "message": "needs formatting (air)",
+                }
+            )
+    return entries
+
+
 ToolParseResult = list[dict] | tuple[list[dict], dict]
 ToolParser = Callable[[str, Path], ToolParseResult]
 
@@ -299,6 +316,7 @@ PARSERS: dict[str, ToolParser] = {
     "cargo": parse_cargo,
     "eslint": parse_eslint,
     "next_lint": parse_next_lint,
+    "air": parse_air,
 }
 
 
@@ -307,6 +325,7 @@ __all__ = [
     "ToolParserError",
     "ToolParseResult",
     "ToolParser",
+    "parse_air",
     "parse_cargo",
     "parse_credo",
     "parse_eslint",

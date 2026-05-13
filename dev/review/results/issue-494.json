@@ -1,0 +1,19 @@
+{
+  "number": 494,
+  "type": "issue",
+  "title": "TypeScript scan hangs at \"Dead exports\" phase when Knip is not a project dependency",
+  "author": "goobsnake",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "Excellent, thoroughly investigated bug report. The problem is real and confirmed by code tracing: knip_adapter.py runs `npx knip` via subprocess.run with capture_output=True but without stdin=DEVNULL. When knip is not installed locally, npx prompts for interactive confirmation, which blocks forever since stdin is captured. The Windows timeout bypass via orphaned child processes is also a real issue. The suggested fix (stdin=DEVNULL + --yes flag + pre-check for local install + process group on Windows) is comprehensive and correct. The stdin=DEVNULL fix alone would resolve the hang. This is a high-quality bug report with root cause analysis, reproduction steps, and correct fix suggestions.",
+    "confidence": "high",
+    "scope_estimate": "small",
+    "potential_duplicates": []
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Both stages agreed unanimously. Applied all three suggested fixes: stdin=DEVNULL, --yes flag for npx, and pre-check for knip in node_modules/.bin/. Skipped the Windows process group handling (nice-to-have, adds complexity — can be a follow-up). Updated existing tests to create the node_modules marker.",
+    "commit": "bb531dec",
+    "changes_applied": null
+  }
+}

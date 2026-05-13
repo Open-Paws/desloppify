@@ -1,0 +1,32 @@
+{
+  "number": 589,
+  "type": "pr",
+  "title": "Preserve else chains in TS log cleanup",
+  "author": "tristanmanchester",
+  "stage1": {
+    "verdict": "ACCEPT_WITH_CONDITIONS",
+    "summary": "The underlying bug is real: the TypeScript tagged-log fixer removes log-only multiline if/else-if blocks through fix_debug_logs -> collapse_blank_lines -> remove_empty_blocks -> _try_remove_multiline_block, and on current main that can leave an orphaned `else` after the preceding empty `if` block is removed. The production fix is small and correctly scoped: it preserves empty `if`/`else if` blocks when the next nonblank line continues an else chain, avoiding invalid TypeScript after debug-log removal. However, the added regression tests invoke `node --check` on `.ts` files; on this checkout's Node v20.19.4 that fails with ERR_UNKNOWN_FILE_EXTENSION before syntax is checked, so the PR is not mergeable as-is unless the tests are made portable.",
+    "conditions": [
+      "Change the new regression tests so they do not depend on `node --check` accepting `.ts` files. For these JavaScript-compatible snippets, write a `.js` file for the syntax check, use an available TypeScript parser/compiler explicitly, or assert the fixer output structurally without invoking Node on a `.ts` path."
+    ],
+    "confidence": "high",
+    "scope_estimate": "small",
+    "potential_duplicates": [
+      577
+    ],
+    "real_problem": true
+  },
+  "stage3": {
+    "decision": "IMPLEMENT_WITH_CHANGES",
+    "reasoning": "Implemented the accepted TypeScript log-cleanup fix while avoiding the non-portable test approach from the PR. Empty `if` and `else if` blocks left after debug-log removal are preserved when the next nonblank line continues an `else` chain, preventing an orphaned `else`. Regression coverage asserts the fixer output structurally instead of relying on `node --check` for `.ts` files.",
+    "commit": "3cb04149",
+    "changes_applied": [
+      "Preserved empty `if`/`else if` blocks when followed by an `else` continuation.",
+      "Added portable regression tests for simple `if/else` and `if/else if/else` chains after log removal.",
+      "Avoided invoking Node against `.ts` paths in the new tests."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/review/policy/test_review_dimensions_direct.py desloppify/tests/core/test_config_schema_direct.py desloppify/tests/lang/common/test_bash_unused_imports.py desloppify/languages/typescript/tests/test_ts_fixers.py -q"
+    ]
+  }
+}

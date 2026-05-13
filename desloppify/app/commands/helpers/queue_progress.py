@@ -224,6 +224,8 @@ def _snapshot_item_ids(snapshot: object) -> set[str] | None:
     ``None`` so callers can fall back to legacy plan_ordered counting.
     """
     partition_names = (
+        "execution_items",
+        "backlog_items",
         "all_objective_items",
         "all_initial_review_items",
         "all_postflight_assessment_items",

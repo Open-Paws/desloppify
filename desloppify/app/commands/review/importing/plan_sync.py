@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from desloppify.app.commands.helpers.issue_id_display import short_issue_id
-from desloppify.app.commands.helpers.score_update import print_score_checkpoint_message
 from desloppify.app.commands.helpers.transition_messages import emit_transition_message
 from desloppify.app.commands.plan.triage.completion_flow import (
     count_log_activity_since,
@@ -53,6 +52,7 @@ from desloppify.engine._state.progression import (
 from desloppify.engine.plan_triage import (
     TRIAGE_CMD_RUN_STAGES_CLAUDE,
     TRIAGE_CMD_RUN_STAGES_CODEX,
+    TRIAGE_CMD_RUN_STAGES_ROVODEV,
 )
 from desloppify.intelligence.review.importing.contracts_types import (
     NormalizedReviewImportPayload,
@@ -179,8 +179,9 @@ def _print_review_import_footer(
     print(colorize("  NEXT STEP:", "yellow"))
     print(colorize("    Run:    desloppify next", "yellow"))
     if triage_injected and not workflow_injected:
-        print(colorize(f"    Codex:  {TRIAGE_CMD_RUN_STAGES_CODEX}", "dim"))
-        print(colorize(f"    Claude: {TRIAGE_CMD_RUN_STAGES_CLAUDE}", "dim"))
+        print(colorize(f"    Codex:    {TRIAGE_CMD_RUN_STAGES_CODEX}", "dim"))
+        print(colorize(f"    Claude:   {TRIAGE_CMD_RUN_STAGES_CLAUDE}", "dim"))
+        print(colorize(f"    Rovo Dev: {TRIAGE_CMD_RUN_STAGES_ROVODEV}", "dim"))
         print(colorize("    Manual dashboard: desloppify plan triage", "dim"))
     print(
         colorize(
@@ -210,7 +211,14 @@ def _print_workflow_injected_message(workflow_injected_ids: list[str]) -> None:
 
 
 def _print_auto_resolved_workflow_message(plan: dict, result: ReconcileResult) -> None:
-    print_score_checkpoint_message(plan, result.communicate_score)
+    if not result.communicate_score or not result.communicate_score.auto_resolved:
+        return
+    strict = (plan.get("plan_start_scores") or {}).get("strict")
+    if isinstance(strict, (int, float)):
+        message = f"  Plan: score checkpoint saved (strict: {strict:.1f})."
+    else:
+        message = "  Plan: score checkpoint saved."
+    print(colorize(message, "dim"))
 
 
 def _build_import_sync_inputs(
@@ -495,7 +503,7 @@ def sync_plan_after_import(
                         execution_summary=cp_exec_summary,
                     )
                 )
-            except (TypeError, KeyError, ValueError):
+            except Exception:
                 _logger.warning("Failed to append plan_checkpoint progression event", exc_info=True)
 
         # --- Progression: subjective_review_completed ---

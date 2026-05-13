@@ -135,6 +135,31 @@ class TestComputeHeadline:
         assert "Organization" in result
         assert "breakthrough" in result
 
+    def test_stagnation_headline_uses_current_plateau_streak(self):
+        history = [
+            _history_entry(strict_score=94.5),
+            _history_entry(strict_score=94.5),
+            _history_entry(strict_score=95.8),
+            _history_entry(strict_score=95.8),
+            _history_entry(strict_score=95.8),
+        ]
+
+        result = compute_headline(
+            phase="stagnation",
+            dimensions={"lowest_dimensions": []},
+            debt={"overall_gap": 0, "wontfix_count": 0},
+            milestone=None,
+            diff=None,
+            obj_strict=95.8,
+            obj_score=95.8,
+            stats={"open": 2},
+            history=history,
+        )
+
+        assert result is not None
+        assert "Score plateaued at 95.8 for 3 scans" in result
+        assert "for 5 scans" not in result
+
     def test_stagnation_with_wontfix(self):
         history = [
             _history_entry(strict_score=70.0),

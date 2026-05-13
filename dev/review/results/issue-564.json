@@ -1,0 +1,29 @@
+{
+  "number": 564,
+  "type": "issue",
+  "title": "\"Score plateaued at X for N scans\" message stays constant even when the score actually moves",
+  "author": "Vuk97",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "The plateau status logic is a real reporting bug, though I could not confirm the exact stale-score value path described. In the current code, `compute_narrative()` reads the current strict score from state and `_append_scan_history()` appends that score before post-scan narrative rendering, so a fresh scan with history ending in 95.8 should not print `Score plateaued at 94.5`. However, `detect_phase()` only checks whether the last three history entries are within +/-0.5, while `compute_headline()` reports `min(len(history), 5)` as the plateau length. That means a score change does not reset the displayed plateau counter: histories like `[94.5, 94.5, 95.8, 95.8, 95.8]` are classified as stagnation and reported as plateaued for 5 scans even though the current plateau is only 3 scans. The issue's requested behavior, resetting or suppressing plateau messaging until consecutive stable scores are established, is a meaningful trust improvement for scan output.",
+    "confidence": "high",
+    "scope_estimate": "small",
+    "potential_duplicates": [],
+    "real_problem": true,
+    "suggested_fix": "Refactor plateau detection to compute a consecutive stable-score streak ending at the current scan, using the same tolerance as stagnation detection. Return both the phase and streak length, or add a helper used by both `detect_phase()` and `compute_headline()`, so the headline only says `plateaued` when the current strict score has remained within tolerance for N consecutive scans and the displayed N is that streak length. Add narrative tests for score changes resetting the streak and for a moving score not emitting stale plateau text."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented consecutive plateau-streak tracking for narrative phase/headline output. Stagnation now requires the current strict score to have stayed within tolerance for three consecutive scans, and the headline reports that current streak length rather than `min(len(history), 5)`.",
+    "commit": "350eb60a",
+    "changes_applied": [
+      "Added `stable_strict_streak()` for consecutive strict-score streak detection.",
+      "Updated `detect_phase()` and `compute_headline()` to use the same current-streak calculation.",
+      "Added narrative regression coverage for score changes resetting stagnation and for headline streak counts."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/narrative -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/ -q"
+    ]
+  }
+}

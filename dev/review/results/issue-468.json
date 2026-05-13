@@ -15,5 +15,19 @@
     "potential_duplicates": [],
     "real_problem": true,
     "suggested_fix": "In _download, create an ssl.SSLContext that loads certifi's CA bundle if available: try importing certifi, create ssl.create_default_context(cafile=certifi.where()), pass that context to urlopen. If certifi is not installed, fall back to default. On SSL failure, print a specific message: 'SSL certificate verification failed. Try: pip install certifi, or on macOS run /Applications/Python*/Install\\ Certificates.command'. This is a 10-line fix in _download."
+  },
+  "stage3": {
+    "decision": "CLOSE_FIXED",
+    "reasoning": "The macOS SSL certificate issue in `update-skill` is already fixed. `_download()` now builds an SSL context through `_ssl_context()`, prefers certifi's CA bundle when available, passes the context to `urllib.request.urlopen`, and raises a targeted `CommandError` with macOS/certifi remediation when certificate verification fails.",
+    "fixed_by": "3beaff45",
+    "changes_applied": [
+      "Added certifi-backed SSL context creation for update-skill downloads.",
+      "Passed the SSL context into `urlopen`.",
+      "Added actionable certificate failure guidance for macOS/Homebrew Python users."
+    ],
+    "tests": [
+      "git blame -L 27,50 -- desloppify/app/commands/update_skill/cmd.py",
+      "git log --oneline -- desloppify/app/commands/update_skill/cmd.py | head -12"
+    ]
   }
 }

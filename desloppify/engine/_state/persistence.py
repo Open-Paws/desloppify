@@ -160,6 +160,12 @@ def load_state(path: Path | None = None) -> StateModel:
     """Load state from disk, or return empty state on missing/corruption."""
     state_path = path or _default_state_file()
     if not state_path.exists():
+        plan_path = plan_path_for_state(state_path)
+        if plan_path.exists():
+            print(
+                f"  ⚠ State file missing ({state_path.name}); attempting recovery from {plan_path.name}.",
+                file=sys.stderr,
+            )
         return _reconstruct_from_saved_plan_if_available(state_path, empty_state())
 
     try:

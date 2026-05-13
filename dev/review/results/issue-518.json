@@ -1,0 +1,27 @@
+{
+  "number": 518,
+  "type": "issue",
+  "title": "Limit amount of subagents",
+  "author": "AyoKeito",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "Real usability problem confirmed by multiple users. Launching 20 parallel subagents instantly exhausts API rate limits on both Pro and Max plans, producing zero results while consuming usage quota. The fix belongs in SKILL.md documentation (advising batched parallelism) and potentially in the review pipeline's batch generation logic. Clear scope: add parallelism guidance and/or a configurable batch size.",
+    "confidence": "high",
+    "scope_estimate": "small",
+    "potential_duplicates": [524]
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented the documentation portion of the accepted usability fix. The skill now tells agents not to launch every review batch at once, recommends 3-5 concurrent subagents per wave, and gives retry guidance for empty, partial, or rate-limit-shaped results.",
+    "commit": "e2c4f093",
+    "changes_applied": [
+      "Added a `Subagent parallelism limit` section to `docs/SKILL.md`.",
+      "Synced the packaged `desloppify/data/global/SKILL.md` copy.",
+      "Added a Codex overlay policy documenting that Codex should use the first-class batch runner instead of prompt-level child agents."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/test_bundled_sync.py -q"
+    ],
+    "notes": "This fixes the immediate guidance gap. A future configurable scheduler cap can still be considered separately if users need an enforced runtime limit."
+  }
+}

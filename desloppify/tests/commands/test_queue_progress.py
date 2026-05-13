@@ -427,6 +427,37 @@ def test_plan_aware_queue_breakdown_counts_only_live_queue_order_ids():
     assert breakdown.stale_plan_ordered == 1
 
 
+def test_plan_aware_queue_breakdown_counts_execution_items_as_live():
+    mock_result = {
+        "total": 1,
+        "items": [{"id": "review::a", "kind": "issue", "detector": "review"}],
+    }
+    plan = {
+        "queue_order": ["review::a"],
+        "skipped": {},
+    }
+    snapshot = SimpleNamespace(
+        phase="execute",
+        execution_items=({"id": "review::a", "kind": "issue", "detector": "review"},),
+        all_objective_items=(),
+        all_initial_review_items=(),
+        all_postflight_review_items=(),
+        all_scan_items=(),
+        all_postflight_workflow_items=(),
+        all_postflight_triage_items=(),
+    )
+    with patch(
+        "desloppify.app.commands.helpers.queue_progress.build_execution_queue",
+        return_value=mock_result,
+    ), patch(
+        "desloppify.app.commands.helpers.queue_progress.queue_context",
+        return_value=SimpleNamespace(snapshot=snapshot),
+    ):
+        breakdown = plan_aware_queue_breakdown({"issues": {}}, plan=plan)
+    assert breakdown.plan_ordered == 1
+    assert breakdown.stale_plan_ordered == 0
+
+
 # ── print_frozen_score_with_queue_context ────────────────────
 
 

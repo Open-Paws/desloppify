@@ -1,0 +1,34 @@
+{
+  "number": 532,
+  "type": "issue",
+  "title": "[FEAT] Add Qwen-Code support",
+  "author": "Ivan951236",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "This is a real and actionable feature request. The project already supports agent-specific skill installation through table-driven `update-skill` targets and has a hard-coded review runner surface for Codex/OpenCode; Qwen Code now has both a documented skill system using `.qwen/skills/<name>/SKILL.md` and headless CLI mode via `qwen -p`, so adding first-class support fits the existing architecture. Done should mean adding a Qwen overlay and skill target at minimum, and if runner support is included, adding an explicit `qwen` review runner path rather than overloading the Codex/OpenCode branches.",
+    "conditions": [],
+    "reject_reason": "",
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": [],
+    "real_problem": true,
+    "suggested_fix": "Add `qwen` to `SKILL_TARGETS`, `SKILL_SEARCH_PATHS`, parser/help text, docs, bundled global data, and tests, targeting `.qwen/skills/desloppify/SKILL.md` for project installs and `~/.qwen/skills/desloppify/SKILL.md` for global setup if setup support is desired. Add a `docs/QWEN.md` and bundled `desloppify/data/global/QWEN.md` overlay that follows Qwen Code's SKILL.md frontmatter requirements. If implementing automated review batches too, add `qwen` to the review runner parser choices, create a `runner_qwen` module that invokes `qwen -p <prompt> --output-format json` or stream-json, parse the result payload into the existing batch JSON contract, wire `_build_batch_run_deps` to dispatch it, and cover parser, dispatch, command construction, and payload extraction tests."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT_WITH_CHANGES",
+    "reasoning": "Implemented first-class Qwen skill support, which is the minimum useful slice requested in Stage 1. Project installs now target `.qwen/skills/desloppify/SKILL.md`, global setup targets `~/.qwen/skills/desloppify/SKILL.md`, the Qwen overlay is bundled with the other docs, and frontmatter is kept first for Qwen's skill parser. Automated `--runner qwen` batch execution was not included in this slice because it requires a separate runner implementation and payload parser.",
+    "commit": "3e351c7c",
+    "changes_applied": [
+      "Added `qwen` to project skill install targets and discovery paths.",
+      "Added `qwen` to global setup targets and setup parser choices.",
+      "Added `docs/QWEN.md` and bundled `desloppify/data/global/QWEN.md`.",
+      "Kept YAML frontmatter first for Qwen installs.",
+      "Added parser, setup, update-skill path resolution, and bundled-doc tests."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/test_setup.py desloppify/tests/commands/test_update_skill_cmd_direct.py desloppify/tests/commands/test_transitive_engine.py::TestLangsAndUpdateSkillParsers desloppify/tests/commands/test_transitive_modules_update_skill.py desloppify/tests/commands/test_bundled_sync.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/ -q"
+    ],
+    "notes": "Verified Qwen skill location/frontmatter requirements against official Qwen Code skills docs before implementing."
+  }
+}

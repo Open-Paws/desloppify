@@ -104,6 +104,49 @@ def test_detect_smells_reports_string_error(tmp_path):
     assert smell["matches"][0]["line"] == 1
 
 
+def test_detect_smells_ignores_nested_string_in_result_ok_type(tmp_path):
+    _write(
+        tmp_path,
+        "Cargo.toml",
+        '[package]\nname = "demo"\nversion = "0.1.0"\nedition = "2021"\n',
+    )
+    _write(
+        tmp_path,
+        "src/lib.rs",
+        "\n".join(
+            [
+                "use std::collections::HashMap;",
+                "pub fn parse() -> Result<HashMap<String, String>> { todo!() }",
+                "pub fn parse2() -> Result<HashMap<String, String>, MyError> { todo!() }",
+            ]
+        ),
+    )
+
+    with runtime_scope(RuntimeContext(project_root=tmp_path)):
+        entries, _ = detect_smells(tmp_path)
+
+    assert all(entry["id"] != "string_error" for entry in entries)
+
+
+def test_detect_smells_reports_static_str_error_type(tmp_path):
+    _write(
+        tmp_path,
+        "Cargo.toml",
+        '[package]\nname = "demo"\nversion = "0.1.0"\nedition = "2021"\n',
+    )
+    _write(
+        tmp_path,
+        "src/lib.rs",
+        "pub fn parse() -> Result<u32, &'static str> { Err(\"bad\") }\n",
+    )
+
+    with runtime_scope(RuntimeContext(project_root=tmp_path)):
+        entries, _ = detect_smells(tmp_path)
+
+    smell = _entry(entries, "string_error")
+    assert smell["count"] == 1
+
+
 def test_detect_smells_reports_static_mut(tmp_path):
     _write(
         tmp_path,

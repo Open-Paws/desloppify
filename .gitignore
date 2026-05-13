@@ -39,12 +39,14 @@ pytest-full.xml
 .claude/
 .agents/
 /skills/
+/CLAUDE.md
 /AGENTS.md
 tasks/
 /scripts/
 cotton-desloppify/
-review/results/
-review/__pycache__/
+dev/review/__pycache__/
+dev/website/
+dev/release/release-notes-drafts/
 
 # Claude Code agent state — never commit
 .claude/agent-memory/

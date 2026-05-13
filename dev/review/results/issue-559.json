@@ -1,0 +1,36 @@
+{
+  "number": 559,
+  "type": "issue",
+  "title": "Deleting `state-rust.json` destroys all triage history (resolves, suppressions, scores) with no warning, and `plan repair-state` cannot recover it",
+  "author": "Vuk97",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "Real problem confirmed. State persistence is load-bearing: `load_state()` returns an empty or plan-reconstructed state when the state file is missing, and `merge_scan()` then treats the next scan as authoritative and saves a scan-backed state. The current saved-plan recovery path only hydrates live `review::`/`concerns::` IDs from `queue_order`; it does not recover resolved/wontfix/false_positive/fixed issue statuses, subjective assessments, dimension scores, or full scan history. After a scan, `scan_source(runtime.state)` becomes `scan`, so `cmd_plan_repair_state()` exits with `State already has scan-backed data. No repair needed.` even if plan metadata still contains skipped/permanent/false-positive decisions that could be reconciled. The issue is worth fixing because accidental state-file loss silently destroys core triage/review history and the current repair command is too narrow to recover once a scan has overwritten the empty/reconstructed state.",
+    "confidence": "high",
+    "scope_estimate": "large",
+    "potential_duplicates": [
+      593,
+      592,
+      570
+    ],
+    "real_problem": true,
+    "suggested_fix": "Implement state-loss hardening in the persistence/repair layer rather than only scan output. `load_state()` should detect missing primary state plus missing backup when sibling `plan.json` contains historical metadata and emit a clear warning before commands proceed. Extend `plan repair-state` so it can reconcile plan-backed `skipped` entries into state statuses (`deferred`, `wontfix`, `false_positive`, triage skips) even when the current state is scan-backed but missing those IDs/statuses; the command should not short-circuit solely on `scan_source == scan`. Keep the existing live review-ID reconstruction, but add an explicit import/reconcile mode for plan skip metadata and any recoverable queue/cluster refs. Add regression tests for: deleting both state and backup, running scan, then repairing from plan; permanent and false-positive skips restored to state; temporary skips restored as deferred or reopened according to policy; and repair refusing only when there is genuinely no recoverable plan metadata. Rolling backups would be a useful additional safeguard, but the minimum fix is reliable warning plus recoverability from surviving `plan.json` metadata."
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented state-loss hardening for the recoverable parts of the report. Missing state loads now warn when a sibling plan exists and attempt plan-backed recovery. `plan repair-state` no longer refuses solely because the current state is scan-backed; it can reconcile surviving `plan.skipped` metadata back into state as `deferred`, `wontfix`, `false_positive`, or `triaged_out` according to the central skip-kind policy. Recovered items include explicit plan-recovery detail, and permanent/false-positive skips retain notes and attestation metadata where present.",
+    "commit": "4d152fa5",
+    "changes_applied": [
+      "Printed a clear missing-state warning when `plan.json` is available for recovery.",
+      "Added saved-plan skip recovery helpers that restore skip dispositions into state.",
+      "Extended `plan repair-state` to reconcile plan skip metadata even after a scan-backed state has been recreated.",
+      "Recovered missing skipped issue shells with human-readable summaries and recovery detail.",
+      "Added regression coverage for scan-backed repair of permanent and false-positive skips."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/commands/plan/test_saved_plan_recovery.py desloppify/tests/plan/test_skip.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/state/test_state.py desloppify/tests/state/test_state_internal_direct.py -q"
+    ],
+    "notes": "This restores the decisions that survive in `plan.json`; deleted scan history and subjective score history cannot be reconstructed if both the state and its backup are gone."
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "number": 539,
+  "type": "pr",
+  "title": "feat: persona rotation for parallel review batches",
+  "author": "koshimazaki",
+  "stage1": {
+    "verdict": "ACCEPT_WITH_CONDITIONS",
+    "summary": "Adds a small, coherent persona-rotation mechanism to holistic review batches: build_investigation_batches assigns persona names, prompt_sections carries the field into PromptBatchContext, and render_batch_prompt resolves it into an additive prompt block. The code path is reachable through prepare_holistic_review_payload -> assemble_holistic_batches -> build_investigation_batches, then review --run-batches -> explode_to_single_dimension -> render_batch_prompt. The implementation is simple and does not affect persisted state, but it adds untested behavior in a heavily tested review workflow.",
+    "conditions": [
+      "Add a focused test proving build_investigation_batches assigns personas in the expected round-robin order and preserves existing batch fields.",
+      "Add a focused test proving render_batch_prompt includes the REVIEWER PERSONA block when a batch has a known persona and omits it when persona is absent or unknown."
+    ],
+    "confidence": "high",
+    "scope_estimate": "medium",
+    "potential_duplicates": [],
+    "real_problem": true
+  },
+  "stage3": {
+    "decision": "IMPLEMENT",
+    "reasoning": "Implemented persona rotation for parallel review batches and added the required tests. Investigation batches now receive round-robin personas, prompt rendering includes a persona block for known personas, and absent or unknown persona names are omitted without changing scoring rules.",
+    "commit": "b37edbc2",
+    "changes_applied": [
+      "Added reviewer persona definitions, round-robin assignment, and prompt rendering helpers.",
+      "Carried persona through batch context into review batch prompts.",
+      "Assigned personas in `build_investigation_batches()` while preserving existing batch fields.",
+      "Added tests for persona assignment order and prompt inclusion/omission behavior."
+    ],
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/review/review_submodules_cases.py desloppify/tests/commands/review/test_review_runner_helpers_direct.py desloppify/tests/commands/review/test_review_batch_core_direct.py -q"
+    ]
+  }
+}

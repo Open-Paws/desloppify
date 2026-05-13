@@ -294,6 +294,21 @@ class TestBuildInvestigationBatches:
         assert "files_to_read" not in arch_batch
         assert arch_batch["dimensions"] == ["cross_module_architecture"]
 
+    def test_batches_assign_personas_round_robin(self, mock_lang):
+        result = _build_investigation_batches({}, mock_lang)
+
+        assert [batch["persona"] for batch in result[:5]] == [
+            "Pragmatist",
+            "Architect",
+            "Bug Hunter",
+            "Migrator",
+            "Pragmatist",
+        ]
+        first = result[0]
+        assert first["name"]
+        assert first["dimensions"] == [first["name"]]
+        assert first["why"] == f"{first['name']} review"
+
 
 class TestPrepareReview:
     def test_returns_expected_keys(self, mock_lang, empty_state):
@@ -428,4 +443,3 @@ class TestStoreAssessments:
         assert stored["components"] == ["Abstraction Leverage", "Indirection Cost"]
         assert stored["component_scores"]["Abstraction Leverage"] == 74.0
         assert stored["component_scores"]["Indirection Cost"] == 68.0
-

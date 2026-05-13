@@ -15,6 +15,23 @@ def test_extract_cxx_functions_and_classes(tmp_path):
     assert any(f.name == "helper" for f in functions)
 
 
+def test_extract_cxx_function_ignores_comment_braces(tmp_path):
+    source = tmp_path / "widget.cpp"
+    source.write_text(
+        """
+int helper() {
+    /* unbalanced } }} braces */
+    return 1;
+}
+"""
+    )
+
+    functions = extract_all_cxx_functions([str(source)])
+
+    assert [fn.name for fn in functions] == ["helper"]
+    assert "return 1;" in functions[0].body
+
+
 def test_extract_all_cxx_functions_treats_string_root_as_path(tmp_path):
     source = tmp_path / "widget.cpp"
     source.write_text("int widget() { return 1; }\n")

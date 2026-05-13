@@ -1,0 +1,10 @@
+{
+  "number": 466,
+  "type": "issue",
+  "role": "advocate",
+  "verdict": "REJECT",
+  "counter_case": "The auto-detection code is non-trivial and the reporter may have had a stray package.json that caused the unexpected behavior. A warning when multiple language markers are detected would improve UX.",
+  "summary": "Agreeing with Stage 1 REJECT. The auto-detection algorithm already counts files as a tiebreaker. The described behavior is not reproducible from the current code path. The reporter likely had a package.json present.",
+  "reject_reason": "The file-counting tiebreaker already handles the described scenario. Cannot reproduce the reported behavior from current code.",
+  "confidence": "medium"
+}

@@ -1,0 +1,22 @@
+{
+  "number": 521,
+  "type": "issue",
+  "title": "Issue 3: `unused` import detector false positives for Rust `crate::` imports",
+  "author": "Vuk97",
+  "stage1": {
+    "verdict": "ACCEPT",
+    "summary": "Plausible bug in the tree-sitter unused import detector for Rust. The Rust import_query captures use_declaration with argument as the path. For grouped imports like 'use crate::module::{Type, function}', the _extract_import_name heuristic may fail to correctly identify all imported names, leading to false positives. The tree-sitter generic path walks the full 'crate::module::{Type, function}' string but the name-extraction and reference-search logic was designed for single-name imports. The reporter has a real Rust codebase where cargo check reports zero unused imports but desloppify flags them.",
+    "confidence": "medium",
+    "scope_estimate": "medium"
+  },
+  "stage3": {
+    "decision": "CLOSE_FIXED",
+    "reasoning": "The accepted report is covered by the broader Rust unused-import detector fix in #543. Rust scans no longer run the generic tree-sitter unused-import phase that produced these false positives for valid `crate::` grouped imports when cargo/rustc did not report unused imports.",
+    "fixed_by": "e7eedb83",
+    "tests": [
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/languages/rust/tests/test_init.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/lang/common/test_phase_builders.py desloppify/languages/cxx/tests/test_init.py -q",
+      "PYENV_VERSION=3.11.11 python -m pytest desloppify/tests/ -q"
+    ]
+  }
+}
