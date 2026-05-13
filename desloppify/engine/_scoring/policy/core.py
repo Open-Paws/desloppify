@@ -157,6 +157,12 @@ MECHANICAL_DIMENSION_WEIGHTS: dict[str, float] = {
     "duplication": 1.0,
     "test health": 1.0,
     "security": 1.0,
+    # Open Paws advocacy dimensions
+    "advocacy language": 2.0,
+    "advocacy security": 2.0,
+    "advocacy tools": 1.0,
+    # Persona-based browser QA
+    "persona qa": 1.0,
 }
 
 # Per-dimension weighting within the subjective pool.
@@ -186,6 +192,14 @@ SUBJECTIVE_DIMENSION_WEIGHTS: dict[str, float] = {
     "naming quality": 2.0,
     "ai generated debt": 1.0,
     "design coherence": 10.0,
+    # Open Paws animal advocacy dimensions — anti-speciesist language,
+    # animal activist security, vegan values in UX and tooling.
+    "advocacy language": 8.0,
+    "advocacy security": 10.0,
+    "advocacy terminology": 4.0,
+    "data sovereignty": 6.0,
+    "advocacy ux": 4.0,
+    "advocacy tools": 3.0,
 }
 
 # Synthetic check count for subjective dimensions in dimension_scores.

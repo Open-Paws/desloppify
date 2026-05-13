@@ -21,7 +21,7 @@ from desloppify.base.discovery.file_paths import safe_write_text
 from desloppify.base.discovery.paths import get_project_root
 from desloppify.base.output.terminal import colorize
 
-_RAW_BASE = "https://raw.githubusercontent.com/peteromallet/desloppify/main/docs"
+_RAW_BASE = "https://raw.githubusercontent.com/Open-Paws/desloppify/main/docs"
 
 
 def _ssl_context() -> ssl.SSLContext:
@@ -60,7 +60,7 @@ def _build_section(skill_content: str, overlay_content: str | None) -> str:
 
 # Interfaces whose skill systems parse YAML frontmatter and require ``---``
 # to appear on the very first line of the file.
-_FRONTMATTER_FIRST_INTERFACES = frozenset({"amp", "codex", "qwen"})
+_FRONTMATTER_FIRST_INTERFACES = frozenset({"amp", "codex"})
 
 
 def _ensure_frontmatter_first(content: str) -> str:
@@ -160,6 +160,23 @@ def resolve_interface(
     return None
 
 
+def _read_local_docs_file(filename: str) -> str | None:
+    """Try to read a file from the desloppify package's docs/ directory."""
+    import pathlib
+
+    # The docs/ dir is at the repo root:
+    # __file__ = desloppify/app/commands/update_skill/cmd.py
+    # repo root = 5 parents up
+    pkg_root = pathlib.Path(__file__).resolve().parent.parent.parent.parent.parent
+    local_path = pkg_root / "docs" / filename
+    if local_path.is_file():
+        try:
+            return local_path.read_text(encoding="utf-8")
+        except OSError:
+            return None
+    return None
+
+
 def _update_installed_skill_with_deps(
     interface: str,
     *,
@@ -172,17 +189,38 @@ def _update_installed_skill_with_deps(
     target_rel, overlay_name, dedicated = SKILL_TARGETS[interface]
     target_path = get_project_root_fn() / target_rel
 
-    print(colorize_fn(f"Downloading skill document ({interface})...", "dim"))
-    try:
-        skill_content = download_fn("SKILL.md")
-        overlay_content = download_fn(f"{overlay_name}.md") if overlay_name else None
-    except (urllib.error.URLError, OSError) as exc:
-        print(colorize_fn(f"Download failed: {exc}", "red"))
-        return False
+    # Prefer local docs/ files (e.g., in a fork with custom overlays)
+    # before falling back to GitHub download.
+    skill_content = _read_local_docs_file("SKILL.md")
+    overlay_content = (
+        _read_local_docs_file(f"{overlay_name}.md") if overlay_name else None
+    )
+
+    if skill_content:
+        source = "local docs/"
+    else:
+        source = "GitHub"
+        print(colorize_fn(f"Downloading skill document ({interface})...", "dim"))
+        try:
+            skill_content = download_fn("SKILL.md")
+            if overlay_name and overlay_content is None:
+                overlay_content = download_fn(f"{overlay_name}.md")
+        except (urllib.error.URLError, OSError) as exc:
+            print(colorize_fn(f"Download failed: {exc}", "red"))
+            return False
+
+    if overlay_name and overlay_content is None:
+        # Local had SKILL.md but not the overlay — try downloading overlay only
+        try:
+            overlay_content = download_fn(f"{overlay_name}.md")
+        except (urllib.error.URLError, OSError) as exc:
+            print(colorize_fn(f"Overlay download skipped: {exc}", "dim"))
 
     if "desloppify-skill-version" not in skill_content:
-        print(colorize_fn("Downloaded content doesn't look like a skill document.", "red"))
+        print(colorize_fn(f"Content from {source} doesn't look like a skill document.", "red"))
         return False
+
+    print(colorize_fn(f"Using skill document from {source} ({interface})...", "dim"))
 
     new_section = _build_section(skill_content, overlay_content)
     if interface in _FRONTMATTER_FIRST_INTERFACES:

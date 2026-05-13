@@ -94,29 +94,6 @@ def detect_unused_imports(
             if not raw_path:
                 continue
 
-            # Get the import statement's line range so we can exclude it
-            # from the search.
-            import_start = import_node.start_byte
-            import_end = import_node.end_byte
-
-            # Build text without the import statement itself.
-            rest = source_text[:import_start] + source_text[import_end:]
-
-            # Handle grouped/braced imports (e.g. Rust `use crate::module::{A, B}`).
-            grouped_names = _extract_grouped_import_names(raw_path)
-            if grouped_names:
-                unused_names = [
-                    n for n in grouped_names
-                    if not re.search(r'\b' + re.escape(n) + r'\b', rest)
-                ]
-                if unused_names:
-                    entries.append({
-                        "file": filepath,
-                        "line": import_node.start_point[0] + 1,
-                        "name": ", ".join(unused_names),
-                    })
-                continue
-
             # Check for alias (e.g. PHP ``use Foo as Bar``, Python ``import X as Y``).
             # When an alias is present, search for the alias name instead.
             alias_name = _extract_alias(import_node)
@@ -125,6 +102,14 @@ def detect_unused_imports(
             name = alias_name or _extract_import_name(raw_path)
             if not name:
                 continue
+
+            # Get the import statement's line range so we can exclude it
+            # from the search.
+            import_start = import_node.start_byte
+            import_end = import_node.end_byte
+
+            # Build text without the import statement itself.
+            rest = source_text[:import_start] + source_text[import_end:]
 
             # Check if the name appears in the rest of the file.
             if not re.search(r'\b' + re.escape(name) + r'\b', rest):
@@ -443,38 +428,6 @@ def _iter_children(node):
             "namespace_alias", "as_pattern",
         ):
             yield from _iter_children(child)
-
-
-def _extract_grouped_import_names(import_path: str) -> list[str] | None:
-    """Extract individual names from a grouped/braced import.
-
-    Examples:
-        "crate::order::{ClobClient, place_order_typed}" -> ["ClobClient", "place_order_typed"]
-        "std::collections::{HashMap, HashSet}" -> ["HashMap", "HashSet"]
-        "crate::module::Foo" -> None  (not a grouped import)
-
-    Handles ``self`` inside braces (e.g. ``{self, Foo}``) by skipping it —
-    ``self`` is a module re-export and won't appear as an identifier elsewhere.
-    Also handles aliases (e.g. ``{Foo as Bar}``) by extracting the alias.
-    """
-    brace_start = import_path.find("{")
-    if brace_start == -1:
-        return None
-    brace_end = import_path.rfind("}")
-    if brace_end == -1 or brace_end <= brace_start:
-        return None
-    inner = import_path[brace_start + 1 : brace_end]
-    names: list[str] = []
-    for segment in inner.split(","):
-        segment = segment.strip()
-        if not segment or segment == "self":
-            continue
-        # Handle aliases: ``Foo as Bar`` → use ``Bar``
-        if " as " in segment:
-            segment = segment.split(" as ", 1)[1].strip()
-        if segment:
-            names.append(segment)
-    return names or None
 
 
 def _extract_import_name(import_path: str) -> str:
