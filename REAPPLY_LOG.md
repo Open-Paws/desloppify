@@ -24,7 +24,21 @@ The reapply: branch from current upstream/main, layer the 121 files OP touched o
 | OP-deleted, upstream still has | 15 | re-applied OP's deletion (PR #23 logic still holds on upstream) |
 | OP-deleted, upstream also deleted | 21 | no-op |
 
-**Total file actions in the working tree:** 96 (30 add / 51 modify / 15 delete).
+**Total file actions in the working tree:** 137 (71 add / 51 modify / 15 delete).
+
+### Gap-fix: 41 fork-only files OP carried from initial snapshot but never modified post-snapshot
+
+The original categorization filtered on "files OP touched in 5937528f..HEAD," which missed 41 fork-only files that were in the initial snapshot (`5937528f`) and never modified. These had to be added to make the reapply functionally correct — `desloppify/languages/_framework/phases_advocacy.py` in particular is imported by `javascript/__init__.py` and its absence broke the first CI run. Added in a follow-up commit:
+
+- `.pre-commit-config.yaml`, `.semgrep.yml`, `.vale.ini` (OP tooling configs)
+- All of `desloppify/app/commands/persona_qa/` (the rest of persona-QA infrastructure)
+- All of `desloppify/engine/detectors/advocacy_rules/*.yaml` (8 YAML rule definition files including idioms.yaml)
+- `desloppify/engine/detectors/advocacy_common.py`, `advocacy_tool_presence.py`, `frontend_detection.py`
+- `desloppify/languages/_framework/phases_advocacy.py` — the import the failing tests were missing
+- `docs/ci_plan.md` and other `docs/*.md` (ci-contracts test reads `docs/ci_plan.md`)
+- `desloppify-fork-architecture.md`, `fork-verification-report.md`, `integration-investigation.md`, `persona-qa-architecture.md` (fork's own arch docs)
+- `website/*` (OP landing page)
+- `dev/release/release-notes-drafts/v0.9.11.md`
 
 ## Notable resolutions
 

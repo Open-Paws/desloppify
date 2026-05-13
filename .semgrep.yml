@@ -1,0 +1,16 @@
+rules:
+  - id: no-animal-violence-import
+    message: >
+      Use no-animal-violence semgrep rules from Open-Paws for
+      speciesist language detection in Python code.
+    languages: [python]
+    severity: INFO
+    pattern: |
+      # Placeholder — actual rules are loaded from the external package.
+      # Install: pip install semgrep
+      # Run: semgrep --config https://github.com/Open-Paws/semgrep-rules-no-animal-violence/releases/latest/download/rules.yml
+      $X
+    options:
+      # This file signals semgrep is configured. The actual rules are
+      # fetched from the Open-Paws semgrep-rules-no-animal-violence repo.
+      symbolic_propagation: true
