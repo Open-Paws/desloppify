@@ -6,7 +6,6 @@ import json
 import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 
 from desloppify.base.discovery.file_paths import safe_write_text
 

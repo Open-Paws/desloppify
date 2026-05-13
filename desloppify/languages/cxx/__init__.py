@@ -14,7 +14,6 @@ from desloppify.languages._framework.base.types import (
     LangConfig,
     LangSecurityResult,
 )
-from desloppify.languages._framework.generic_parts.tool_factories import make_tool_phase
 from desloppify.languages._framework.registry.registration import register_full_plugin
 from desloppify.languages._framework.registry.state import register_lang_hooks
 from desloppify.languages._framework.treesitter.phases import all_treesitter_phases

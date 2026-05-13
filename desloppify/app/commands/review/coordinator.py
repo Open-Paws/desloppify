@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-import subprocess  # nosec
+import subprocess  # nosec B404 — subprocess required for CLI runner
 from collections.abc import Mapping
 from hashlib import sha256
 from pathlib import Path

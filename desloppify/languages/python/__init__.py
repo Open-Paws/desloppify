@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from desloppify.base.discovery.source import find_py_files
-from desloppify.engine.policy.zones import COMMON_ZONE_RULES, Zone, ZoneRule
 from desloppify.languages._framework.base.phase_builders import (
     detector_phase_security,
     detector_phase_signature,
@@ -43,6 +42,7 @@ from desloppify.languages.python.detectors.deps import build_dep_graph
 from desloppify.languages.python.detectors.private_imports import (
     detect_private_imports as detect_python_private_imports,
 )
+from desloppify.languages.python.veracity import PythonVeracityPlugin
 from desloppify.languages.python.phases import (
     PY_COMPLEXITY_SIGNALS,
     PY_ENTRY_PATTERNS,
@@ -131,6 +131,7 @@ class PythonConfig(LangConfig):
             migration_pattern_pairs=PY_MIGRATION_PATTERN_PAIRS,
             migration_mixed_extensions=PY_MIGRATION_MIXED_EXTENSIONS,
             extract_functions=py_extract_functions,
+            veracity_plugin=PythonVeracityPlugin(),
             zone_rules=PY_ZONE_RULES,
         )
 

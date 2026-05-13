@@ -56,11 +56,6 @@ def _compute_dimension_score(
         if isinstance(assessment, dict)
         else 0.0
     )
-    integrity_penalty = (
-        assessment.get("integrity_penalty")
-        if isinstance(assessment, dict)
-        else None
-    )
     reset_pending = bool(
         isinstance(assessment, dict)
         and (

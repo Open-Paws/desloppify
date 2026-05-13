@@ -37,5 +37,32 @@ Orchestrate triage with per-stage subagents:
    - Confirm: `desloppify plan triage --confirm <stage> --attestation "..."`
 3. Complete: `desloppify plan triage --complete --strategy "..." --attestation "..."`
 
+## Files in docs/
+
+| File | What it covers | When to read |
+|------|---------------|--------------|
+| `AMP.md` | AMP (Amp Code) agent overlay | Using desloppify with AMP |
+| `CLAUDE.md` | This file — Claude Code subagent workflow | Claude Code sessions |
+| `CODEX.md` | Codex agent overlay | Using desloppify with Codex |
+| `COPILOT.md` | GitHub Copilot agent overlay | Using desloppify with Copilot |
+| `CURSOR.md` | Cursor agent overlay | Using desloppify with Cursor |
+| `DEVELOPMENT_PHILOSOPHY.md` | Upstream development philosophy and scoring principles | Understanding scoring decisions |
+| `DROID.md` | Droid agent overlay | Using desloppify with Droid |
+| `GEMINI.md` | Gemini CLI agent overlay | Using desloppify with Gemini CLI |
+| `HERMES.md` | Hermes agent overlay | Using desloppify with Hermes |
+| `OPENCODE.md` | OpenCode agent overlay | Using desloppify with OpenCode |
+| `QUEUE_LIFECYCLE.md` | Work queue lifecycle documentation | Understanding plan/next flow |
+| `SKILL.md` | Universal skill file for any agent | When installing desloppify skill |
+| `WINDSURF.md` | Windsurf agent overlay | Using desloppify with Windsurf |
+| `ci_plan.md` | CI planning documentation | CI setup |
+| `commit-summary-since-0.7.0.md` | Commit history since v0.7.0 | Understanding recent changes |
+| `work-batches-since-0.7.0-ticket-digest.md` | Work batch digest since v0.7.0 | Understanding work history |
+
+## Cross-References
+
+- For the root agent instructions, see `../CLAUDE.md`
+- For the identical overlay in data/global/, see `../desloppify/data/global/CLAUDE.md`
+- For the full desloppify architecture, see `../CLAUDE.md`
+
 <!-- desloppify-overlay: claude -->
 <!-- desloppify-end -->

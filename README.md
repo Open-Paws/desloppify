@@ -1,150 +1,202 @@
-# Desloppify - an agent harness to make your codebase 🤌
+[![PyPI version](https://img.shields.io/pypi/v/desloppify)](https://pypi.org/project/desloppify/) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE) [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/) [![Last commit](https://img.shields.io/github/last-commit/Open-Paws/desloppify)](https://github.com/Open-Paws/desloppify/commits/main) [![desloppify score](https://img.shields.io/badge/desloppify-24.7%2F100-red)](scorecard.png)
 
-[![PyPI version](https://img.shields.io/pypi/v/desloppify)](https://pypi.org/project/desloppify/) ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
+# Desloppify — Open Paws Fork
 
-Desloppify gives your AI coding agent the tools to identify, understand, and systematically improve codebase quality. It combines mechanical detection (dead code, duplication, complexity) with subjective LLM review (naming, abstractions, module boundaries), then works through a prioritized fix loop. State persists across scans so it chips away over multiple sessions, and the scoring is designed to resist gaming.
+A multi-language codebase health scanner that combines mechanical detection (dead code, duplication, complexity, security) with LLM-based subjective review (naming, abstractions, module boundaries), then works through a prioritized fix loop. This Open Paws fork adds 65 advocacy language rules, a 3-adversary activist security detector, and persona-based browser QA — all integrated into the same scoring and queue system as the upstream detectors.
+
+> [!NOTE]
+> This project is part of the [Open Paws](https://openpaws.ai) ecosystem — AI infrastructure for the animal liberation movement. [Explore the full platform →](https://github.com/Open-Paws)
 
 <img src="assets/explained.png" width="100%">
 
-The score gives your agent a north-star, and the tooling helps it plan, execute, and resolve issues until it hits your target — with a lot of tricks to keep it on track. A score above 98 should correlate with a codebase a seasoned engineer would call beautiful.
+## Quickstart
 
-That score generates a scorecard badge for your GitHub profile or README:
+Requires **Python 3.11+**.
 
-<img src="assets/scorecard.png" width="100%">
+```bash
+# Install from this fork
+pip install "git+https://github.com/Open-Paws/desloppify.git#egg=desloppify[full]"
 
-Currently supports 29 languages — full plugin depth for TypeScript, Python, C#, C++, Dart, GDScript, Go, and Rust; generic linter + tree-sitter support for Ruby, Java, Kotlin, and 18 more. For C++ projects, `compile_commands.json` is the primary analysis path and `Makefile` repositories fall back to best-effort local include scanning.
-
-## For your agent's consideration...
-
-Paste this prompt into your agent:
-
-```
-I want you to improve the quality of this codebase. To do this, install and run desloppify.
-Run ALL of the following (requires Python 3.11+):
-
-pip install --upgrade "desloppify[full]"
-desloppify update-skill claude    # installs the full workflow guide — pick yours: claude, cursor, codex, copilot, droid, windsurf, gemini, rovodev
-
-Add .desloppify/ to your .gitignore — it contains local state that shouldn't be committed.
-
-Before scanning, check for directories that should be excluded (vendor, build output,
-generated code, worktrees, etc.) and exclude obvious ones with `desloppify exclude <path>`.
-Share any questionable candidates with me before excluding.
-
+# Exclude generated directories, then scan
+desloppify exclude node_modules dist
 desloppify scan --path .
+
+# Run the fix loop: next → fix → resolve → repeat
 desloppify next
-
---path is the directory to scan (use "." for the whole project, or "src/" etc).
-
-Your goal is to get the strict score as high as possible. The scoring resists gaming — the
-only way to improve it is to actually make the code better.
-
-THE LOOP: run `next`. It is the execution queue from the living plan, not the whole backlog.
-It tells you what to fix now, which file, and the resolve command to run when done.
-Fix it, resolve it, run `next` again. Over and over. This is your main job.
-
-Use `desloppify backlog` only when you need to inspect broader open work that is not currently
-driving execution.
-
-Don't be lazy. Large refactors and small detailed fixes — do both with equal energy. No task
-is too big or too small. Fix things properly, not minimally.
-
-Use `plan` / `plan queue` to reorder priorities or cluster related issues. Rescan periodically.
-The scan output includes agent instructions — follow them, don't substitute your own analysis.
 ```
 
-## Monorepos and multi-project directories
-
-If your workspace contains multiple programs (e.g., a frontend and backend in sibling directories), scan each one separately with `--path`:
+Or without installing:
 
 ```bash
-desloppify --lang typescript scan --path ./frontend
-desloppify --lang python scan --path ./backend
+uvx --from "git+https://github.com/Open-Paws/desloppify.git" desloppify scan --path .
 ```
 
-Scanning the parent directory that contains both will mix state and path context across unrelated codebases, producing unreliable results. Each `--path` target should be a single coherent project. Desloppify maintains separate state per language, so you can scan a TypeScript frontend and a Python backend from the same workspace without conflict — just target them individually.
+Add `.desloppify/` to `.gitignore` — it holds local state that should not be committed.
 
-## CI
+## Features
 
-Desloppify works best in CI as a full-codebase health gate, not as a diff-only linter. Run the CI profile against the same coherent project path you scan locally:
+### Scoring model
+
+Overall score = **25% mechanical + 75% subjective**. A score above 98 correlates with a codebase a seasoned engineer would call well-crafted. The scoring resists gaming — the only path upward is genuinely better code.
+
+**Mechanical pool (25% of overall)**
+
+| Dimension | Weight |
+|-----------|--------|
+| File health | 2.0 |
+| Code quality | 1.0 |
+| Duplication | 1.0 |
+| Test health | 1.0 |
+| Security | 1.0 |
+| Advocacy language *(fork addition)* | 1.0 |
+| Advocacy security *(fork addition)* | 1.0 |
+| Persona QA *(fork addition)* | 1.0 |
+
+**Subjective pool (75% of overall)** — scored by an LLM against a blind review packet. Includes high/mid/low elegance, contracts, type safety, design coherence, abstraction fit, logic clarity, naming quality, and more.
+
+**Minimum score thresholds** (Open Paws internal policy):
+- Gary (autonomous agent): ≥ 80
+- Platform repos: ≥ 75
+- All other repos: ≥ 70
+
+### Language support
+
+**29 languages.** Full plugin depth for TypeScript, Python, C#, C++, Dart, GDScript, Go, and Rust. Generic linter + tree-sitter support for Ruby, Java, Kotlin, and 18 more.
+
+### Fork additions
+
+**Advocacy language detector — 65 rules**
+
+Detects speciesist language in code, comments, and documentation across all 29 languages plus `.md`, `.txt`, `.rst`. Rules sourced from [no-animal-violence](https://github.com/Open-Paws/no-animal-violence).
+
+| Category | Count | Examples |
+|----------|-------|---------|
+| Idioms | 30 | "kill two birds with one stone", "beat a dead horse" |
+| Metaphors | 21 | "sacred cow", "cash cow", "sacrificial lamb" |
+| Insults | 6 | "code monkey", "cowboy coding" |
+| Process language | 5 | "nuke", "cull", "kill process" |
+| Terminology | 3 | "master/slave", "whitelist/blacklist" |
+
+Each finding includes a suggested replacement. Context suppression reduces false positives for technical terms (POSIX `kill()`, git `master` branch), proper nouns, and quotations.
+
+**Advocacy security detector — 3-adversary threat model**
+
+Heuristic detection for activist protection antipatterns against three adversaries:
+
+- **State surveillance** — ag-gag statutes, warrants, device seizure
+- **Industry infiltration** — corporate investigators, social engineering
+- **AI model bias** — training data encoding speciesist defaults, telemetry leakage
+
+Detects: identity leakage in logs/errors, sensitive data routed to external AI APIs without zero-retention headers, investigation materials in public paths, unencrypted writes of sensitive data, IP address logging, sensitive data in browser storage.
+
+**Persona-based browser QA**
 
 ```bash
-desloppify scan --path . --profile ci --no-badge
-desloppify status --json
+desloppify persona-qa --prepare --url https://example.com   # generate agent instructions
+# agent runs browser testing and captures findings in JSON
+desloppify persona-qa --import findings.json                 # merge into state
+desloppify persona-qa --status                               # per-persona summary
+desloppify next                                              # persona QA items appear in queue
 ```
 
-`--profile ci` skips slow and subjective phases and bypasses the mid-cycle scan queue gate so a CI job can collect a fresh mechanical snapshot. Use `status --json` if you want a script to read the strict/objective scores and enforce your own threshold.
+**Windows platform fixes**
 
-On constrained Java CI runners, the PMD detector defaults to `--threads 0` to avoid worker-thread fanout. Set `DESLOPPIFY_PMD_THREADS` to a PMD thread value such as `2` or `0.5C` if you want more throughput.
+- `input()` blocking in TypeScript logs detector replaced with `isatty()` guard
+- `msvcrt.locking()` infinite wait replaced with 5-second retry timeout
+- Dataclass JSON serialization crash on state save fixed with `dataclasses.asdict()` fallback
 
-Minimal GitHub Actions example:
+### Fix loop
 
-```yaml
-name: desloppify
-
-on:
-  pull_request:
-  push:
-    branches: [main]
-
-jobs:
-  health:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: pip install --upgrade "desloppify[full]"
-      - run: desloppify scan --path . --profile ci --no-badge
-      - run: desloppify status --json
+```bash
+desloppify next          # get the top-priority item; it shows which file and the resolve command
+# fix the code
+desloppify plan resolve  # mark it done
+desloppify next          # get the next item
 ```
 
-For monorepos, run one job or matrix entry per project path instead of scanning the workspace root. True incremental or diff-only scanning is not the supported model yet; compare full-codebase results across runs or enforce a project-level threshold.
+State persists across sessions in `.desloppify/` so the tool chips away over multiple runs.
 
-## How it works
+## Documentation
 
+| Document | Purpose |
+|----------|---------|
+| [docs/SKILL.md](docs/SKILL.md) | Full agent workflow guide (scan → review → plan → execute) |
+| [docs/CLAUDE.md](docs/CLAUDE.md) | Claude Code integration |
+| [docs/CURSOR.md](docs/CURSOR.md) | Cursor integration |
+| [docs/CODEX.md](docs/CODEX.md) | OpenAI Codex integration |
+| [docs/GEMINI.md](docs/GEMINI.md) | Gemini integration |
+| [docs/WINDSURF.md](docs/WINDSURF.md) | Windsurf integration |
+| [docs/QUEUE_LIFECYCLE.md](docs/QUEUE_LIFECYCLE.md) | Queue and plan lifecycle |
+| [desloppify-fork-architecture.md](desloppify-fork-architecture.md) | Fork architecture and extension points |
+| [persona-qa-architecture.md](persona-qa-architecture.md) | Persona QA design |
+
+Install agent skill files directly from the CLI:
+
+```bash
+desloppify update-skill claude    # options: claude, cursor, codex, copilot, droid, windsurf, gemini
 ```
-scan ──→ score ──→ review ──→ triage ──→ execute ──→ rescan
-  │         │         │          │          │           │
-  │     dimensions    │     prioritize    fix it     verify
-  │     scored      LLM reviews  & cluster  & resolve  improvements
-  │                 subjective   the queue
-  │                 quality
-  detectors find
-  mechanical issues
-  (dead code, smells,
-  test gaps, etc.)
+
+## Architecture
+
+<details>
+<summary>Internal structure</summary>
+
+The package is organized into five main layers:
+
+**`desloppify/languages/`** — per-language configs. Each language is a `LangConfig` dataclass with ordered `DetectorPhase` callables, dependency graph builder, function extractor, and subjective review dimensions. Full plugin depth: TypeScript, Python, C#, C++, Dart, GDScript, Go, Rust. Generic support via tree-sitter for 21 more languages.
+
+**`desloppify/engine/`** — scoring, plan, work queue, and scan workflow. Scoring uses two pools (mechanical 25%, subjective 75%) with per-dimension weighted averages and sample dampening for small codebases. Plan and queue state persist in `.desloppify/` with file locking for safe concurrent access.
+
+**`desloppify/intelligence/`** — subjective review logic. Prepares blind review packets and normalizes LLM assessment output into the same `Issue` format as mechanical detectors. Never calls an LLM directly — model selection happens at the orchestration layer, keeping this layer model-agnostic.
+
+**`desloppify/app/`** — CLI commands and orchestration. Each command (`scan`, `next`, `review`, `persona-qa`, etc.) lives in its own subdirectory. The command registry is a plain dict mapping.
+
+**`desloppify/base/`** — detector metadata catalog (65+ built-in entries), scoring policy registry, and the `DetectorMeta` / `LangConfig` type contracts.
+
+**Fork-specific files:**
+- `desloppify/engine/detectors/advocacy_language.py` — shells out to semgrep/eslint/vale for the 65-rule advocacy language check
+- `desloppify/engine/detectors/advocacy_security.py` — heuristic activist security checks
+- `desloppify/app/commands/persona_qa/` — browser QA command and persona profile handling
+
+**Upstream tracking:**
+
+This fork tracks [`peteromallet/desloppify`](https://github.com/peteromallet/desloppify) as `upstream`. Fork-specific changes live in new files and minimal patches to scoring constants and language configs. Upstream merges are designed to stay clean.
+
+```bash
+git fetch upstream
+git merge upstream/main
 ```
 
-**Scan** runs mechanical detectors across your codebase — dead code, duplication, complexity, test coverage gaps, naming issues, and more. Each issue is scored by dimension (File health, Code quality, Test health, etc.).
+</details>
 
-**Review** uses an LLM to assess subjective quality dimensions — naming, abstractions, error handling patterns, module boundaries. These score alongside the mechanical dimensions.
+## Code Quality
 
-**Triage** is where prioritization happens. The agent (or you) observes the findings, reflects on patterns, organizes issues into clusters, and enriches them with implementation detail. This produces an ordered execution queue — only items explicitly queued appear in `next`. Before triage, all mechanical issues are visible in the queue sorted by impact, which can be noisy.
+<img src="scorecard.png" alt="Desloppify scorecard showing strict score 24.7/100 and objective/verified score 98.8" width="100%">
 
-**Execute** is the fix loop: `next` → fix → `resolve` → `next`. Items come from the triaged queue. Autofix handles what it can; the rest needs manual or agent work.
+## Contributing
 
-**Rescan** verifies improvements, catches cascading effects, and feeds the next cycle.
+Issues and pull requests go to [github.com/Open-Paws/desloppify](https://github.com/Open-Paws/desloppify).
 
-State persists in `.desloppify/` so progress carries across sessions. The scoring resists gaming — wontfix items widen the gap between lenient and strict scores, and re-reviewing dimensions can lower scores if the reviewer finds new issues.
+For bugs in the upstream scanner unrelated to the advocacy extensions, file at [github.com/peteromallet/desloppify](https://github.com/peteromallet/desloppify).
 
-## From Vibe Coding to Vibe Engineering
+Contributions to the advocacy language rules (new patterns, replacements, context suppressions) are especially welcome — the rule set lives in [Open-Paws/no-animal-violence](https://github.com/Open-Paws/no-animal-violence) and is shared across the full tooling suite (semgrep, ESLint, Vale, pre-commit, GitHub Actions).
 
-Vibe coding gets things built fast. But the codebases it produces tend to rot in ways that are hard to see and harder to fix — not just the mechanical stuff like dead imports, but the structural kind. Abstractions that made sense at first stop making sense. Naming drifts. Error handling is done three different ways. The codebase works, but working in it gets worse over time.
+If you maintain an open-source project and want to add compassionate language checks, see [project-compassionate-code](https://github.com/Open-Paws/project-compassionate-code) for the broader initiative.
 
-LLMs are actually good at spotting this now, if you ask them the right questions. That's the core bet here — that an agent with the right framework can hold a codebase to a real standard, the kind that used to require a senior engineer paying close attention over months.
+## License
 
-So we're trying to define what "good" looks like as a score that's actually worth optimizing. Not a lint score you game to 100 by suppressing warnings. Something where improving the number means the codebase genuinely got better. That's hard, and we're not done, but the anti-gaming stuff matters to us a lot — it's the difference between a useful signal and a vanity metric.
+MIT — same as upstream. See [LICENSE](LICENSE).
 
-The hope is that anyone can use this to build something a seasoned engineer would look at and respect. That's the bar we're aiming for.
+**Upstream:** [peteromallet/desloppify](https://github.com/peteromallet/desloppify) by Peter O'Malley.
 
-If you'd like to join a community of vibe engineers who want to build beautiful things, [come hang out](https://discord.gg/aZdzbZrHaY).
-
-<img src="assets/engineering.png" width="100%">
+**Advocacy rules:** [Open-Paws/no-animal-violence](https://github.com/Open-Paws/no-animal-violence).
 
 ---
 
-Issues, improvements, and PRs are hugely appreciated — [github.com/peteromallet/desloppify](https://github.com/peteromallet/desloppify).
+<!-- tech_stack: Python, semgrep, ESLint, Vale, tree-sitter -->
+<!-- project_status: active -->
+<!-- difficulty: intermediate -->
+<!-- skill_tags: code-quality, static-analysis, advocacy-language, security, browser-qa -->
+<!-- related_repos: no-animal-violence, project-compassionate-code, gary, platform -->
 
-Desloppify is free for any individual — whether working independently or at a company — to use for their own work. It is also free for open source companies to use in any capacity, including commercial. Non-open source companies who wish to commercialize it should refer to the [LICENSE](LICENSE) for transparent pricing details.
+[Donate](https://openpaws.ai/donate) · [Discord](https://discord.gg/openpaws) · [openpaws.ai](https://openpaws.ai) · [Volunteer](https://openpaws.ai/volunteer)

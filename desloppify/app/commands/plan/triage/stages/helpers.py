@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from desloppify.base.output.terminal import colorize
 from desloppify.engine._plan.constants import is_synthetic_id
-from desloppify.engine._state.issue_semantics import is_review_work_item, is_triage_finding
+from desloppify.engine._state.issue_semantics import is_review_work_item
 from desloppify.engine.plan_triage import TRIAGE_IDS
 
 from ..review_coverage import (

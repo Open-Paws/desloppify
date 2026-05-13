@@ -317,3 +317,60 @@ def test_script_import_cache_reset_invalidates_php_lookup_state(tmp_path: Path) 
     scripts_mod.reset_script_import_caches(str(tmp_path))
 
     assert scripts_mod.resolve_php_import("User", "", str(tmp_path)) == str(second_file)
+
+
+def test_graph_records_project_root_relative_import_without_scan_path_join(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Characterization test: resolve_import returning a project-root-relative path
+    must be added directly to the graph rather than being joined with scan_path.
+
+    Before the fix, ts_build_dep_graph would join scan_path (e.g. ``/project/_ui``)
+    with the relative path (e.g. ``_ui/server.js``) producing
+    ``/project/_ui/_ui/server.js``, which is never in file_set, so the import
+    edge was silently dropped.  After the fix, the relative path is detected in
+    file_set first and added without any join.
+    """
+    # Simulate a sub-directory scan: project root is tmp_path, scan_path is
+    # tmp_path/_ui, so file_set uses project-root-relative strings.
+    scan_dir = tmp_path / "_ui"
+    scan_dir.mkdir()
+    source_file = scan_dir / "server.test.js"
+    dep_file = scan_dir / "server.js"
+    source_file.write_text("const s = require('./server');\n", encoding="utf-8")
+    dep_file.write_text("module.exports = {};\n", encoding="utf-8")
+
+    # file_set uses project-root-relative paths (as produced by the real scanner).
+    rel_source = "_ui/server.test.js"
+    rel_dep = "_ui/server.js"
+    file_list = [rel_source, rel_dep]
+
+    monkeypatch.setattr(graph_mod, "_get_parser", lambda _grammar: ("parser", "language"))
+    monkeypatch.setattr(graph_mod, "_make_query", lambda _language, source: source)
+    monkeypatch.setattr(
+        graph_mod,
+        "get_or_parse_tree",
+        lambda filepath, *_a, **_k: (b"", SimpleNamespace(root_node=filepath)),
+    )
+    matches = {
+        rel_source: [(0, {"path": FakeNode("string", text="'./server'")})],
+        rel_dep: [],
+    }
+    monkeypatch.setattr(graph_mod, "_run_query", lambda _query, root: matches[root])
+    monkeypatch.setattr(graph_mod, "_unwrap_node", lambda node: node)
+
+    # resolve_import returns a project-root-relative path (not absolute).
+    # Before the fix this would be joined with scan_path → wrong absolute path.
+    spec = SimpleNamespace(
+        grammar="javascript",
+        import_query="imports",
+        resolve_import=lambda text, filepath, scan_path: rel_dep,
+    )
+
+    graph = graph_mod.ts_build_dep_graph(scan_dir, spec, file_list)
+
+    # The import edge must be recorded using the project-root-relative key.
+    assert rel_dep in graph[rel_source]["imports"], (
+        "import edge was not recorded — path was likely incorrectly joined with scan_path"
+    )
+    assert rel_source in graph[rel_dep]["importers"]

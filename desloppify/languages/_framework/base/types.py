@@ -29,6 +29,7 @@ from desloppify.languages._framework.base.types_shared import (
 
 if TYPE_CHECKING:
     from desloppify.engine.policy.zones import FileZoneMap, ZoneRule
+    from desloppify.intelligence.veracity import VeracityPlugin
 
 # ---------------------------------------------------------------------------
 # Type aliases for complex Callable signatures used in LangConfig fields
@@ -71,6 +72,7 @@ class LangRuntimeContract(Protocol):
     extract_functions: FunctionExtractor | None
     get_area: Callable[[str], str] | None
     build_dep_graph: DepGraphBuilder
+    veracity_plugin: VeracityPlugin | None
     detect_lang_security_detailed: Callable[[list[str], FileZoneMap | None], LangSecurityResult]
     detect_private_imports: Callable[
         [dict, FileZoneMap | None], tuple[list[DetectorEntry], int]
@@ -127,6 +129,9 @@ class LangConfig:
 
     # Function extractor (for duplicate detection). Returns a list of FunctionInfo items.
     extract_functions: FunctionExtractor | None = None
+
+    # Veracity (de-hallucination) plugin
+    veracity_plugin: VeracityPlugin | None = None
 
     # Coupling boundaries (optional, project-specific)
     boundaries: list[BoundaryRule] = field(default_factory=list)

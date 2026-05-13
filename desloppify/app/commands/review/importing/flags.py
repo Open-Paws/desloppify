@@ -28,6 +28,7 @@ class ReviewImportConfig:
     attested_external: bool = False
     manual_override: bool = False
     manual_attest: str | None = None
+    verify_veracity: bool = False
 
 
 def build_import_load_config(
@@ -45,6 +46,7 @@ def build_import_load_config(
         attested_external=import_config.attested_external,
         manual_override=override_enabled,
         manual_attest=override_attest,
+        verify_veracity=import_config.verify_veracity,
     )
 
 

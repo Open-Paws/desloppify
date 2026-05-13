@@ -6,13 +6,11 @@ from typing import Any
 
 from desloppify.base.output.terminal import colorize
 from desloppify.engine._plan.triage.lifecycle import (
-    clear_triage_stage_skips,
     has_triage_in_queue,
     inject_triage_stages,
 )
 from desloppify.engine.plan_ops import purge_ids
 from desloppify.engine.plan_state import PlanModel
-from desloppify.engine.plan_triage import TRIAGE_STAGE_IDS
 
 STAGE_ORDER = ["strategize", "observe", "reflect", "organize", "enrich", "sense-check"]
 

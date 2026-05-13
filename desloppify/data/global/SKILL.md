@@ -132,8 +132,9 @@ Four paths to get subjective scores:
 - **Local runner (Rovo Dev)**: `desloppify review --run-batches --runner rovodev --parallel --scan-after-import` — automated end-to-end via `acli rovodev run` subprocesses.
 - **Cloud/external**: `desloppify review --external-start --external-runner claude` → follow session template → `--external-submit`.
 - **Manual path**: `desloppify review --prepare` → review per dimension → `desloppify review --import file.json`.
+- **API Veracity**: Pass `--verify-veracity` during import to detect and reject hallucinated library APIs in suggested fixes (highly recommended for Python).
 
-**Batch output vs import filenames:** Individual batch outputs from subagents must be named `batch-N.raw.txt` (plain text/JSON content, `.raw.txt` extension). The `.json` filenames in `--import merged.json` or `--import findings.json` refer to the final merged import file, not individual batch outputs. Do not name batch outputs with a `.json` extension.
+**Batch output vs import filenames**: Individual batch outputs from subagents must be named `batch-N.raw.txt` (plain text/JSON content, `.raw.txt` extension). The `.json` filenames in `--import merged.json` or `--import findings.json` refer to the final merged import file, not individual batch outputs. Do not name batch outputs with a `.json` extension.
 
 **Subagent parallelism limit:** Do not launch every review batch at once. Run subagents in small waves, usually **3-5 concurrent agents**, and wait for a wave to finish before starting the next. If agents return empty, partial, or rate-limit-shaped results, reduce the wave size and retry only failed batches. Launching 20+ subagents at once can exhaust API quota and produce no usable review output.
 
