@@ -102,6 +102,17 @@ class TestBatchDimensionCoverageNotices:
 
 
 class TestCmdReviewPrepare:
+    @pytest.fixture(autouse=True)
+    def _disable_cmd_c_wrapping(self, monkeypatch):
+        """Stub _resolve_executable so Windows doesn't wrap the codex command in
+        `cmd /c ...` and _wrap_cmd_c doesn't collapse the per-arg list. The
+        per-arg shape is what fake_subprocess_run relies on (it does
+        ``cmd[cmd.index('-o') + 1]``); the wrapping is correct production
+        behavior but makes the test environment-dependent."""
+        monkeypatch.setattr(
+            runner_process_mod, "_resolve_executable", lambda name: [name]
+        )
+
     def test_do_prepare_writes_query_json(
         self, mock_lang_with_zones, empty_state, tmp_path
     ):
@@ -950,8 +961,13 @@ class TestCmdReviewPrepare:
             text=False,
             timeout=None,
             cwd=None,
+            **kwargs,
         ):
-            _ = timeout, cwd
+            # **kwargs absorbs the ``input=`` kwarg added by the runner when
+            # prompt-via-stdin is active (always on Windows; for long prompts
+            # on Linux). Without it, the fake raises TypeError and the batch
+            # fails with exit_code=1 long before the result is examined.
+            _ = timeout, cwd, kwargs
             out_path = Path(cmd[cmd.index("-o") + 1])
             out_path.parent.mkdir(parents=True, exist_ok=True)
             payloads = {
@@ -1190,8 +1206,12 @@ class TestCmdReviewPrepare:
             text=False,
             timeout=None,
             cwd=None,
+            **kwargs,
         ):
-            _ = capture_output, text, timeout, cwd
+            # **kwargs absorbs the ``input=`` kwarg added by the runner when
+            # prompt-via-stdin is active (always on Windows; for long prompts
+            # on Linux). Without it the fake raises TypeError.
+            _ = capture_output, text, timeout, cwd, kwargs
             out_path = Path(cmd[cmd.index("-o") + 1])
             out_path.parent.mkdir(parents=True, exist_ok=True)
             payload = {
@@ -1309,8 +1329,12 @@ class TestCmdReviewPrepare:
             text=False,
             timeout=None,
             cwd=None,
+            **kwargs,
         ):
-            _ = capture_output, text, timeout, cwd
+            # **kwargs absorbs the ``input=`` kwarg added by the runner when
+            # prompt-via-stdin is active (always on Windows; for long prompts
+            # on Linux). Without it the fake raises TypeError.
+            _ = capture_output, text, timeout, cwd, kwargs
             out_path = Path(cmd[cmd.index("-o") + 1])
             out_path.parent.mkdir(parents=True, exist_ok=True)
             payload = {
@@ -1466,8 +1490,11 @@ class TestCmdReviewPrepare:
             text=False,
             timeout=None,
             cwd=None,
+            **kwargs,
         ):
-            _ = capture_output, text, timeout, cwd
+            # **kwargs absorbs the ``input=`` kwarg the runner passes when
+            # prompt-via-stdin is active (always on Windows).
+            _ = capture_output, text, timeout, cwd, kwargs
             # Simulate Codex occasionally returning JSON on stdout while failing
             # to write the -o output file. collect_batch_results should recover
             # from the batch log and persist the recovered raw payload.
@@ -1576,8 +1603,12 @@ class TestCmdReviewPrepare:
             text=False,
             timeout=None,
             cwd=None,
+            **kwargs,
         ):
-            _ = capture_output, text, timeout, cwd
+            # **kwargs absorbs the ``input=`` kwarg added by the runner when
+            # prompt-via-stdin is active (always on Windows; for long prompts
+            # on Linux). Without it the fake raises TypeError.
+            _ = capture_output, text, timeout, cwd, kwargs
             out_path = Path(cmd[cmd.index("-o") + 1])
             out_path.parent.mkdir(parents=True, exist_ok=True)
             if out_path.name == "batch-1.raw.txt":
@@ -1707,8 +1738,11 @@ class TestCmdReviewPrepare:
             text=False,
             timeout=None,
             cwd=None,
+            **kwargs,
         ):
-            _ = capture_output, text, timeout, cwd
+            # **kwargs absorbs the ``input=`` kwarg the runner passes when
+            # prompt-via-stdin is active (always on Windows).
+            _ = capture_output, text, timeout, cwd, kwargs
             return MagicMock(returncode=124, stdout="", stderr="timed out")
 
         lang = MagicMock()
@@ -1775,8 +1809,12 @@ class TestCmdReviewPrepare:
             text=False,
             timeout=None,
             cwd=None,
+            **kwargs,
         ):
-            _ = capture_output, text, timeout, cwd
+            # **kwargs absorbs the ``input=`` kwarg added by the runner when
+            # prompt-via-stdin is active (always on Windows; for long prompts
+            # on Linux). Without it the fake raises TypeError.
+            _ = capture_output, text, timeout, cwd, kwargs
             out_path = Path(cmd[cmd.index("-o") + 1])
             out_path.parent.mkdir(parents=True, exist_ok=True)
             payload = {
@@ -1937,7 +1975,10 @@ class TestCmdReviewPrepare:
         output_file = tmp_path / "out.txt"
         live_snapshot = {"text": ""}
 
-        def fake_run(_cmd, *, capture_output, text, timeout):  # noqa: ARG001
+        def fake_run(_cmd, *, capture_output, text, timeout, **kwargs):  # noqa: ARG001
+            # **kwargs absorbs the ``input=`` kwarg the runner passes when
+            # prompt-via-stdin is active (always on Windows).
+            _ = kwargs
             if log_file.exists():
                 live_snapshot["text"] = log_file.read_text()
             output_file.write_text('{"assessments": {}, "issues": []}')

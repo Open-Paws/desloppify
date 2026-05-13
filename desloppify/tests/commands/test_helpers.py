@@ -167,7 +167,8 @@ def test_state_path_from_explicit_state_arg():
     args = SimpleNamespace(state="/custom/path.json", lang=None)
     result = state_path(args)
     assert result is not None
-    assert str(result) == "/custom/path.json"
+    # Use as_posix() to normalize separators on Windows.
+    assert result.as_posix() == "/custom/path.json"
 
 
 def test_state_path_from_lang_arg():

@@ -553,6 +553,10 @@ class TestJscpdAdapter:
         ):
             assert detect_with_jscpd(tmp_path) is None
 
+    @pytest.mark.skipif(
+        not hasattr(__import__("os"), "getpgid"),
+        reason="os.getpgid is POSIX-only; the process-group kill path doesn't apply on Windows",
+    )
     def test_timeout_kills_jscpd_process_group(self):
         class FakeProc:
             pid = 4321
@@ -963,11 +967,13 @@ class TestCollectExcludeDirs:
         assert all(p.startswith(str(tmp_path)) for p in result)
 
     def test_includes_default_non_glob_entries(self, tmp_path):
+        import os
         with patch(
             "desloppify.base.discovery.source.get_exclusions", return_value=()
         ):
             result = collect_exclude_dirs(tmp_path)
-        basenames = {p.rsplit("/", 1)[-1] for p in result}
+        # Use os.path.basename to be separator-agnostic (Windows uses \, POSIX /).
+        basenames = {os.path.basename(p) for p in result}
         assert "node_modules" in basenames
         assert "__pycache__" in basenames
         assert ".git" in basenames
@@ -983,12 +989,13 @@ class TestCollectExcludeDirs:
         assert not any("*" in p for p in result)
 
     def test_includes_runtime_exclusions(self, tmp_path):
+        import os
         with patch(
             "desloppify.base.discovery.source.get_exclusions",
             return_value=("vendor", "third_party"),
         ):
             result = collect_exclude_dirs(tmp_path)
-        basenames = {p.rsplit("/", 1)[-1] for p in result}
+        basenames = {os.path.basename(p) for p in result}
         assert "vendor" in basenames
         assert "third_party" in basenames
 
@@ -1003,10 +1010,12 @@ class TestCollectExcludeDirs:
 
     def test_deduplicates(self, tmp_path):
         """Runtime exclusion that overlaps with DEFAULT_EXCLUSIONS doesn't produce dupes."""
+        import os
         with patch(
             "desloppify.base.discovery.source.get_exclusions",
             return_value=("node_modules",),
         ):
             result = collect_exclude_dirs(tmp_path)
-        node_entries = [p for p in result if p.endswith("/node_modules")]
+        # Use basename, separator-agnostic (Windows uses \).
+        node_entries = [p for p in result if os.path.basename(p) == "node_modules"]
         assert len(node_entries) == 1

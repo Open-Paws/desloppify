@@ -271,8 +271,10 @@ class TestGenerateRemediationPlan:
         plan = generate_remediation_plan(state, "python", output_path=output)
 
         assert output.exists()
-        assert output.read_text() == plan
-        assert "Issue" in output.read_text()
+        # Plan contains unicode (middle dot, etc.) written as UTF-8; locale-default
+        # read (cp1252 on Windows) would mangle the bytes. Always read as UTF-8.
+        assert output.read_text(encoding="utf-8") == plan
+        assert "Issue" in output.read_text(encoding="utf-8")
 
     def test_lang_name_in_commands(self):
         state = _state_with_holistic_issues(

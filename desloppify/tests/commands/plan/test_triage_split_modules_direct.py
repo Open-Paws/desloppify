@@ -1311,10 +1311,15 @@ def test_orchestrator_pipeline_entrypoint_is_exposed() -> None:
 
 
 def test_orchestrator_pipeline_writes_exact_cli_helper(tmp_path: Path) -> None:
+    import sys
     helper = orchestrator_pipeline_mod._write_desloppify_cli_helper(tmp_path)
     text = helper.read_text(encoding="utf-8")
     assert helper.exists()
-    assert helper.stat().st_mode & 0o111
+    # POSIX exec bits don't map onto Windows file modes (Windows uses ACLs);
+    # the helper is invoked via bash/PYTHONPATH wiring rather than direct exec
+    # so missing exec bits aren't a functional regression on Windows.
+    if sys.platform != "win32":
+        assert helper.stat().st_mode & 0o111
     assert "PYTHONPATH=" in text
     assert "-m desloppify.cli" in text
 
