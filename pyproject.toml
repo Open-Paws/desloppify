@@ -36,7 +36,11 @@ Issues = "https://github.com/peteromallet/desloppify/issues"
 [project.optional-dependencies]
 treesitter = [
   "tree-sitter>=0.21",
-  "tree-sitter-language-pack>=0.3,<1.8",
+  # 1.6.3 was a breaking refactor by upstream: the public module moved from
+  # `tree_sitter_language_pack` to `_native`, removing the top-level package
+  # that desloppify's parser bootstrap imports. Pin out until the API is
+  # restored (or desloppify migrates to the new import path).
+  "tree-sitter-language-pack>=0.3,<1.6.3",
 ]
 csharp-xml = ["defusedxml>=0.7.0"]
 python-security = ["bandit>=1.7.8"]
@@ -45,7 +49,11 @@ plan-yaml = ["PyYAML>=6.0"]
 full = [
   "defusedxml>=0.7.0",
   "tree-sitter>=0.21",
-  "tree-sitter-language-pack>=0.3,<1.8",
+  # 1.6.3 was a breaking refactor by upstream: the public module moved from
+  # `tree_sitter_language_pack` to `_native`, removing the top-level package
+  # that desloppify's parser bootstrap imports. Pin out until the API is
+  # restored (or desloppify migrates to the new import path).
+  "tree-sitter-language-pack>=0.3,<1.6.3",
   "bandit>=1.7.8",
   "Pillow>=9.0.0",
   "PyYAML>=6.0",
