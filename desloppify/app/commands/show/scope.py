@@ -15,6 +15,8 @@ from desloppify.engine._work_queue.core import (
     QueueBuildOptions,
     build_work_queue,
 )
+from desloppify.engine._work_queue.helpers import scope_matches
+from desloppify.engine._work_queue.ranking import build_issue_items
 
 
 @dataclass(frozen=True)
@@ -197,39 +199,55 @@ def load_matches(
     status_filter: str,
     chronic: bool,
 ) -> list[dict[str, Any]]:
-    """Load matching issues from the ranked queue.
+    """Load matching issues for an exploratory show query.
 
-    When a scope is provided, search both execution and backlog partitions
-    so scoped queries (e.g. ``show advocacy_language``) surface findings
-    even when a different lifecycle phase (like initial review) owns the
-    execution partition.
+    Unlike execution queues, show should surface persisted matching issues even
+    when a detector has a higher standalone confidence threshold.
     """
-    from desloppify.engine.work_queue import build_work_queue_for_visibility, QueueVisibility
-
-    base_opts = QueueBuildOptions(
-        count=None,
-        scope=scope,
-        status=status_filter,
-        include_subjective=False,
-        chronic=chronic,
-    )
-    queue = build_work_queue(state, options=base_opts)
-    matches = [
-        item for item in queue.get("items", []) if item.get("kind") == "issue"
-    ]
-    # When scoped and execution partition returned nothing, check backlog.
-    if not matches and scope and status_filter == "open":
-        backlog_queue = build_work_queue_for_visibility(
+    issue_map = state.get("work_items") or state.get("issues", {})
+    if not isinstance(issue_map, dict) or not issue_map:
+        queue = build_work_queue(
             state,
-            options=base_opts,
-            visibility=QueueVisibility.BACKLOG,
+            options=QueueBuildOptions(
+                count=None,
+                scope=scope,
+                status=status_filter,
+                include_subjective=False,
+                chronic=chronic,
+            ),
         )
-        matches = [
-            item
-            for item in backlog_queue.get("items", [])
-            if item.get("kind") == "issue"
-        ]
-    return matches
+        return [item for item in queue.get("items", []) if item.get("kind") == "issue"]
+    return build_issue_items(
+        state,
+        scan_path=state.get("scan_path"),
+        status_filter=status_filter,
+        scope=scope,
+        chronic=chronic,
+        forced_ids=_matching_issue_ids_for_scope(state, scope),
+    )
+
+
+def _matching_issue_ids_for_scope(
+    state: StateModel,
+    scope: str | None,
+) -> set[str]:
+    """Return persisted IDs matching a show scope, bypassing queue thresholds."""
+    issue_map = state.get("work_items") or state.get("issues", {})
+    if not isinstance(issue_map, dict):
+        return set()
+    if not scope:
+        return {issue_id for issue_id in issue_map if isinstance(issue_id, str)}
+
+    matched: set[str] = set()
+    for issue_id, issue in issue_map.items():
+        if not isinstance(issue_id, str) or not isinstance(issue, dict):
+            continue
+        item = dict(issue)
+        item["id"] = issue_id
+        item.setdefault("kind", "issue")
+        if scope_matches(item, scope):
+            matched.add(issue_id)
+    return matched
 
 
 def resolve_noise(
