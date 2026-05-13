@@ -19,7 +19,10 @@ def resolve_go_import(import_text: str, source_file: str, scan_path: str) -> str
         return None
 
     rel_path = import_text[len(module_path) :].lstrip("/")
-    candidate_dir = os.path.join(scan_path, rel_path)
+    # The import path uses forward slashes (Go module convention); on Windows,
+    # os.path.join with a forward-slashed segment produces mixed separators.
+    # Normalize so callers get native-form paths.
+    candidate_dir = os.path.normpath(os.path.join(scan_path, rel_path))
     if os.path.isdir(candidate_dir):
         for filename in sorted(os.listdir(candidate_dir)):
             if filename.endswith(".go") and not filename.endswith("_test.go"):
@@ -44,15 +47,15 @@ def resolve_rust_import(import_text: str, source_file: str, scan_path: str) -> s
     path_parts = parts[:-1] if len(parts) > 1 else parts
     candidate = os.path.join(src_dir, *path_parts) + ".rs"
     if os.path.isfile(candidate):
-        return candidate
+        return os.path.normpath(candidate)
 
     candidate = os.path.join(src_dir, *path_parts, "mod.rs")
     if os.path.isfile(candidate):
-        return candidate
+        return os.path.normpath(candidate)
 
     candidate = os.path.join(src_dir, *parts) + ".rs"
     if os.path.isfile(candidate):
-        return candidate
+        return os.path.normpath(candidate)
     return None
 
 
@@ -70,7 +73,7 @@ def resolve_java_import(import_text: str, source_file: str, scan_path: str) -> s
     for src_root in ["src/main/java", "src", "app/src/main/java", "."]:
         candidate = os.path.join(scan_path, src_root, rel_path)
         if os.path.isfile(candidate):
-            return candidate
+            return os.path.normpath(candidate)
     return None
 
 
@@ -89,7 +92,7 @@ def resolve_kotlin_import(import_text: str, source_file: str, scan_path: str) ->
         for src_root in ["src/main/kotlin", "src/main/java", "src", "app/src/main/kotlin", "."]:
             candidate = os.path.join(scan_path, src_root, rel_path)
             if os.path.isfile(candidate):
-                return candidate
+                return os.path.normpath(candidate)
     return None
 
 
@@ -101,12 +104,12 @@ def resolve_cxx_include(import_text: str, source_file: str, scan_path: str) -> s
     base = os.path.dirname(source_file)
     candidate = os.path.normpath(os.path.join(base, import_text))
     if os.path.isfile(candidate):
-        return candidate
+        return os.path.normpath(candidate)
 
     for inc_dir in ["include", "src", "."]:
         candidate = os.path.join(scan_path, inc_dir, import_text)
         if os.path.isfile(candidate):
-            return candidate
+            return os.path.normpath(candidate)
     return None
 
 
@@ -122,10 +125,10 @@ def resolve_csharp_import(import_text: str, source_file: str, scan_path: str) ->
         rel_path = os.path.join(*parts[:-1], filename)
         candidate = os.path.join(scan_path, src_root, rel_path)
         if os.path.isfile(candidate):
-            return candidate
+            return os.path.normpath(candidate)
         candidate = os.path.join(scan_path, src_root, filename)
         if os.path.isfile(candidate):
-            return candidate
+            return os.path.normpath(candidate)
     return None
 
 
@@ -137,7 +140,7 @@ def resolve_dart_import(import_text: str, source_file: str, scan_path: str) -> s
         parts = import_text[len("package:") :].split("/", 1)
         if len(parts) < 2:
             return None
-        candidate = os.path.join(scan_path, "lib", parts[1])
+        candidate = os.path.normpath(os.path.join(scan_path, "lib", parts[1]))
         return candidate if os.path.isfile(candidate) else None
 
     base = os.path.dirname(source_file)
@@ -159,7 +162,7 @@ def resolve_scala_import(import_text: str, source_file: str, scan_path: str) -> 
     for src_root in ["src/main/scala", "src", "."]:
         candidate = os.path.join(scan_path, src_root, rel_path)
         if os.path.isfile(candidate):
-            return candidate
+            return os.path.normpath(candidate)
     return None
 
 
@@ -185,5 +188,5 @@ def resolve_swift_import(import_text: str, source_file: str, scan_path: str) -> 
             continue
         seen.add(candidate)
         if os.path.isfile(candidate):
-            return candidate
+            return os.path.normpath(candidate)
     return None

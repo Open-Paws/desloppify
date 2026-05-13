@@ -25,6 +25,11 @@ def test_rovodev_batch_command_includes_acli_rovodev_run_invocation(monkeypatch)
     monkeypatch.delenv("DESLOPPIFY_ROVODEV_OUTPUT_SCHEMA", raising=False)
     monkeypatch.delenv("DESLOPPIFY_ROVODEV_EXTRA_ARGS", raising=False)
     monkeypatch.delenv("DESLOPPIFY_ROVODEV_EXECUTABLE", raising=False)
+    # On Windows, _resolve_executable wraps in `cmd /c` when the binary isn't on
+    # PATH, and _wrap_cmd_c then collapses the list — correct production
+    # behavior, but it obscures per-arg list shape. Stub to the unwrapped form
+    # so this test verifies command construction logic cross-platform.
+    monkeypatch.setattr(runner_rovodev_mod, "_resolve_executable", lambda name: [name])
 
     cmd = runner_rovodev_mod.rovodev_batch_command(
         prompt="hello world",
@@ -50,6 +55,7 @@ def test_rovodev_batch_command_honours_env_overrides(monkeypatch) -> None:
     monkeypatch.setenv("DESLOPPIFY_ROVODEV_OUTPUT_SCHEMA", '{"type":"object"}')
     monkeypatch.setenv("DESLOPPIFY_ROVODEV_EXTRA_ARGS", "--config-override foo")
     monkeypatch.setenv("DESLOPPIFY_ROVODEV_EXECUTABLE", "acli")
+    monkeypatch.setattr(runner_rovodev_mod, "_resolve_executable", lambda name: [name])
 
     cmd = runner_rovodev_mod.rovodev_batch_command(
         prompt="prompt",
@@ -70,6 +76,7 @@ def test_rovodev_batch_command_no_yolo_opt_out(monkeypatch) -> None:
     monkeypatch.setenv("DESLOPPIFY_ROVODEV_NO_YOLO", "1")
     monkeypatch.delenv("DESLOPPIFY_ROVODEV_OUTPUT_SCHEMA", raising=False)
     monkeypatch.delenv("DESLOPPIFY_ROVODEV_EXTRA_ARGS", raising=False)
+    monkeypatch.setattr(runner_rovodev_mod, "_resolve_executable", lambda name: [name])
 
     cmd = runner_rovodev_mod.rovodev_batch_command(
         prompt="p",

@@ -56,6 +56,14 @@ def _rel_to_root(value: str, root_norm: str) -> str:
     """Return root-relative variant (best effort) for path/prefix matching."""
     if value.startswith(root_norm):
         return value[len(root_norm) :]
+    # On Windows, root_norm may be drive-rooted ("C:/project/") after
+    # Path.resolve(), while the caller still passes POSIX-rooted paths
+    # ("/project/..."). Strip the drive letter from root_norm and retry so
+    # tests and tools that mix the two shapes still match.
+    if len(root_norm) > 3 and root_norm[1:3] == ":/":
+        root_no_drive = root_norm[2:]
+        if value.startswith(root_no_drive):
+            return value[len(root_no_drive) :]
     return value.lstrip("/")
 
 

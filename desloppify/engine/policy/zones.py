@@ -90,6 +90,12 @@ def _match_pattern(rel_path: str, pattern: str) -> bool:
 
     See ZoneRule docstring for pattern type conventions.
     """
+    # Normalize separators so the rest of the pattern logic doesn't have to
+    # think about Windows backslashes. Patterns are documented as
+    # POSIX-style (e.g. "/tests/"); callers that pass native paths
+    # (rare, mostly in tests) should still classify correctly.
+    rel_path = rel_path.replace("\\", "/")
+    pattern = pattern.replace("\\", "/")
     basename = os.path.basename(rel_path)
 
     # Directory pattern: "/dir/" → substring on padded path

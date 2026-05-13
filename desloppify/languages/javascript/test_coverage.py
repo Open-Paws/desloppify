@@ -112,6 +112,9 @@ def resolve_import_spec(
 
     base = os.path.dirname(test_path)
     candidate = os.path.normpath(os.path.join(base, spec))
+    # production_files keys are POSIX-style (forward slashes). os.path.normpath
+    # produces backslashes on Windows, so normalize back to POSIX for lookup.
+    candidate = candidate.replace(os.sep, "/")
     for ext in ("", ".js", ".jsx", ".mjs", ".cjs", "/index.js", "/index.jsx"):
         path = candidate + ext
         if path in production_files:

@@ -163,6 +163,11 @@ def test_run_codex_batch_sends_stdin_when_command_uses_dash(monkeypatch, tmp_pat
 
 def test_codex_batch_command_uses_sanitized_reasoning_effort(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("DESLOPPIFY_CODEX_REASONING_EFFORT", "HIGH")
+    # On Windows _resolve_executable wraps unresolvable names in `cmd /c`,
+    # then _wrap_cmd_c collapses the rest of the args into one string. That's
+    # correct production behavior but obscures per-arg list shape the test
+    # asserts. Patch to the unwrapped form so this test runs cross-platform.
+    monkeypatch.setattr(codex_batch_mod, "_resolve_executable", lambda name: [name])
 
     command = codex_batch_mod.codex_batch_command(
         prompt="review prompt",
@@ -170,7 +175,6 @@ def test_codex_batch_command_uses_sanitized_reasoning_effort(monkeypatch, tmp_pa
         output_file=tmp_path / "out.json",
     )
 
-    # On Windows with .cmd wrappers, prefix may be ["cmd", "/c", "...codex.cmd"]
     assert any(c.endswith("codex") or "codex" in c for c in command[:3])
     assert "exec" in command
     assert "--ephemeral" in command

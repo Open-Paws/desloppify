@@ -173,8 +173,11 @@ def resolve_js_import(import_text: str, source_file: str, scan_path: str) -> str
 
     base = os.path.dirname(source_file)
     candidate = os.path.normpath(os.path.join(base, import_text))
+    # Concatenating "/index.js" onto a Windows path produces mixed separators
+    # ("C:\\...\\ui/index.js"); normalize each candidate so the returned path
+    # uses native separators throughout.
     for ext in ("", ".js", ".jsx", ".mjs", ".cjs", "/index.js", "/index.jsx"):
-        path = candidate + ext
+        path = os.path.normpath(candidate + ext)
         if os.path.isfile(path):
             return path
     return None

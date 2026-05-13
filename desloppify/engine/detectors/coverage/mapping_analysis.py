@@ -139,7 +139,10 @@ def _build_prod_by_module(
     project_root: str,
 ) -> dict[str, str]:
     """Build module lookup map for production files."""
-    root_str = project_root + os.sep
+    # Normalize to POSIX-style for the prefix comparison so mixed-slash inputs
+    # (Windows root + forward-slash relative segments from other tools) match.
+    root_posix = project_root.replace(os.sep, "/")
+    root_str = root_posix + "/"
     prod_by_module: dict[str, str] = {}
     ambiguous_aliases: set[str] = set()
 
@@ -154,10 +157,11 @@ def _build_prod_by_module(
         prod_by_module.pop(alias, None)
 
     for prod_file in production_files:
+        normalized_prod = prod_file.replace(os.sep, "/")
         rel_path = (
-            prod_file[len(root_str) :]
-            if prod_file.startswith(root_str)
-            else prod_file
+            normalized_prod[len(root_str) :]
+            if normalized_prod.startswith(root_str)
+            else normalized_prod
         )
         # Strip src/ prefix so src-layout projects map correctly
         # (e.g. 'src/argos_toolkit/foo.py' -> 'argos_toolkit.foo')

@@ -16,13 +16,34 @@ _MAX_NO_TESTS_ENTRIES = 50
 
 
 def _normalize_graph_paths(graph: dict) -> dict:
-    """Normalize graph paths to relative paths."""
-    root_prefix = str(get_project_root()) + os.sep
+    """Normalize graph paths to relative paths.
+
+    Comparison is done in POSIX form (forward slashes) so mixed-slash inputs
+    on Windows still match, but the returned keys preserve the input separator
+    convention by slicing from the original path string.
+    """
+    root_native = str(get_project_root())
+    root_posix = root_native.replace(os.sep, "/")
+    root_prefix_native = root_native + os.sep
+    root_prefix_posix = root_posix + "/"
 
     def _to_rel(path: str) -> str:
-        return path[len(root_prefix) :] if path.startswith(root_prefix) else path
+        # Prefer native-form trim so callers that pass purely native paths
+        # get back native-form relatives (preserves existing contract).
+        if path.startswith(root_prefix_native):
+            return path[len(root_prefix_native) :]
+        # Fall back to POSIX-form trim for callers that pass mixed-slash paths
+        # (e.g. Windows root + forward-slash relative from cargo/npm/etc.).
+        normalized = path.replace(os.sep, "/")
+        if normalized.startswith(root_prefix_posix):
+            return normalized[len(root_prefix_posix) :]
+        return path
 
-    needs_norm = any(k.startswith(root_prefix) for k in graph)
+    needs_norm = any(
+        k.startswith(root_prefix_native)
+        or k.replace(os.sep, "/").startswith(root_prefix_posix)
+        for k in graph
+    )
     if not needs_norm:
         return graph
 
@@ -44,10 +65,12 @@ def _discover_scorable_and_tests(
     extra_test_files: set[str] | None,
 ) -> tuple[set[str], set[str], set[str], int]:
     """Return (production_files, test_files, scorable_files, potential)."""
-    root_prefix = str(get_project_root()) + os.sep
+    root_posix = str(get_project_root()).replace(os.sep, "/")
+    root_prefix = root_posix + "/"
 
     def _to_rel(path: str) -> str:
-        return path[len(root_prefix) :] if path.startswith(root_prefix) else path
+        normalized = path.replace(os.sep, "/")
+        return normalized[len(root_prefix) :] if normalized.startswith(root_prefix) else normalized
 
     all_files = zone_map.all_files()
     production_files = set(zone_map.include_only(all_files, Zone.PRODUCTION, Zone.SCRIPT))
