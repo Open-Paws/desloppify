@@ -80,12 +80,36 @@ detector_phase_duplicates = SHARED_PHASE_FACTORIES["duplicates"]
 detector_phase_boilerplate_duplication = SHARED_PHASE_FACTORIES["boilerplate_duplication"]
 
 
+def shared_advocacy_phases() -> list[DetectorPhase]:
+    """Open Paws advocacy detector phases shared across all language configs.
+
+    Every language config that wants advocacy enforcement (which is every
+    language in this fork) includes these. Lazy-imported to keep advocacy
+    code from loading when the framework is consumed outside this fork.
+    """
+    from desloppify.languages._framework.phases_advocacy import (
+        detector_phase_advocacy_language,
+        detector_phase_advocacy_security,
+        detector_phase_advocacy_tool_presence,
+    )
+    return [
+        detector_phase_advocacy_language(),
+        detector_phase_advocacy_security(),
+        detector_phase_advocacy_tool_presence(),
+    ]
+
+
 def shared_subjective_duplicates_tail(
     *,
     pre_duplicates: list[DetectorPhase] | None = None,
 ) -> list[DetectorPhase]:
-    """Shared review tail: subjective review, optional custom phases, then duplicates."""
-    phases = [detector_phase_subjective_review()]
+    """Shared review tail: advocacy phases, subjective review, optional custom phases, then duplicates.
+
+    Advocacy phases run first in the tail so their findings land in state
+    before subjective review reads them.
+    """
+    phases: list[DetectorPhase] = list(shared_advocacy_phases())
+    phases.append(detector_phase_subjective_review())
     if pre_duplicates:
         phases.extend(pre_duplicates)
     phases.append(detector_phase_boilerplate_duplication())
@@ -102,5 +126,6 @@ __all__ = [
     "detector_phase_test_coverage",
     "EXCLUSIVE_DETECTOR_MODULES",
     "SHARED_PHASE_FACTORIES",
+    "shared_advocacy_phases",
     "shared_subjective_duplicates_tail",
 ]

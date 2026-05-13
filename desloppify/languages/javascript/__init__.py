@@ -3,10 +3,6 @@
 from __future__ import annotations
 
 from desloppify.languages._framework.generic_support.core import generic_lang
-from desloppify.languages._framework.phases_advocacy import (
-    detector_phase_advocacy_language,
-    detector_phase_advocacy_security,
-)
 from desloppify.languages._framework.treesitter import JS_SPEC
 from desloppify.languages.javascript._zones import JS_ZONE_RULES
 from desloppify.languages.javascript import test_coverage as js_test_coverage_hooks
@@ -35,9 +31,8 @@ cfg = generic_lang(
     test_coverage_module=js_test_coverage_hooks,
 )
 
-# Append Open Paws advocacy phases to the generic config.
-cfg.phases.append(detector_phase_advocacy_language())
-cfg.phases.append(detector_phase_advocacy_security())
+# Advocacy phases (advocacy_language, advocacy_security, advocacy_tool_presence)
+# are wired in via shared_subjective_duplicates_tail() — no per-language append needed.
 
 __all__ = [
     "generic_lang",
