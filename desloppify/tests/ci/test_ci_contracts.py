@@ -32,6 +32,16 @@ def _run_commands(job: dict) -> list[str]:
     return [step["run"] for step in job.get("steps", []) if "run" in step]
 
 
+_SHA_RE = re.compile(r"[0-9a-f]{40}")
+
+
+def _uses_action(step: dict, action: str) -> bool:
+    """True if the step uses ``action`` pinned to a full commit SHA."""
+    uses = step.get("uses", "")
+    name, _, ref = uses.partition("@")
+    return name == action and bool(_SHA_RE.fullmatch(ref))
+
+
 def _step_names(job: dict) -> list[str]:
     return [step.get("name", "") for step in job.get("steps", [])]
 
@@ -63,8 +73,8 @@ def test_ci_workflow_jobs_are_bound_to_make_targets() -> None:
         assert any(expected_cmd in run for run in runs), (
             f"{job_name} must execute `{expected_cmd}` for local/CI parity."
         )
-        assert any(step.get("uses") == "actions/setup-python@v5" for step in job["steps"]), (
-            f"{job_name} should use actions/setup-python@v5."
+        assert any(_uses_action(step, "actions/setup-python") for step in job["steps"]), (
+            f"{job_name} should use actions/setup-python pinned to a commit SHA."
         )
 
 
@@ -86,7 +96,7 @@ def test_integration_workflow_uses_deterministic_roslyn_path() -> None:
         job["env"]["DESLOPPIFY_TEST_CSHARP_ROSLYN_CMD"]
         == "python .github/scripts/roslyn_stub.py"
     )
-    assert any(step.get("uses") == "actions/setup-dotnet@v4" for step in job["steps"])
+    assert any(_uses_action(step, "actions/setup-dotnet") for step in job["steps"])
     assert any("make integration-roslyn" in run for run in _run_commands(job))
 
 
@@ -102,6 +112,38 @@ def test_publish_workflow_keeps_release_safety_gates() -> None:
     assert "Run packaging smoke gate" in names
     assert "Publish to PyPI" in names
     assert any("make package-smoke" in run for run in _run_commands(publish_job))
+
+
+def test_all_workflow_actions_are_pinned_to_commit_shas() -> None:
+    """Mutable tags (@v4, @main, @release/v1) can be moved to malicious code."""
+    unpinned = []
+    for wf_path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
+        wf = _load_yaml(wf_path)
+        for job_name, job in wf.get("jobs", {}).items():
+            for step in job.get("steps", []):
+                uses = step.get("uses")
+                if uses and not uses.startswith("./"):
+                    ref = uses.partition("@")[2]
+                    if not _SHA_RE.fullmatch(ref):
+                        unpinned.append(f"{wf_path.name}:{job_name}: {uses}")
+    assert not unpinned, "Actions not pinned to a commit SHA:\n" + "\n".join(unpinned)
+
+
+def test_publish_workflow_has_no_dependency_cache() -> None:
+    """A dependency cache in the release job is a cache-poisoning vector."""
+    publish_job = _load_yaml(PUBLISH_WORKFLOW)["jobs"]["publish"]
+    for step in publish_job["steps"]:
+        assert "cache" not in (step.get("with") or {}), f"cache configured in {step.get('uses')}"
+
+
+def test_tweet_workflow_is_least_privilege_and_hash_pinned() -> None:
+    wf = _load_yaml(REPO_ROOT / ".github" / "workflows" / "tweet-release.yml")
+    assert wf.get("permissions") == {"contents": "read"}
+    runs = "\n".join(_run_commands(wf["jobs"]["tweet"]))
+    assert "--require-hashes" in runs
+    reqs = (REPO_ROOT / ".github" / "workflows" / "scripts" / "tweet_requirements.txt").read_text()
+    for pkg in ("anthropic==", "tweepy==", "requests=="):
+        assert pkg in reqs, f"{pkg} not pinned in tweet_requirements.txt"
 
 
 def test_makefile_contains_ci_gate_targets() -> None:
