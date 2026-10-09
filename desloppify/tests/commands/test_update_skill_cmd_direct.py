@@ -97,6 +97,37 @@ def test_update_installed_skill_handles_download_and_shared_file_write(
     assert "Updated .agents/skills/desloppify/SKILL.md" in out
 
 
+def test_read_local_docs_file_falls_back_to_bundled_package_data(monkeypatch, tmp_path: Path) -> None:
+    """When no repo-root docs/ exists, the copy bundled in the package is used."""
+    fake_cmd = tmp_path / "a" / "b" / "c" / "d" / "cmd.py"
+    fake_cmd.parent.mkdir(parents=True)
+    monkeypatch.setattr(update_skill_cmd_mod, "__file__", str(fake_cmd))
+
+    content = update_skill_cmd_mod._read_local_docs_file("SKILL.md")
+    assert content is not None
+    assert "desloppify-skill-version" in content
+    assert update_skill_cmd_mod._read_local_docs_file("does-not-exist.md") is None
+
+
+def test_update_installed_skill_uses_bundled_docs_without_network(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    """With bundled docs available, update-skill must not download anything."""
+    fake_cmd = tmp_path / "a" / "b" / "c" / "d" / "cmd.py"
+    fake_cmd.parent.mkdir(parents=True)
+    monkeypatch.setattr(update_skill_cmd_mod, "__file__", str(fake_cmd))
+
+    def _no_download(filename):
+        raise AssertionError(f"unexpected network download of {filename}")
+
+    monkeypatch.setattr(update_skill_cmd_mod, "_download", _no_download)
+    monkeypatch.setattr(update_skill_cmd_mod, "get_project_root", lambda: tmp_path)
+    monkeypatch.setattr(update_skill_cmd_mod, "colorize", lambda text, _style: text)
+
+    assert update_skill_cmd_mod.update_installed_skill("claude") is True
+
+
 def test_cmd_update_skill_handles_missing_and_unknown_interfaces(monkeypatch, capsys) -> None:
     monkeypatch.setattr(update_skill_cmd_mod, "resolve_interface", lambda _explicit=None: None)
     monkeypatch.setattr(update_skill_cmd_mod, "colorize", lambda text, _style: text)

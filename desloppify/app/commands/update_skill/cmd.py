@@ -160,9 +160,24 @@ def resolve_interface(
     return None
 
 
+_BUNDLED_DOCS_PACKAGE = "desloppify.data.global"
+
+
 def _read_local_docs_file(filename: str) -> str | None:
-    """Try to read a file from the desloppify package's docs/ directory."""
+    """Read a skill/overlay doc from local sources, without using the network.
+
+    Lookup order:
+    1. ``docs/`` at the repo root (source checkouts and forks with custom overlays).
+    2. The copy bundled in the installed package (``desloppify.data.global``),
+       which always matches the installed desloppify version.
+
+    Only if neither exists does the caller fall back to downloading from GitHub.
+    Preferring the bundled copy means skill instructions written into a user's
+    agent config come from the version they installed, not from whatever is
+    currently on the ``main`` branch.
+    """
     import pathlib
+    from importlib.resources import files
 
     # The docs/ dir is at the repo root:
     # __file__ = desloppify/app/commands/update_skill/cmd.py
@@ -174,6 +189,13 @@ def _read_local_docs_file(filename: str) -> str | None:
             return local_path.read_text(encoding="utf-8")
         except OSError:
             return None
+
+    try:
+        bundled = files(_BUNDLED_DOCS_PACKAGE).joinpath(filename)
+        if bundled.is_file():
+            return bundled.read_text(encoding="utf-8")
+    except (ModuleNotFoundError, OSError):
+        return None
     return None
 
 
@@ -189,15 +211,15 @@ def _update_installed_skill_with_deps(
     target_rel, overlay_name, dedicated = SKILL_TARGETS[interface]
     target_path = get_project_root_fn() / target_rel
 
-    # Prefer local docs/ files (e.g., in a fork with custom overlays)
-    # before falling back to GitHub download.
+    # Prefer local docs/ files (e.g., in a fork with custom overlays) or the
+    # copy bundled with the installed package before falling back to GitHub.
     skill_content = _read_local_docs_file("SKILL.md")
     overlay_content = (
         _read_local_docs_file(f"{overlay_name}.md") if overlay_name else None
     )
 
     if skill_content:
-        source = "local docs/"
+        source = "local/bundled docs"
     else:
         source = "GitHub"
         print(colorize_fn(f"Downloading skill document ({interface})...", "dim"))
