@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import argparse
-import ssl
-import urllib.error
-import urllib.request
+import pathlib
+import re
+from importlib.resources import files
 
 from desloppify.app.skill_docs import (
     SKILL_BEGIN,
@@ -16,42 +16,14 @@ from desloppify.app.skill_docs import (
     SkillInstall,
     find_installed_skill,
 )
-from desloppify.base.exception_sets import CommandError
 from desloppify.base.discovery.file_paths import safe_write_text
 from desloppify.base.discovery.paths import get_project_root
+from desloppify.base.exception_sets import CommandError
 from desloppify.base.output.terminal import colorize
-
-_RAW_BASE = "https://raw.githubusercontent.com/Open-Paws/desloppify/main/docs"
-
-
-def _ssl_context() -> ssl.SSLContext:
-    """Build SSL context, preferring certifi CA bundle for macOS compatibility."""
-    try:
-        import certifi  # noqa: F811
-        return ssl.create_default_context(cafile=certifi.where())
-    except ImportError:
-        return ssl.create_default_context()
-
-
-def _download(filename: str) -> str:
-    """Download a file from the desloppify docs directory on GitHub."""
-    url = f"{_RAW_BASE}/{filename}"
-    try:
-        ctx = _ssl_context()
-        with urllib.request.urlopen(url, timeout=15, context=ctx) as resp:  # nosec B310
-            return resp.read().decode("utf-8")
-    except urllib.error.URLError as exc:
-        if "CERTIFICATE_VERIFY_FAILED" in str(exc):
-            raise CommandError(
-                f"SSL certificate verification failed downloading {filename}.\n"
-                "On macOS with Homebrew Python, try: pip install certifi\n"
-                "Or run: /Applications/Python\\ 3.*/Install\\ Certificates.command"
-            ) from exc
-        raise
 
 
 def _build_section(skill_content: str, overlay_content: str | None) -> str:
-    """Assemble the complete skill section from downloaded parts."""
+    """Assemble the complete skill section from the skill doc and its overlay."""
     parts = [skill_content.rstrip()]
     if overlay_content:
         parts.append(overlay_content.rstrip())
@@ -163,32 +135,47 @@ def resolve_interface(
 _BUNDLED_DOCS_PACKAGE = "desloppify.data.global"
 
 
+def _source_checkout_root() -> pathlib.Path | None:
+    """Return the desloppify repo root when running from a source checkout.
+
+    ``__file__`` is ``desloppify/app/commands/update_skill/cmd.py``, so the repo
+    root is five parents up.  In an installed package that same path is
+    ``site-packages/``, where any other distribution could ship a top-level
+    ``docs/`` directory.  Only trust it when a desloppify ``pyproject.toml``
+    sits next to it.
+    """
+    root = pathlib.Path(__file__).resolve().parent.parent.parent.parent.parent
+    pyproject = root / "pyproject.toml"
+    try:
+        text = pyproject.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    if not re.search(r'^name\s*=\s*"desloppify"\s*$', text, re.MULTILINE):
+        return None
+    return root
+
+
 def _read_local_docs_file(filename: str) -> str | None:
     """Read a skill/overlay doc from local sources, without using the network.
 
     Lookup order:
-    1. ``docs/`` at the repo root (source checkouts and forks with custom overlays).
+    1. ``docs/`` at the repo root, but only in a desloppify source checkout
+       (forks with custom overlays).
     2. The copy bundled in the installed package (``desloppify.data.global``),
        which always matches the installed desloppify version.
 
-    Only if neither exists does the caller fall back to downloading from GitHub.
-    Preferring the bundled copy means skill instructions written into a user's
-    agent config come from the version they installed, not from whatever is
-    currently on the ``main`` branch.
+    Nothing is ever downloaded: skill instructions written into a user's agent
+    config come from the version they installed, not from whatever is
+    currently on GitHub.
     """
-    import pathlib
-    from importlib.resources import files
-
-    # The docs/ dir is at the repo root:
-    # __file__ = desloppify/app/commands/update_skill/cmd.py
-    # repo root = 5 parents up
-    pkg_root = pathlib.Path(__file__).resolve().parent.parent.parent.parent.parent
-    local_path = pkg_root / "docs" / filename
-    if local_path.is_file():
-        try:
-            return local_path.read_text(encoding="utf-8")
-        except OSError:
-            return None
+    checkout_root = _source_checkout_root()
+    if checkout_root is not None:
+        local_path = checkout_root / "docs" / filename
+        if local_path.is_file():
+            try:
+                return local_path.read_text(encoding="utf-8")
+            except OSError:
+                return None
 
     try:
         bundled = files(_BUNDLED_DOCS_PACKAGE).joinpath(filename)
@@ -202,47 +189,37 @@ def _read_local_docs_file(filename: str) -> str | None:
 def _update_installed_skill_with_deps(
     interface: str,
     *,
-    download_fn,
+    read_docs_fn,
     get_project_root_fn,
     safe_write_text_fn,
     colorize_fn,
 ) -> bool:
-    """Download and install the skill document for the given interface."""
+    """Install the skill document for the given interface from local docs."""
     target_rel, overlay_name, dedicated = SKILL_TARGETS[interface]
     target_path = get_project_root_fn() / target_rel
 
-    # Prefer local docs/ files (e.g., in a fork with custom overlays) or the
-    # copy bundled with the installed package before falling back to GitHub.
-    skill_content = _read_local_docs_file("SKILL.md")
-    overlay_content = (
-        _read_local_docs_file(f"{overlay_name}.md") if overlay_name else None
-    )
-
-    if skill_content:
-        source = "local/bundled docs"
-    else:
-        source = "GitHub"
-        print(colorize_fn(f"Downloading skill document ({interface})...", "dim"))
-        try:
-            skill_content = download_fn("SKILL.md")
-            if overlay_name and overlay_content is None:
-                overlay_content = download_fn(f"{overlay_name}.md")
-        except (urllib.error.URLError, OSError) as exc:
-            print(colorize_fn(f"Download failed: {exc}", "red"))
-            return False
-
-    if overlay_name and overlay_content is None:
-        # Local had SKILL.md but not the overlay — try downloading overlay only
-        try:
-            overlay_content = download_fn(f"{overlay_name}.md")
-        except (urllib.error.URLError, OSError) as exc:
-            print(colorize_fn(f"Overlay download skipped: {exc}", "dim"))
-
-    if "desloppify-skill-version" not in skill_content:
-        print(colorize_fn(f"Content from {source} doesn't look like a skill document.", "red"))
+    skill_content = read_docs_fn("SKILL.md")
+    if not skill_content:
+        print(colorize_fn("Skill document SKILL.md not found in bundled docs.", "red"))
         return False
 
-    print(colorize_fn(f"Using skill document from {source} ({interface})...", "dim"))
+    overlay_content = None
+    if overlay_name:
+        overlay_content = read_docs_fn(f"{overlay_name}.md")
+        if overlay_content is None:
+            # Fail closed rather than writing a skill without its overlay.
+            print(
+                colorize_fn(
+                    f"Overlay {overlay_name}.md not found in bundled docs.", "red"
+                )
+            )
+            return False
+
+    if "desloppify-skill-version" not in skill_content:
+        print(colorize_fn("Bundled SKILL.md doesn't look like a skill document.", "red"))
+        return False
+
+    print(colorize_fn(f"Using bundled skill document ({interface})...", "dim"))
 
     new_section = _build_section(skill_content, overlay_content)
     if interface in _FRONTMATTER_FIRST_INTERFACES:
@@ -271,13 +248,13 @@ def _update_installed_skill_with_deps(
 
 
 def update_installed_skill(interface: str) -> bool:
-    """Download and install the skill document for the given interface.
+    """Install the skill document for the given interface.
 
     Returns True on success, False on failure. Prints status messages.
     """
     return _update_installed_skill_with_deps(
         interface,
-        download_fn=_download,
+        read_docs_fn=_read_local_docs_file,
         get_project_root_fn=get_project_root,
         safe_write_text_fn=safe_write_text,
         colorize_fn=colorize,

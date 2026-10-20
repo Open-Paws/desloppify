@@ -1,12 +1,17 @@
-# Publish to PyPI on every push to main.
+# Publish to PyPI, manually only.
+#
+# This used to run on every push to main. The `desloppify` name on PyPI belongs
+# to the upstream project (peteromallet/desloppify), so the first version bump
+# here would have tried to publish this fork under that name. Until the fork
+# has its own PyPI name and the `pypi` environment has protection rules, a
+# maintainer must start this by hand from main.
+#
 # The "Check if version exists" step makes this idempotent — if the version
 # is already on PyPI, the job skips the publish cleanly.
 
 name: Publish to PyPI
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -18,6 +23,7 @@ concurrency:
 
 jobs:
   publish:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       id-token: write  # required for trusted publishing

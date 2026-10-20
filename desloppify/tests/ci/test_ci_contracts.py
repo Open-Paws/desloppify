@@ -103,10 +103,12 @@ def test_integration_workflow_uses_deterministic_roslyn_path() -> None:
 def test_publish_workflow_keeps_release_safety_gates() -> None:
     wf = _load_yaml(PUBLISH_WORKFLOW)
     on_block = _on_block(wf)
-    assert on_block.get("push", {}).get("branches") == ["main"]
-    assert "workflow_dispatch" in on_block
+    # Manual only: `desloppify` on PyPI is upstream's name, so publishing must
+    # never fire automatically from a push.
+    assert set(on_block) == {"workflow_dispatch"}
 
     publish_job = wf["jobs"]["publish"]
+    assert publish_job.get("if") == "github.ref == 'refs/heads/main'"
     names = _step_names(publish_job)
     assert "Check if version exists on PyPI" in names
     assert "Run packaging smoke gate" in names
@@ -127,6 +129,39 @@ def test_all_workflow_actions_are_pinned_to_commit_shas() -> None:
                     if not _SHA_RE.fullmatch(ref):
                         unpinned.append(f"{wf_path.name}:{job_name}: {uses}")
     assert not unpinned, "Actions not pinned to a commit SHA:\n" + "\n".join(unpinned)
+
+
+def _all_workflow_steps():
+    for wf_path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
+        wf = _load_yaml(wf_path)
+        for job_name, job in wf.get("jobs", {}).items():
+            for step in job.get("steps", []):
+                yield f"{wf_path.name}:{job_name}", step
+
+
+def test_all_checkouts_disable_persisted_credentials() -> None:
+    """A persisted GITHUB_TOKEN in .git/config is readable by every later step."""
+    offenders = [
+        where
+        for where, step in _all_workflow_steps()
+        if step.get("uses", "").startswith("actions/checkout@")
+        and (step.get("with") or {}).get("persist-credentials") is not False
+    ]
+    assert not offenders, "checkout without persist-credentials: false:\n" + "\n".join(offenders)
+
+
+# Attacker-controlled values (PR titles, branch names, release bodies, ...)
+# must reach `run:` through `env:`, never by direct `${{ }}` interpolation.
+_UNTRUSTED_EXPR_RE = re.compile(r"\$\{\{\s*github\.(?:event\.|head_ref)")
+
+
+def test_run_steps_do_not_interpolate_untrusted_event_data() -> None:
+    offenders = [
+        where
+        for where, step in _all_workflow_steps()
+        if _UNTRUSTED_EXPR_RE.search(step.get("run", ""))
+    ]
+    assert not offenders, "run: interpolates github.event/head_ref:\n" + "\n".join(offenders)
 
 
 def test_publish_workflow_has_no_dependency_cache() -> None:

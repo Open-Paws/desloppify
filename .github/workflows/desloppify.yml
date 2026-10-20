@@ -18,6 +18,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           submodules: false
+          persist-credentials: false
 
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
@@ -30,10 +31,17 @@ jobs:
           path: /tmp/desloppify
           key: desloppify-${{ runner.os }}-${{ hashFiles('.github/workflows/desloppify.yml') }}
 
+      # Pinned to a reviewed commit so the gate does not run whatever is on
+      # main at the time. Bump the SHA deliberately; it also busts the cache.
       - name: Clone desloppify
         if: steps.cache-desloppify.outputs.cache-hit != 'true'
+        env:
+          DESLOPPIFY_SHA: 4239b061cfb3ab15d32cb4d905e13db125291191
         run: |
-          git clone --no-recurse-submodules https://github.com/Open-Paws/desloppify.git /tmp/desloppify
+          git init -q /tmp/desloppify
+          git -C /tmp/desloppify fetch -q --depth 1 https://github.com/Open-Paws/desloppify.git "${DESLOPPIFY_SHA}"
+          git -C /tmp/desloppify checkout -q --detach FETCH_HEAD
+          test "$(git -C /tmp/desloppify rev-parse HEAD)" = "${DESLOPPIFY_SHA}"
 
       - name: Install desloppify
         run: pip install "/tmp/desloppify[full]"
