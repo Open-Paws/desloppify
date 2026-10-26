@@ -13,9 +13,8 @@ SKILL_VERSION = _cmd.SKILL_VERSION
 SKILL_VERSION_RE = _cmd.SKILL_VERSION_RE
 SkillInstall = _cmd.SkillInstall
 
-_RAW_BASE = _cmd._RAW_BASE
 _FRONTMATTER_FIRST_INTERFACES = _cmd._FRONTMATTER_FIRST_INTERFACES
-_download = _cmd._download
+_read_local_docs_file = _cmd._read_local_docs_file
 _build_section = _cmd._build_section
 _ensure_frontmatter_first = _cmd._ensure_frontmatter_first
 _replace_section = _cmd._replace_section
@@ -40,10 +39,10 @@ def resolve_interface(
 
 
 def update_installed_skill(interface: str) -> bool:
-    """Download and install the skill document for the given interface."""
+    """Install the skill document for the given interface."""
     return _cmd._update_installed_skill_with_deps(
         interface,
-        download_fn=_download,
+        read_docs_fn=_read_local_docs_file,
         get_project_root_fn=get_project_root,
         safe_write_text_fn=safe_write_text,
         colorize_fn=colorize,
@@ -68,10 +67,9 @@ __all__ = [
     "SKILL_VERSION_RE",
     "SkillInstall",
     "_FRONTMATTER_FIRST_INTERFACES",
-    "_RAW_BASE",
     "_build_section",
-    "_download",
     "_ensure_frontmatter_first",
+    "_read_local_docs_file",
     "_replace_section",
     "cmd_update_skill",
     "colorize",

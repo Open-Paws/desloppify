@@ -820,45 +820,40 @@ class TestCmdUpdateSkill:
 
 
 class TestUpdateInstalledSkill:
-    @patch("desloppify.app.commands.update_skill.colorize", side_effect=lambda t, _c: t)
-    @patch("desloppify.app.commands.update_skill.cmd._read_local_docs_file", return_value=None)
-    @patch("desloppify.app.commands.update_skill._download")
-    def test_download_failure(self, mock_download, _mock_local, _mock_colorize, capsys):
-        import urllib.error
-        mock_download.side_effect = urllib.error.URLError("no network")
-        result = update_installed_skill("claude")
-        assert result is False
-        out = capsys.readouterr().out
-        assert "Download failed" in out
+    _SKILL = "# Skill\n<!-- desloppify-skill-version: 1 -->\nContent"
 
     @patch("desloppify.app.commands.update_skill.colorize", side_effect=lambda t, _c: t)
-    @patch("desloppify.app.commands.update_skill.cmd._read_local_docs_file", return_value=None)
-    @patch("desloppify.app.commands.update_skill._download")
-    def test_bad_content(self, mock_download, _mock_local, _mock_colorize, capsys):
-        mock_download.return_value = "random html garbage"
-        result = update_installed_skill("claude")
+    @patch("desloppify.app.commands.update_skill._read_local_docs_file", return_value=None)
+    def test_missing_skill_doc_fails(self, _mock_docs, _mock_colorize, capsys, tmp_path):
+        with patch(
+            "desloppify.app.commands.update_skill.get_project_root",
+            return_value=tmp_path,
+        ):
+            result = update_installed_skill("claude")
+        assert result is False
+        assert "SKILL.md not found" in capsys.readouterr().out
+        assert not (tmp_path / ".claude").exists()
+
+    @patch("desloppify.app.commands.update_skill.colorize", side_effect=lambda t, _c: t)
+    @patch("desloppify.app.commands.update_skill._read_local_docs_file")
+    def test_bad_content(self, mock_docs, _mock_colorize, capsys, tmp_path):
+        mock_docs.return_value = "random html garbage"
+        with patch(
+            "desloppify.app.commands.update_skill.get_project_root",
+            return_value=tmp_path,
+        ):
+            result = update_installed_skill("claude")
         assert result is False
         out = capsys.readouterr().out
         assert "doesn't look like a skill document" in out
 
     @patch("desloppify.app.commands.update_skill.colorize", side_effect=lambda t, _c: t)
-    @patch("desloppify.app.commands.update_skill._download")
-    def test_successful_dedicated_install(self, mock_download, _mock_colorize, capsys, tmp_path):
-        skill_content = (
-            "---\n"
-            "name: desloppify\n"
-            "description: test\n"
-            "allowed-tools: Bash(desloppify *)\n"
-            "---\n\n"
-            "<!-- desloppify-begin -->\n"
-            "<!-- desloppify-skill-version: 1 -->\n"
-            "# Skill\n"
-            "Content\n"
-        )
-        mock_download.side_effect = lambda f: {
-            "SKILL.md": skill_content,
+    @patch("desloppify.app.commands.update_skill._read_local_docs_file")
+    def test_successful_dedicated_install(self, mock_docs, _mock_colorize, capsys, tmp_path):
+        mock_docs.side_effect = {
+            "SKILL.md": self._SKILL,
             "CLAUDE.md": "overlay",
-        }[f]
+        }.get
 
         with patch(
             "desloppify.app.commands.update_skill.get_project_root",
@@ -868,30 +863,45 @@ class TestUpdateInstalledSkill:
 
         assert result is True
         written = (tmp_path / ".claude" / "skills" / "desloppify" / "SKILL.md").read_text()
-        assert written.startswith("---\n")
         assert "desloppify-skill-version" in written
+        assert "overlay" in written
         out = capsys.readouterr().out
         assert "Updated" in out
 
     @patch("desloppify.app.commands.update_skill.colorize", side_effect=lambda t, _c: t)
-    @patch("desloppify.app.commands.update_skill._download")
-    def test_successful_shared_install(self, mock_download, _mock_colorize, capsys, tmp_path):
+    @patch("desloppify.app.commands.update_skill._read_local_docs_file")
+    def test_successful_dedicated_install_rovodev(
+        self, mock_docs, _mock_colorize, capsys, tmp_path
+    ):
+        """Per-project `update-skill rovodev` writes the dedicated `.rovodev/...` file."""
+        mock_docs.side_effect = {
+            "SKILL.md": self._SKILL,
+            "ROVODEV.md": "rovodev overlay",
+        }.get
+
+        with patch(
+            "desloppify.app.commands.update_skill.get_project_root",
+            return_value=tmp_path,
+        ):
+            result = update_installed_skill("rovodev")
+
+        assert result is True
+        target = tmp_path / ".rovodev" / "skills" / "desloppify" / "SKILL.md"
+        assert target.is_file()
+        written = target.read_text()
+        assert "desloppify-skill-version" in written
+        assert "rovodev overlay" in written
+        out = capsys.readouterr().out
+        assert "Updated" in out
+
+    @patch("desloppify.app.commands.update_skill.colorize", side_effect=lambda t, _c: t)
+    @patch("desloppify.app.commands.update_skill._read_local_docs_file")
+    def test_successful_shared_install(self, mock_docs, _mock_colorize, capsys, tmp_path):
         """Non-dedicated install (e.g. windsurf) replaces section in existing file."""
-        skill_content = (
-            "---\n"
-            "name: desloppify\n"
-            "description: test\n"
-            "allowed-tools: Bash(desloppify *)\n"
-            "---\n\n"
-            "<!-- desloppify-begin -->\n"
-            "<!-- desloppify-skill-version: 1 -->\n"
-            "# Skill\n"
-            "Content\n"
-        )
-        mock_download.side_effect = lambda f: {
-            "SKILL.md": skill_content,
+        mock_docs.side_effect = {
+            "SKILL.md": self._SKILL,
             "WINDSURF.md": "windsurf overlay",
-        }[f]
+        }.get
 
         # Pre-create the target file with some existing content
         agents_file = tmp_path / "AGENTS.md"
@@ -907,3 +917,4 @@ class TestUpdateInstalledSkill:
         written = agents_file.read_text()
         assert "Existing content" in written
         assert "desloppify-skill-version" in written
+        assert "windsurf overlay" in written

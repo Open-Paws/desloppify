@@ -55,12 +55,13 @@ Notes:
 ### 3) Publish (`.github/workflows/python-publish.yml`)
 
 Triggers:
-- `release.published`
-- `push` tag `v*`
-- `workflow_dispatch`
+- `workflow_dispatch` only, and the job runs only from `main`
+
+The `desloppify` name on PyPI belongs to upstream (peteromallet/desloppify), so
+nothing publishes automatically until this fork has its own PyPI name and the
+`pypi` environment has protection rules.
 
 Safety gates before publish:
-- Validate tag version matches `pyproject.toml` version (for tag pushes)
 - Skip publish if version already exists on PyPI
 - Run `make package-smoke`
 
